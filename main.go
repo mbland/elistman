@@ -1,0 +1,10 @@
+package main
+
+import (
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/mbland/ses-subscription-verifier/handler"
+)
+
+func main() {
+	lambda.Start(handler.Handler)
+}
