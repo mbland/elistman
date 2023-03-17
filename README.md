@@ -84,6 +84,11 @@ This software is made available as [Open Source software][oss-def] under the
 - [AWS Serverless Application Model (AWS SAM) specification][]
 - [AWS Serverless Application Model (SAM) Version 2016-10-31][]
 - [AWS Serverless Application Model (AWS SAM) Documentation][]
+- [AWS CloudFormation Parameters][]
+- [AWS CloudFormation Template Reference][]
+- [AWS::Serverless::HttpApi][]
+- [Setting up custom domain names for REST APIs][]
+- [AWS::Serverless::Connector][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -108,3 +113,8 @@ This software is made available as [Open Source software][oss-def] under the
 [AWS Serverless Application Model (AWS SAM) specification]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification.html
 [AWS Serverless Application Model (SAM) Version 2016-10-31]: https://github.com/aws/serverless-application-model/blob/master/versions/2016-10-31.md
 [AWS Serverless Application Model (AWS SAM) Documentation]: https://docs.aws.amazon.com/serverless-application-model/
+[AWS CloudFormation Parameters]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
+[AWS CloudFormation Template Reference]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html
+[AWS::Serverless::HttpApi]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-httpapi.html
+[Setting up custom domain names for REST APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-custom-domains.html
+[AWS::Serverless::Connector]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-connector.html

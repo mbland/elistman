@@ -3,6 +3,14 @@ Transform: 'AWS::Serverless-2016-10-31'
 Description: >
   A system for validating email addresses of potential mailing list subscribers
   and adding them to a Simple Email Service contact list.
+Parameters:
+  DnsZoneId:
+    Type: AWS::Route53::HostedZone::Id
+  ApiCertificateArn:
+    Type: String
+  ApiDomainName:
+    Type: String
+
 Resources:
   EmailVerifier:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
@@ -20,11 +28,13 @@ Resources:
         NewSubscriber:
           Type: HttpApi
           Properties:
+            ApiId: !Ref EmailApi
             Path: /new
             Method: POST
         ValidateEmail:
           Type: HttpApi
           Properties:
+            ApiId: !Ref EmailApi
             Path: /validate
             Method: GET
     Connectors:
@@ -35,6 +45,22 @@ Resources:
           Permissions:
             - Read
             - Write
+
+  EmailApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Domain:
+        DomainName: !Ref ApiDomainName
+        CertificateArn: !Ref ApiCertificateArn
+        EndpointConfiguration: REGIONAL
+        DefaultRouteSettings:
+          # https://stackoverflow.com/a/70423772
+          # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 100
+        Route53:
+          HostedZoneId: !Ref DnsZoneId
+
   EmailsToVerifyDb:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -46,11 +72,12 @@ Resources:
         - AttributeName: Email
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   EmailVerifierApi:
     Description: "API Gateway root URL for the EmailVerifier function"
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+    Value: !Sub "https://${!GetAtt EmailApi.Domain.DomainName}/"
   EmailVerifierFunction:
     Description: "EmailVerifier Lambda function ARN"
     Value: !GetAtt EmailVerifier.Arn
