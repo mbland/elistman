@@ -50,7 +50,7 @@ Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   EmailVerifierApi:
     Description: "API Gateway root URL for the EmailVerifier function"
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
   EmailVerifierFunction:
     Description: "EmailVerifier Lambda function ARN"
     Value: !GetAtt EmailVerifier.Arn

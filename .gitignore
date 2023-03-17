@@ -1,3 +1,6 @@
+*.swp
 coverage.out
 main
+main-local
+main-prod
 .aws-sam/
