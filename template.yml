@@ -4,7 +4,7 @@ Description: >
   A system for validating email addresses of potential mailing list subscribers
   and adding them to a Simple Email Service contact list.
 Resources:
-  emailVerifier:
+  EmailVerifier:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
     Properties:
@@ -28,17 +28,17 @@ Resources:
             Path: /validate
             Method: GET
     Connectors:
-      emailsToVerifyDbConn:
+      EmailsToVerifyDbConn:
         Properties:
           Destination:
-            Id: emailsToVerifyDb
+            Id: EmailsToVerifyDb
           Permissions:
             - Read
             - Write
-  emailsToVerifyDb:
+  EmailsToVerifyDb:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: emailsToVerify
+      TableName: EmailsToVerify
       AttributeDefinitions:
         - AttributeName: Email
           AttributeType: S
@@ -46,3 +46,14 @@ Resources:
         - AttributeName: Email
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+Outputs:
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  EmailVerifierApi:
+    Description: "API Gateway root URL for the EmailVerifier function"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  EmailVerifierFunction:
+    Description: "EmailVerifier Lambda function ARN"
+    Value: !GetAtt EmailVerifier.Arn
+  EmailVerifierFunctionIamRole:
+    Description: "Implicit IAM Role created for EmailVerifier function"
+    Value: !GetAtt EmailVerifierRole.Arn
