@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: |
+Description: >
   A system for validating email addresses of potential mailing list subscribers
   and adding them to a Simple Email Service contact list.
 Resources:
@@ -11,7 +11,7 @@ Resources:
       Handler: main
       Runtime: go1.x
       CodeUri: .
-      Description: Coordinates between the API Gateway, DynamoDB, and SESSH
+      Description: Coordinates between the API Gateway, DynamoDB, and SES
       Timeout: 5
       Policies:
         - AWSLambdaBasicExecutionRole
