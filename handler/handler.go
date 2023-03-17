@@ -2,15 +2,19 @@ package handler
 
 import (
 	"context"
-	"errors"
+	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 )
+
+const defaultResponseLocation = "https://github.com/mbland/ses-subscription-verifier"
 
 func Handler(
 	ctx context.Context, event events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
+	response.StatusCode = http.StatusSeeOther
+	response.Headers["Location"] = defaultResponseLocation
 
-	return response, errors.New("Not yet implemented")
+	return response, nil
 }
