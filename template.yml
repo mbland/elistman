@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: |
+  A system for validating email addresses of potential mailing list subscribers
+  and adding them to a Simple Email Service contact list.
+Resources:
+  function:
+    # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: main
+      Runtime: go1.x
+      CodeUri: .
+      Description: Coordinates between the API Gateway, DynamoDB, and SESSH
+      Timeout: 5
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Tracing: Active
+      Events:
+        NewSubscriber:
+          Type: HttpApi
+          Properties:
+            Path: /new
+            Method: POST
+        ValidateEmail:
+          Type: HttpApi
+          Properties:
+            Path: /validate
+            Method: GET
+      Connectors:
+        DbConn:
+          Properties:
+          Destination:
+            Id: emailsToVerify
+            Permissions:
+              - Read
+              - Write
+  db:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: emailsToVerify
+      AttributeDefinitions:
+        - AttributeName: Email
+          AttributeType: S
+        - AttributeName: UUID
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: Email
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
