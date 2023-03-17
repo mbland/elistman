@@ -1,13 +1,16 @@
 SHELL := /bin/bash
 .POSIX:
-.PHONY: build test coverage
+.PHONY: build test coverage run-local
 
-build:
-	GOOS=linux go build
+build: main
+	GOOS=linux go build -o main main.go
 
 test:
-	go test -v ./...
+	go test ./...
 
 coverage:
-	go test -v -coverpkg ./... -covermode=count -coverprofile=coverage.out ./...
+	go test -coverpkg ./... -covermode=count -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out	
+
+run-local: build
+	sam local start-api --port 8080
