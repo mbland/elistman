@@ -4,7 +4,7 @@ Description: |
   A system for validating email addresses of potential mailing list subscribers
   and adding them to a Simple Email Service contact list.
 Resources:
-  function:
+  emailVerifier:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
     Properties:
@@ -27,25 +27,21 @@ Resources:
           Properties:
             Path: /validate
             Method: GET
-      Connectors:
-        DbConn:
-          Properties:
+    Connectors:
+      emailsToVerifyDbConn:
+        Properties:
           Destination:
-            Id: emailsToVerify
-            Permissions:
-              - Read
-              - Write
-  db:
+            Id: emailsToVerifyDb
+          Permissions:
+            - Read
+            - Write
+  emailsToVerifyDb:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: emailsToVerify
       AttributeDefinitions:
         - AttributeName: Email
           AttributeType: S
-        - AttributeName: UUID
-          AttributeType: S
-        - AttributeName: Timestamp
-          AttributeType: N
       KeySchema:
         - AttributeName: Email
           KeyType: HASH
