@@ -9,7 +9,9 @@ import (
 
 const defaultResponseLocation = "https://github.com/mbland/ses-subscription-verifier"
 
-func Handler(
+type LambdaHandler struct{}
+
+func (*LambdaHandler) HandleRequest(
 	ctx context.Context, event events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}

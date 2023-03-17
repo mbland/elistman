@@ -6,5 +6,6 @@ import (
 )
 
 func main() {
-	lambda.Start(handler.Handler)
+	h := handler.LambdaHandler{}
+	lambda.Start(h.HandleRequest)
 }

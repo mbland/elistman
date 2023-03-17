@@ -12,11 +12,12 @@ import (
 type fixture struct {
 	ctx   context.Context
 	event events.APIGatewayV2HTTPRequest
+	h     LambdaHandler
 }
 
 func TestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) {
 	f := fixture{}
-	response, err := Handler(f.ctx, f.event)
+	response, err := f.h.HandleRequest(f.ctx, f.event)
 
 	assert.NilError(t, err)
 	assert.Equal(t, response.StatusCode, http.StatusSeeOther)
