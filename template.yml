@@ -17,8 +17,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: main
-      Runtime: go1.x
       CodeUri: .
+      Runtime: go1.x
       Description: Coordinates between the API Gateway, DynamoDB, and SES
       Timeout: 5
       Policies:
