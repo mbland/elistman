@@ -1,12 +1,5 @@
 #!/bin/bash
 
-SCRIPT_DIR="${0%/*}"
-if [[ "$SCRIPT_DIR" == "$0" ]]; then
-  SCRIPT_DIR="$(command -v "$0")"
-  SCRIPT_DIR="${SCRIPT_DIR%/*}"
-fi
-cd "$SCRIPT_DIR/.." || exit 1
-
 DEPLOY_ENV="$1"
 
 if [[ -z "$DEPLOY_ENV" ]]; then
