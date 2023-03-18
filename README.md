@@ -89,6 +89,11 @@ This software is made available as [Open Source software][oss-def] under the
 - [AWS::Serverless::HttpApi][]
 - [Setting up custom domain names for REST APIs][]
 - [AWS::Serverless::Connector][]
+- [How can I set up a custom domain name for my API Gateway API?][]
+- [Tutorial: Build a CRUD API with Lambda and DynamoDB][]
+- [AWS SAM policy templates][]
+- [Serverless Land: Lambda to SES][]
+- [How to use AWS secret manager and SES with AWS SAM][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -118,3 +123,8 @@ This software is made available as [Open Source software][oss-def] under the
 [AWS::Serverless::HttpApi]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-httpapi.html
 [Setting up custom domain names for REST APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-custom-domains.html
 [AWS::Serverless::Connector]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-connector.html
+[How can I set up a custom domain name for my API Gateway API?]: https://aws.amazon.com/premiumsupport/knowledge-center/custom-domain-name-amazon-api-gateway/
+[Tutorial: Build a CRUD API with Lambda and DynamoDB]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-dynamo-db.html
+[AWS SAM policy templates]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+[Serverless Land: Lambda to SES]: https://serverlessland.com/patterns/lambda-ses
+[How to use AWS secret manager and SES with AWS SAM]: https://medium.com/nerd-for-tech/how-to-use-aws-secret-manager-and-ses-with-aws-sam-a93bb359d45a
