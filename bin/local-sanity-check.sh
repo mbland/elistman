@@ -8,5 +8,5 @@ if [[ -z "$(ps -ef | grep -- '[s]am local start-api --port 8080')" ]]; then
 fi
 
 set -xe 
-curl -d "email=mbland@acm.org" -i http://127.0.0.1:8080/new
+curl -d "email=mbland@acm.org" -i http://127.0.0.1:8080/signup
 curl -i http://127.0.0.1:8080/validate

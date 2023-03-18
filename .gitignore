@@ -4,3 +4,4 @@ main
 main-local
 main-prod
 .aws-sam/
+*.env

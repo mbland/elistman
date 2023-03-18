@@ -4,11 +4,11 @@ Description: >
   A system for validating email addresses of potential mailing list subscribers
   and adding them to a Simple Email Service contact list.
 Parameters:
-  DnsZoneId:
-    Type: AWS::Route53::HostedZone::Id
-  ApiCertificateArn:
-    Type: String
   ApiDomainName:
+    Type: String
+  SenderArn:
+    Type: String
+  SenderEmailAddress:
     Type: String
 
 Resources:
@@ -23,13 +23,19 @@ Resources:
       Timeout: 5
       Policies:
         - AWSLambdaBasicExecutionRole
+        - SESCrudPolicy:
+            IdentityName: !Ref SenderArn
       Tracing: Active
+      Environment:
+        Variables:
+          DB_TABLE_NAME: !Ref EmailsToVerifyDb
+          SENDER_EMAIL_ADDRESS: !Ref SenderEmailAddress
       Events:
         NewSubscriber:
           Type: HttpApi
           Properties:
             ApiId: !Ref EmailApi
-            Path: /new
+            Path: /signup
             Method: POST
         ValidateEmail:
           Type: HttpApi
@@ -46,41 +52,42 @@ Resources:
             - Read
             - Write
 
+  EmailApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      ApiId: !Ref EmailApi
+      DomainName: !Ref ApiDomainName
+      ApiMappingKey: email
+      Stage: $default
+
   EmailApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Domain:
-        DomainName: !Ref ApiDomainName
-        CertificateArn: !Ref ApiCertificateArn
-        EndpointConfiguration: REGIONAL
-        DefaultRouteSettings:
-          # https://stackoverflow.com/a/70423772
-          # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
-          ThrottlingRateLimit: 10
-          ThrottlingBurstLimit: 100
-        Route53:
-          HostedZoneId: !Ref DnsZoneId
+      DefaultRouteSettings:
+        # https://stackoverflow.com/a/70423772
+        # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
+        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 100
 
   EmailsToVerifyDb:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::Serverless::SimpleTable
     Properties:
       TableName: EmailsToVerify
-      AttributeDefinitions:
-        - AttributeName: Email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: Email
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
+      PrimaryKey:
+        Name: Email
+        Type: String
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   EmailVerifierApi:
     Description: "API Gateway root URL for the EmailVerifier function"
-    Value: !Sub "https://${!GetAtt EmailApi.Domain.DomainName}/"
+    Value: !Sub "https://${ApiDomainName}/email"
   EmailVerifierFunction:
     Description: "EmailVerifier Lambda function ARN"
     Value: !GetAtt EmailVerifier.Arn
   EmailVerifierFunctionIamRole:
     Description: "Implicit IAM Role created for EmailVerifier function"
     Value: !GetAtt EmailVerifierRole.Arn
+  SenderEmailAddress:
+    Description: "Sender email address"
+    Value: !Ref SenderEmailAddress

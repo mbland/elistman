@@ -2,9 +2,11 @@ SHELL := /bin/bash
 .POSIX:
 .PHONY: all clean test coverage delete
 
+sam-build: template.yml
+	sam build
+
 main-prod:
 	GOOS=linux GOARCH=amd64 go build -o main-prod main.go
-	sam build
 
 main-local:
 	GOOS=linux go build -o main-local main.go
@@ -16,11 +18,11 @@ coverage:
 	go test -coverpkg ./... -covermode=count -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out	
 
-run-local: main-local
+run-local: main-local sam-build
 	sam local start-api --port 8080
 
-deploy: main-prod
-	sam deploy
+deploy: main-prod sam-build deploy.env
+	bin/deploy.sh deploy.env
 
 delete:
 	sam delete
