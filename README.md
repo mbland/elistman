@@ -94,6 +94,8 @@ This software is made available as [Open Source software][oss-def] under the
 - [AWS SAM policy templates][]
 - [Serverless Land: Lambda to SES][]
 - [How to use AWS secret manager and SES with AWS SAM][]
+- [AWS SDK for Go V2][]
+- [AWS Lambda function handler in Go][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -128,3 +130,5 @@ This software is made available as [Open Source software][oss-def] under the
 [AWS SAM policy templates]: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
 [Serverless Land: Lambda to SES]: https://serverlessland.com/patterns/lambda-ses
 [How to use AWS secret manager and SES with AWS SAM]: https://medium.com/nerd-for-tech/how-to-use-aws-secret-manager-and-ses-with-aws-sam-a93bb359d45a
+[AWS SDK for Go V2]: https://aws.github.io/aws-sdk-go-v2/
+[AWS Lambda function handler in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-handler.html
