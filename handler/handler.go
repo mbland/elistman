@@ -34,9 +34,3 @@ func (h LambdaHandler) HandleRequest(
 	}
 	return response, nil
 }
-
-func (h LambdaHandler) HandleSubscribe(ctx context.Context) {
-}
-
-func (h LambdaHandler) HandleVerify(ctx context.Context) {
-}
