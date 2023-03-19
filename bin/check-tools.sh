@@ -30,9 +30,7 @@ install_tool() {
   local tool="$1"
   local version_flag="$2"
   local msg="$3"
-  shift
-  shift
-  shift
+  shift 3
   local install_cmd=("${@}")
 
   if ! (is_installed "$tool" "$version_flag" || "${install_cmd[@]}"); then
