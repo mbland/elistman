@@ -35,7 +35,10 @@ type DynamoDb struct {
 }
 
 func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
-	return &DynamoDb{Client: *dynamodb.NewFromConfig(awsConfig), TableName: tableName}
+	return &DynamoDb{
+		Client:    *dynamodb.NewFromConfig(awsConfig),
+		TableName: tableName,
+	}
 }
 
 func (db *DynamoDb) Get(ctx context.Context) (*UserRecord, error) {
