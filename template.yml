@@ -37,17 +37,17 @@ Resources:
           DB_TABLE_NAME: !Ref EmailsToVerifyDb
           SENDER_EMAIL_ADDRESS: !Ref SenderEmailAddress
       Events:
-        NewSubscriber:
+        Subscribe:
           Type: HttpApi
           Properties:
             ApiId: !Ref EmailApi
-            Path: /signup
+            Path: /subscribe
             Method: POST
-        ValidateEmail:
+        Verify:
           Type: HttpApi
           Properties:
             ApiId: !Ref EmailApi
-            Path: /validate
+            Path: /verify
             Method: GET
     Connectors:
       EmailsToVerifyDbConn:

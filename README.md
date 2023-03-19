@@ -96,6 +96,9 @@ This software is made available as [Open Source software][oss-def] under the
 - [How to use AWS secret manager and SES with AWS SAM][]
 - [AWS SDK for Go V2][]
 - [AWS Lambda function handler in Go][]
+- [aws-lambda-go APIGatewayV2 event structures][]
+- [aws-lambda-go APIGatewayV2 event example][]
+- [Working with AWS Lambda proxy integrations for HTTP APIs][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -132,3 +135,6 @@ This software is made available as [Open Source software][oss-def] under the
 [How to use AWS secret manager and SES with AWS SAM]: https://medium.com/nerd-for-tech/how-to-use-aws-secret-manager-and-ses-with-aws-sam-a93bb359d45a
 [AWS SDK for Go V2]: https://aws.github.io/aws-sdk-go-v2/
 [AWS Lambda function handler in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-handler.html
+[aws-lambda-go APIGatewayV2 event structures]: https://github.com/aws/aws-lambda-go/blob/main/events/apigw.go
+[aws-lambda-go APIGatewayV2 event example]: https://github.com/aws/aws-lambda-go/blob/main/events/README_ApiGatewayEvent.md
+[Working with AWS Lambda proxy integrations for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
