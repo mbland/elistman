@@ -49,8 +49,12 @@ package handler
 const atext = "[a-zA-Z0-9!#$%&'*+-/=?^_`{|}~"
 const specials = "()<>[]:;@\\,.\""
 
-type EmailValidator struct{}
+type AddressValidator interface {
+	ValidateAddress(addr string) error
+}
 
-func (*EmailValidator) ValidateAddress(addr string) error {
+type AddressValidatorImpl struct{}
+
+func (*AddressValidatorImpl) ValidateAddress(addr string) error {
 	return nil
 }

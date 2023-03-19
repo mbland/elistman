@@ -6,8 +6,8 @@ import (
 	"gotest.tools/assert"
 )
 
-func newValidator() *EmailValidator {
-	return &EmailValidator{}
+func newValidator() *AddressValidatorImpl {
+	return &AddressValidatorImpl{}
 }
 
 func TestValidateBasicEmail(t *testing.T) {
