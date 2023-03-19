@@ -17,6 +17,9 @@ Resources:
   EmailVerifier:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
+    # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
+    # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
+    # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
     Metadata:
       BuildMethod: makefile
     Properties:

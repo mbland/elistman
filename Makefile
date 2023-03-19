@@ -3,6 +3,8 @@ SHELL := /bin/bash
 .PHONY: all clean test coverage delete build-EmailVerifier
 
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
+# https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
+# https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
 build-EmailVerifier:
 	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" \
 			 -o $(ARTIFACTS_DIR)/main main.go
