@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .PHONY: all clean test coverage delete
 
 main: FORCE
-	GOOS=linux GOARCH=amd64 go build -o main main.go
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main main.go
 
 FORCE: ;
 
