@@ -17,6 +17,7 @@ PARAMETER_OVERRIDES=(
   "ApiDomainName=${API_DOMAIN_NAME}"
   "SenderArn=${SENDER_ARN}"
   "SenderEmailAddress=${SENDER_EMAIL_ADDRESS}"
+  "SenderName=${SENDER_NAME// /\ }"
 )
 
 exec sam deploy --parameter-overrides "${PARAMETER_OVERRIDES[*]}"

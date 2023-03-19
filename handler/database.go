@@ -30,13 +30,13 @@ func NewUserRecord(email string) *UserRecord {
 }
 
 type DynamoDb struct {
-	Client    dynamodb.Client
+	Client    *dynamodb.Client
 	TableName string
 }
 
 func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
 	return &DynamoDb{
-		Client:    *dynamodb.NewFromConfig(awsConfig),
+		Client:    dynamodb.NewFromConfig(awsConfig),
 		TableName: tableName,
 	}
 }

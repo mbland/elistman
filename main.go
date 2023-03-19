@@ -17,7 +17,9 @@ func buildHandler() (*handler.LambdaHandler, error) {
 		return nil, err
 	}
 	return &handler.LambdaHandler{
-		Db: handler.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+		Db:        handler.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+		Validator: handler.AddressValidatorImpl{},
+		Mailer:    handler.NewSesMailer(cfg),
 	}, nil
 }
 

@@ -12,6 +12,7 @@ const defaultResponseLocation = "https://github.com/mbland/ses-subscription-veri
 type LambdaHandler struct {
 	Db        Database
 	Validator AddressValidator
+	Mailer    Mailer
 }
 
 func (*LambdaHandler) HandleRequest(
