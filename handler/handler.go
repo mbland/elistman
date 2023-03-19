@@ -15,7 +15,7 @@ type LambdaHandler struct {
 	Mailer    Mailer
 }
 
-func (*LambdaHandler) HandleRequest(
+func (h LambdaHandler) HandleRequest(
 	ctx context.Context, event events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
