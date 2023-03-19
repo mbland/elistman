@@ -11,9 +11,8 @@ import (
 const defaultResponseLocation = "https://github.com/mbland/ses-subscription-verifier"
 
 type LambdaHandler struct {
-	Db        Database
-	Validator AddressValidator
-	Mailer    Mailer
+	SubscribeHandler SubscribeHandler
+	VerifyHandler    VerifyHandler
 }
 
 func (h LambdaHandler) HandleRequest(
@@ -25,10 +24,10 @@ func (h LambdaHandler) HandleRequest(
 	response.Headers["Location"] = defaultResponseLocation
 
 	if endpoint == "/subscribe" {
-		h.HandleSubscribe(ctx)
+		h.SubscribeHandler.HandleRequest(ctx)
 
 	} else if endpoint == "/verify" {
-		h.HandleVerify(ctx)
+		h.VerifyHandler.HandleRequest(ctx)
 
 	} else {
 		response.StatusCode = http.StatusNotFound

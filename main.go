@@ -16,11 +16,14 @@ func buildHandler() (*handler.LambdaHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &handler.LambdaHandler{
+
+	sh := handler.ProdSubscribeHandler{
 		Db:        handler.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
 		Validator: handler.AddressValidatorImpl{},
 		Mailer:    handler.NewSesMailer(cfg),
-	}, nil
+	}
+	vh := handler.ProdVerifyHandler{Db: sh.Db, Mailer: sh.Mailer}
+	return &handler.LambdaHandler{SubscribeHandler: sh, VerifyHandler: vh}, nil
 }
 
 func main() {
