@@ -10,14 +10,17 @@ Parameters:
     Type: String
   SenderEmailAddress:
     Type: String
+  SenderName:
+    Type: String
 
 Resources:
   EmailVerifier:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       Handler: main
-      CodeUri: .
       Runtime: go1.x
       Description: Coordinates between the API Gateway, DynamoDB, and SES
       Timeout: 5

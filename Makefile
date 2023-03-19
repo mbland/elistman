@@ -1,11 +1,11 @@
 SHELL := /bin/bash
 .POSIX:
-.PHONY: all clean test coverage delete
+.PHONY: all clean test coverage delete build-EmailVerifier
 
-main: FORCE
-	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main main.go
-
-FORCE: ;
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
+build-EmailVerifier:
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" \
+			 -o $(ARTIFACTS_DIR)/main main.go
 
 test:
 	go test ./...
@@ -14,7 +14,7 @@ coverage:
 	go test -coverpkg ./... -covermode=count -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out	
 
-sam-build: main template.yml
+sam-build: template.yml
 	sam build
 
 run-local: sam-build
