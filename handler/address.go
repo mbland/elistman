@@ -55,6 +55,6 @@ type AddressValidator interface {
 
 type AddressValidatorImpl struct{}
 
-func (*AddressValidatorImpl) ValidateAddress(addr string) error {
+func (AddressValidatorImpl) ValidateAddress(addr string) error {
 	return nil
 }

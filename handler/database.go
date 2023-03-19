@@ -41,14 +41,14 @@ func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
 	}
 }
 
-func (db *DynamoDb) Get(ctx context.Context) (*UserRecord, error) {
+func (db DynamoDb) Get(ctx context.Context) (*UserRecord, error) {
 	return nil, nil
 }
 
-func (db *DynamoDb) Put(ctx context.Context, record *UserRecord) error {
+func (db DynamoDb) Put(ctx context.Context, record *UserRecord) error {
 	return nil
 }
 
-func (db *DynamoDb) Delete(ctx context.Context, email string) error {
+func (db DynamoDb) Delete(ctx context.Context, email string) error {
 	return nil
 }
