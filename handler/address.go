@@ -46,8 +46,8 @@ package handler
 // SP              =   %x20
 // HTAB            =   %x09               ; horizontal tab
 
-const atext = "[a-zA-Z0-9!#$%&'*+-/=?^_`{|}~"
-const specials = "()<>[]:;@\\,.\""
+//const atext = "[a-zA-Z0-9!#$%&'*+-/=?^_`{|}~"
+//const specials = "()<>[]:;@\\,.\""
 
 type AddressValidator interface {
 	ValidateAddress(addr string) error
