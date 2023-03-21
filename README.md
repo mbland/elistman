@@ -106,6 +106,8 @@ This software is made available as [Open Source software][oss-def] under the
 - [AWS SES Invoke Lambda function action][]
 - [Using AWS Lambda with Amazon SES][]
 - [aws/aws-lambda-go/events/README_SES.md][]
+- [Regions and Amazon SES][]
+- [DMARC GUIDE | DMARC: What is DMARC?][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -152,3 +154,5 @@ This software is made available as [Open Source software][oss-def] under the
 [AWS SES Invoke Lambda function action]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda.html
 [Using AWS Lambda with Amazon SES]: https://docs.aws.amazon.com/lambda/latest/dg/services-ses.html
 [aws/aws-lambda-go/events/README_SES.md]: https://github.com/aws/aws-lambda-go/blob/main/events/README_SES.md
+[Regions and Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/regions.html#region-endpoints
+[DMARC GUIDE | DMARC: What is DMARC?]: https://dmarcguide.globalcyberalliance.org/#/dmarc/
