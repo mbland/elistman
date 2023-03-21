@@ -39,6 +39,7 @@ Resources:
         Variables:
           DB_TABLE_NAME: !Ref EmailsToVerifyDb
           SENDER_EMAIL_ADDRESS: !Ref SenderEmailAddress
+          SENDER_NAME: !Ref SenderName
       Events:
         Subscribe:
           Type: HttpApi

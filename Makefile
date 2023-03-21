@@ -19,6 +19,8 @@ coverage:
 	go tool cover -html=coverage.out	
 
 sam-build: template.yml
+	sam validate
+	sam validate --lint
 	sam build
 
 run-local: sam-build
