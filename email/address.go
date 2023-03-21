@@ -1,4 +1,4 @@
-package handler
+package email
 
 // From https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3
 //

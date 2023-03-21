@@ -1,4 +1,4 @@
-package handler
+package db
 
 import (
 	"time"

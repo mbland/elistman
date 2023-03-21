@@ -7,6 +7,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/mbland/ses-subscription-verifier/db"
+	"github.com/mbland/ses-subscription-verifier/email"
 	"github.com/mbland/ses-subscription-verifier/handler"
 )
 
@@ -18,9 +20,9 @@ func buildHandler() (*handler.LambdaHandler, error) {
 	}
 
 	sh := handler.ProdSubscribeHandler{
-		Db:        handler.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
-		Validator: handler.AddressValidatorImpl{},
-		Mailer:    handler.NewSesMailer(cfg),
+		Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+		Validator: email.AddressValidatorImpl{},
+		Mailer:    email.NewSesMailer(cfg),
 	}
 	vh := handler.ProdVerifyHandler{Db: sh.Db, Mailer: sh.Mailer}
 	return &handler.LambdaHandler{SubscribeHandler: sh, VerifyHandler: vh}, nil
