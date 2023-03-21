@@ -18,6 +18,7 @@ PARAMETER_OVERRIDES=(
   "SenderArn=${SENDER_ARN}"
   "SenderEmailAddress=${SENDER_EMAIL_ADDRESS}"
   "SenderName=${SENDER_NAME// /\ }"
+  "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME}"
 )
 
 exec sam deploy --parameter-overrides "${PARAMETER_OVERRIDES[*]}"
