@@ -7,7 +7,7 @@ SHELL := /bin/bash
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
 build-EmailVerifier:
 	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" \
-			 -o $(ARTIFACTS_DIR)/main-api main-api.go
+			 -o $(ARTIFACTS_DIR)/main main.go
 
 test:
 	go vet ./...
@@ -31,7 +31,7 @@ delete:
 	sam delete
 
 clean:
-	rm -rf coverage.out main-api .aws-sam
+	rm -rf coverage.out main .aws-sam
 	go clean
 	go clean -testcache
 

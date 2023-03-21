@@ -26,7 +26,7 @@ Resources:
     Metadata:
       BuildMethod: makefile
     Properties:
-      Handler: main-api
+      Handler: main
       Runtime: go1.x
       Description: Coordinates between the API Gateway, DynamoDB, and SES
       Timeout: 5
