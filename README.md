@@ -99,6 +99,13 @@ This software is made available as [Open Source software][oss-def] under the
 - [aws-lambda-go APIGatewayV2 event structures][]
 - [aws-lambda-go APIGatewayV2 event example][]
 - [Working with AWS Lambda proxy integrations for HTTP APIs][]
+- [Using templates to send personalized email with the Amazon SES API][]
+- [AWS SES Sample incoming email event][]
+- [AWS CloudFormation AWS::SES::ReceiptRuleSet][]
+- [AWS CloudFormation AWS::SES::ReceiptRule][]
+- [AWS SES Invoke Lambda function action][]
+- [Using AWS Lambda with Amazon SES][]
+- [aws/aws-lambda-go/events/README_SES.md][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -138,3 +145,10 @@ This software is made available as [Open Source software][oss-def] under the
 [aws-lambda-go APIGatewayV2 event structures]: https://github.com/aws/aws-lambda-go/blob/main/events/apigw.go
 [aws-lambda-go APIGatewayV2 event example]: https://github.com/aws/aws-lambda-go/blob/main/events/README_ApiGatewayEvent.md
 [Working with AWS Lambda proxy integrations for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
+[Using templates to send personalized email with the Amazon SES API]: https://docs.aws.amazon.com/ses/latest/dg/send-personalized-email-api.html
+[AWS SES Sample incoming email event]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-event.html
+[AWS CloudFormation AWS::SES::ReceiptRuleSet]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
+[AWS CloudFormation AWS::SES::ReceiptRule]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
+[AWS SES Invoke Lambda function action]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda.html
+[Using AWS Lambda with Amazon SES]: https://docs.aws.amazon.com/lambda/latest/dg/services-ses.html
+[aws/aws-lambda-go/events/README_SES.md]: https://github.com/aws/aws-lambda-go/blob/main/events/README_SES.md
