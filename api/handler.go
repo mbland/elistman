@@ -1,4 +1,4 @@
-package handler
+package api
 
 import (
 	"fmt"
@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/ses-subscription-verifier/ops"
 )
 
 const defaultResponseLocation = "https://github.com/mbland/ses-subscription-verifier"
 
 type LambdaHandler struct {
-	SubscribeHandler SubscribeHandler
-	VerifyHandler    VerifyHandler
+	SubscribeHandler ops.SubscribeHandler
+	VerifyHandler    ops.VerifyHandler
 }
 
 func getEndpoint(request events.APIGatewayV2HTTPRequest) string {

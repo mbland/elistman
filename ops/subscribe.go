@@ -1,4 +1,4 @@
-package handler
+package ops
 
 import (
 	"github.com/mbland/ses-subscription-verifier/db"
