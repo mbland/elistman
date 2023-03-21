@@ -9,9 +9,27 @@ import (
 	"github.com/google/uuid"
 )
 
+type UserStatus int
+
+const (
+	UNVERIFIED UserStatus = iota
+	VERIFIED
+)
+
+func (us UserStatus) String() string {
+	switch {
+	case us == UNVERIFIED:
+		return "UNVERIFIED"
+	case us == VERIFIED:
+		return "VERIFIED"
+	}
+	return "UNKNOWN"
+}
+
 type UserRecord struct {
 	Email     string
 	UUID      string
+	Status    UserStatus
 	Timestamp time.Time
 }
 
