@@ -8,38 +8,38 @@ import (
 	"github.com/google/uuid"
 )
 
-type UserStatus int
+type SubscriberStatus int
 
 const (
-	UNVERIFIED UserStatus = iota
-	VERIFIED
+	Unverified SubscriberStatus = iota
+	Verified
 )
 
-func (us UserStatus) String() string {
+func (us SubscriberStatus) String() string {
 	switch {
-	case us == UNVERIFIED:
-		return "UNVERIFIED"
-	case us == VERIFIED:
-		return "VERIFIED"
+	case us == Unverified:
+		return "Unverified"
+	case us == Verified:
+		return "Verified"
 	}
-	return "UNKNOWN"
+	return "Unknown"
 }
 
-type UserRecord struct {
+type Subscriber struct {
 	Email     string
 	UUID      string
-	Status    UserStatus
+	Status    SubscriberStatus
 	Timestamp time.Time
 }
 
 type Database interface {
-	Get(email string) (*UserRecord, error)
-	Put(record *UserRecord) error
+	Get(email string) (*Subscriber, error)
+	Put(subscriber *Subscriber) error
 	Delete(email string) error
 }
 
-func NewUserRecord(email string) *UserRecord {
-	return &UserRecord{
+func NewSubscriber(email string) *Subscriber {
+	return &Subscriber{
 		Email:     email,
 		UUID:      uuid.NewString(),
 		Timestamp: time.Now(),
@@ -58,11 +58,11 @@ func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
 	}
 }
 
-func (db DynamoDb) Get(email string) (*UserRecord, error) {
+func (db DynamoDb) Get(email string) (*Subscriber, error) {
 	return nil, nil
 }
 
-func (db DynamoDb) Put(record *UserRecord) error {
+func (db DynamoDb) Put(record *Subscriber) error {
 	return nil
 }
 
