@@ -7,13 +7,13 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/mbland/ses-subscription-verifier/api"
 	"github.com/mbland/ses-subscription-verifier/db"
 	"github.com/mbland/ses-subscription-verifier/email"
+	"github.com/mbland/ses-subscription-verifier/handler"
 	"github.com/mbland/ses-subscription-verifier/ops"
 )
 
-func buildHandler() (*api.LambdaHandler, error) {
+func buildHandler() (*handler.LambdaHandler, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 
 	if err != nil {
@@ -26,7 +26,7 @@ func buildHandler() (*api.LambdaHandler, error) {
 		Mailer:    email.NewSesMailer(cfg),
 	}
 	vh := ops.ProdVerifyHandler{Db: sh.Db, Mailer: sh.Mailer}
-	return &api.LambdaHandler{SubscribeHandler: sh, VerifyHandler: vh}, nil
+	return &handler.LambdaHandler{SubscribeHandler: sh, VerifyHandler: vh}, nil
 }
 
 func main() {
