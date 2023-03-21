@@ -35,7 +35,7 @@ func TestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) {
 	f := newFixture()
 	f.req.RouteKey = "email"
 	f.req.RawPath = "/email/subscribe"
-	response, err := f.h.HandleRequest(f.req)
+	response, err := f.h.HandleApiRequest(f.req)
 
 	assert.NilError(t, err)
 	assert.Equal(t, response.StatusCode, http.StatusSeeOther)

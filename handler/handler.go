@@ -24,7 +24,19 @@ func getEndpoint(request events.APIGatewayV2HTTPRequest) string {
 	return strings.TrimPrefix(request.RawPath, route_prefix)
 }
 
-func (h LambdaHandler) HandleRequest(
+func (h LambdaHandler) HandleEvent(event Event) (any, error) {
+	switch event.Type {
+	case ApiRequest:
+		return h.HandleApiRequest(event.ApiRequest)
+	case MailtoEvent:
+		return nil, h.HandleMailtoEvent(event.MailtoEvent)
+	case NullEvent:
+		return nil, fmt.Errorf("event payload is null")
+	}
+	return nil, fmt.Errorf("unknown event: %+v", event)
+}
+
+func (h LambdaHandler) HandleApiRequest(
 	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	endpoint := getEndpoint(request)
@@ -42,4 +54,8 @@ func (h LambdaHandler) HandleRequest(
 		response.StatusCode = http.StatusNotFound
 	}
 	return response, nil
+}
+
+func (h LambdaHandler) HandleMailtoEvent(event events.SimpleEmailEvent) error {
+	return nil
 }

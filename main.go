@@ -34,5 +34,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize process: %s", err.Error())
 	}
-	lambda.Start(h.HandleRequest)
+	lambda.Start(h.HandleEvent)
 }
