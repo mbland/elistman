@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -25,7 +24,7 @@ func getEndpoint(request events.APIGatewayV2HTTPRequest) string {
 }
 
 func (h LambdaHandler) HandleRequest(
-	ctx context.Context, request events.APIGatewayV2HTTPRequest,
+	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	endpoint := getEndpoint(request)
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
@@ -33,10 +32,10 @@ func (h LambdaHandler) HandleRequest(
 	response.Headers["Location"] = defaultResponseLocation
 
 	if endpoint == "/subscribe" {
-		h.SubscribeHandler.HandleRequest(ctx)
+		h.SubscribeHandler.HandleRequest()
 
 	} else if endpoint == "/verify" {
-		h.VerifyHandler.HandleRequest(ctx)
+		h.VerifyHandler.HandleRequest()
 
 	} else {
 		response.StatusCode = http.StatusNotFound

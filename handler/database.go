@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -34,9 +33,9 @@ type UserRecord struct {
 }
 
 type Database interface {
-	Get(ctx context.Context) (*UserRecord, error)
-	Put(ctx context.Context, record *UserRecord) error
-	Delete(ctx context.Context, email string) error
+	Get(email string) (*UserRecord, error)
+	Put(record *UserRecord) error
+	Delete(email string) error
 }
 
 func NewUserRecord(email string) *UserRecord {
@@ -59,14 +58,14 @@ func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
 	}
 }
 
-func (db DynamoDb) Get(ctx context.Context) (*UserRecord, error) {
+func (db DynamoDb) Get(email string) (*UserRecord, error) {
 	return nil, nil
 }
 
-func (db DynamoDb) Put(ctx context.Context, record *UserRecord) error {
+func (db DynamoDb) Put(record *UserRecord) error {
 	return nil
 }
 
-func (db DynamoDb) Delete(ctx context.Context, email string) error {
+func (db DynamoDb) Delete(email string) error {
 	return nil
 }

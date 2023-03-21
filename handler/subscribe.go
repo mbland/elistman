@@ -1,9 +1,7 @@
 package handler
 
-import "context"
-
 type SubscribeHandler interface {
-	HandleRequest(ctx context.Context)
+	HandleRequest()
 }
 
 type ProdSubscribeHandler struct {
@@ -12,5 +10,5 @@ type ProdSubscribeHandler struct {
 	Mailer    Mailer
 }
 
-func (h ProdSubscribeHandler) HandleRequest(ctx context.Context) {
+func (h ProdSubscribeHandler) HandleRequest() {
 }

@@ -1,9 +1,7 @@
 package handler
 
-import "context"
-
 type VerifyHandler interface {
-	HandleRequest(ctx context.Context)
+	HandleRequest()
 }
 
 type ProdVerifyHandler struct {
@@ -11,5 +9,5 @@ type ProdVerifyHandler struct {
 	Mailer Mailer
 }
 
-func (h ProdVerifyHandler) HandleRequest(ctx context.Context) {
+func (h ProdVerifyHandler) HandleRequest() {
 }
