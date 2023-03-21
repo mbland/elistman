@@ -36,6 +36,7 @@ func newFixture() *fixture {
 
 func TestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) {
 	f := newFixture()
+	f.req.RouteKey = "email"
 	f.req.RawPath = "/email/subscribe"
 	response, err := f.h.HandleRequest(f.ctx, f.req)
 
