@@ -3,8 +3,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: >
-  A system for validating email addresses of potential mailing list subscribers
-  and adding them to a Simple Email Service contact list.
+  Mailing list system providing address validation and unsubscribe URIs.
 Parameters:
   ApiDomainName:
     Type: String

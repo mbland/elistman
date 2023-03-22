@@ -1,11 +1,15 @@
 # SES Subscription Verifier
 
-A system for validating email addresses of potential mailing list subscribers
-and adding them to an [Amazon Web Services][] [Simple Email Service][]
-contact list.
+Mailing list system providing address validation and unsubscribe URIs.
 
-Implemented in [Go][] using [API Gateway][], [Lambda][] and [DynamoDB][].
-Deployed using [CloudFormation][].
+Implemented in [Go][] using the following [Amazon Web Services][]:
+- [API Gateway][]
+- [Lambda][]
+- [DynamoDB][]
+- [Simple Email Service][]
+
+Uses [CloudFormation][] for deploying the Lambda function, binding to the API
+Gateway, managing permissions, and other configuration parameters.
 
 Based on implementation hints from [victoriadrake/simple-subscribe][], but
 otherwise contains original code.
@@ -110,12 +114,12 @@ This software is made available as [Open Source software][oss-def] under the
 - [DMARC GUIDE | DMARC: What is DMARC?][]
 - [Packing multiple binaries in a Golang package][]
 
-[Amazon Web Services]: https://aws.amazon.com
-[Simple Email Service]: https://aws.amazon.com/ses/
 [Go]: https://go.dev/
+[Amazon Web Services]: https://aws.amazon.com
 [API Gateway]: https://aws.amazon.com/api-gateway/
 [Lambda]: https://aws.amazon.com/lambda/
 [DynamoDB]: https://aws.amazon.com/dynamodb/
+[Simple Email Service]: https://aws.amazon.com/ses/
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [victoriadrake/simple-subscribe]: https://github.com/victoriadrake/simple-subscribe/
 [HTTP 303 See Other]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
