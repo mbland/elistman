@@ -1,12 +1,17 @@
 #!/bin/bash
 
-is_installed() {
+tool_path() {
+  command -v "$1" || command -v "${1}.exe"
+}
+
+find_tool() {
   local tool="$1"
   local version_flag="$2"
-  local tool_path="$(command -v "$1")"
 
-  [[ -n "$tool_path" ]] && \
-    printf "Found: %s\n       %s\n" "$tool_path" "$($tool $version_flag)"
+  tool="$(tool_path "$tool")"
+
+  [[ -n "$tool" ]] && \
+    printf "Found: %s\n       %s\n" "$tool" "$("$tool" "$version_flag")"
 }
 
 check_for_tool() {
@@ -20,7 +25,7 @@ check_for_tool() {
   local version_flag="$2"
   local msg="$3"
 
-  if ! is_installed "$tool" "$version_flag"; then
+  if ! find_tool "$tool" "$version_flag"; then
     printf "%s tool not found: '%s': %s\n" "$tool_label" "$tool" "$msg" >&2
     [[ "$tool_label" == "Optional" ]] || ((EXIT_CODE+=1))
   fi
@@ -30,23 +35,34 @@ install_tool() {
   local tool="$1"
   local version_flag="$2"
   local msg="$3"
-  shift 3
-  local install_cmd=("${@}")
+  local install_tool="$4"
+  shift 4
+  local install_cmd=("$(tool_path "$install_tool")" "${@}")
 
-  if ! (is_installed "$tool" "$version_flag" || "${install_cmd[@]}"); then
-    printf "Installation failed: %s\n  %s\n" "${install_cmd[*]}" "$msg" >&2
+  if find_tool "$tool" "$version_flag"; then
+    return
+  elif [[ -z "${install_cmd[0]}" ]]; then
+    printf "Could not install '%s' because '%s' not found\n" \
+      "$tool" "$install_tool" >&2
     ((EXIT_CODE+=1))
+  elif ! "${install_cmd[@]}"; then
+    printf "Failed to install '%s' via: %s\n  %s\n" \
+      "$tool" "${install_cmd[*]}" "$msg" >&2
+    ((EXIT_CODE+=1))
+  else
+    tool="$(tool_path "$tool")"
+    printf "Installed: %s\n       %s\n" "$tool" "$("$tool" "$version_flag")"
   fi
 }
 
 EXIT_CODE=0
 
+check_for_tool go version \
+  "See https://go.dev/dl/ or https://github.com/syndbg/goenv"
 check_for_tool aws --version \
   "See https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
 check_for_tool sam --version \
   "See https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
-check_for_tool go version \
-  "See https://go.dev/dl/ or https://github.com/syndbg/goenv"
 
 check_for_tool --optional docker --version \
   "See https://docs.docker.com/get-docker/"
