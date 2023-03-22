@@ -9,9 +9,10 @@ find_tool() {
   local version_flag="$2"
 
   tool="$(tool_path "$tool")"
+  local version="$("$tool" "$version_flag")"
 
   [[ -n "$tool" ]] && \
-    printf "Found: %s\n       %s\n" "$tool" "$("$tool" "$version_flag")"
+    printf "Found: %s\n       %s\n" "$tool" "${version%%$'\n'*}"
 }
 
 check_for_tool() {
@@ -66,6 +67,8 @@ check_for_tool sam --version \
 
 check_for_tool --optional docker --version \
   "See https://docs.docker.com/get-docker/"
+check_for_tool --optional curl --version \
+  "See https://curl.se/download.html or https://winget.run/pkg/cURL/cURL"
 
 install_tool staticcheck --version "See https://staticcheck.io" \
   go install honnef.co/go/tools/cmd/staticcheck@latest
