@@ -1,8 +1,8 @@
 package ops
 
 import (
-	"github.com/mbland/ses-subscription-verifier/db"
-	"github.com/mbland/ses-subscription-verifier/email"
+	"github.com/mbland/elistman/db"
+	"github.com/mbland/elistman/email"
 )
 
 type SubscribeHandler interface {

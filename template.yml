@@ -17,7 +17,7 @@ Parameters:
     Type: String
 
 Resources:
-  EmailVerifier:
+  EListMan:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
@@ -47,25 +47,26 @@ Resources:
         Subscribe:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EmailApi
+            ApiId: !Ref EListManApi
             Path: /subscribe
             Method: POST
         Verify:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EmailApi
+            ApiId: !Ref EListManApi
             Path: /verify
             Method: GET
 
-  EmailApiMapping:
+  EListManApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
     Properties:
-      ApiId: !Ref EmailApi
+      ApiId: !Ref EListManApi
       DomainName: !Ref ApiDomainName
       ApiMappingKey: !Ref ApiRouteKey
-      Stage: $default
+      # https://github.com/aws/serverless-application-model/issues/192#issuecomment-520893111
+      Stage: !Ref EListManApi.Stage
 
-  EmailApi:
+  EListManApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       DefaultRouteSettings:
@@ -76,15 +77,15 @@ Resources:
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  EmailVerifierApi:
-    Description: "API Gateway root URL for the EmailVerifier function"
+  EListManApi:
+    Description: "API Gateway root URL for the EListMan function"
     Value: !Sub "https://${ApiDomainName}/${ApiRouteKey}"
-  EmailVerifierFunction:
-    Description: "EmailVerifier Lambda function ARN"
-    Value: !GetAtt EmailVerifier.Arn
-  EmailVerifierFunctionIamRole:
-    Description: "Implicit IAM Role created for EmailVerifier function"
-    Value: !GetAtt EmailVerifierRole.Arn
+  EListManFunction:
+    Description: "EListMan Lambda function ARN"
+    Value: !GetAtt EListMan.Arn
+  EListManFunctionIamRole:
+    Description: "Implicit IAM Role created for EListMan function"
+    Value: !GetAtt EListManRole.Arn
   SenderEmailAddress:
     Description: "Sender email address"
     Value: !Ref SenderEmailAddress

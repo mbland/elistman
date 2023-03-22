@@ -1,4 +1,4 @@
-module github.com/mbland/ses-subscription-verifier
+module github.com/mbland/elistman
 
 go 1.20
 

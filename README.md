@@ -1,26 +1,176 @@
-# SES Subscription Verifier
+# EListMan - Email List Manager
 
 Mailing list system providing address validation and unsubscribe URIs.
 
+_**NOTE:** This project is just beginning. When it's operational, I'll remove
+this notice._
+
+Only serves one list at a time as defined by deployment parameters. (_I may
+change this in a future version._)
+
 Implemented in [Go][] using the following [Amazon Web Services][]:
+
 - [API Gateway][]
 - [Lambda][]
 - [DynamoDB][]
 - [Simple Email Service][]
 
-Uses [CloudFormation][] for deploying the Lambda function, binding to the API
-Gateway, managing permissions, and other configuration parameters.
+Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
+deploying the Lambda function, binding to the API Gateway, managing permissions,
+and other configuration parameters.
 
 Based on implementation hints from [victoriadrake/simple-subscribe][], but
 otherwise contains original code.
 
-**NOTE:** This project is just beginning. When it's operational, I'll remove
-this notice.
+## Prerequisites
+
+### Install tools
+
+Run the `bin/check-tools.sh` script to check that the required tools are
+installed.
+
+- This script will try to install some missing tools itself. If any are missing,
+  the script will provide a link to installation instructions.
+
+- **Note**: The script does _not_ check for the presence of `make`, as it comes
+  in many flavors and aliases and already ships with many operating systems. The
+  notable exception is Microsoft Windows.
+
+  However, if the `winget` command is available, you can install the
+  [GnuWin32.Make][] package:
+
+  ```cmd
+  winget install -e --id GnuWin32.Make
+  ```
+
+  Then:
+  - Press _**Win-R**_ and enter `systempropertiesadvanced` to open the _**System
+    Properties > Advanced**_ pane.
+  - Click the _**Environment Variables...**_ button.
+  - Select _**Path**_ in either the _User variables_ or _System variables_ pane,
+    then click the corresponding _**Edit...**_ button.
+  - Click the _**New**_ button, then click the _**Browse...**_ button.
+  - Navigate to _**This PC > Local Disk (C:) > Program Files (x86) > GnuWin32 > bin**_.
+  - Click the _**OK**_ button, then keep clicking the _**OK**_ button until all
+    of the _**System Properties**_ panes are closed.
+
+  Make should then be available as either `make` or `make.exe`.
+
+### Configure the AWS CLI
+
+Configure your credentials for a region from the **Email Receiving Endpoints**
+section of [Amazon Simple Email Service endpoints and quotas][].
+
+Follow the guidance on the [AWS Command Line Interface: Quick Setup][] page if
+necessary.
+
+### Configure AWS Simple Email Service (SES)
+
+Set up SES in the region selected in the above step. Make sure to enable DKIM
+and create a verified domain identity per [Verifying your domain for Amazon SES
+email receiving][].
+
+Assuming you have your AWS CLI environment set up correctly, this should confirm
+that SES is properly configured (with your own identity listed, of course):
+
+```sh
+$ aws sesv2 list-email-identities
+
+{
+    "EmailIdentities": [
+        {
+            "IdentityType": "DOMAIN",
+            "IdentityName": "mike-bland.com",
+            "SendingEnabled": true,
+            "VerificationStatus": "SUCCESS"
+        }
+    ]
+}
+```
+
+### Configure AWS API Gateway
+
+Set up a custom domain name in API Gateway in the region selected in the
+above step. Create a SSL certificate in Certificate Manager for it as well.
+
+- [Setting up custom domain names for HTTP APIs][]
+
+If done correctly, the following command should produce output resembling the
+example:
+
+```sh
+$ aws apigatewayv2 get-domain-names
+
+{
+    "Items": [
+        {
+            "ApiMappingSelectionExpression": "$request.basepath",
+            "DomainName": "api.mike-bland.com",
+            "DomainNameConfigurations": [
+                {
+                    "ApiGatewayDomainName": "<...>",
+                    "CertificateArn": "<...>",
+                    "DomainNameStatus": "AVAILABLE",
+                    "EndpointType": "REGIONAL",
+                    "HostedZoneId": "<...>",
+                    "SecurityPolicy": "TLS_1_2"
+                }
+            ]
+        }
+    ]
+}
+```
+
+### Create the DynamoDB table
+
+Run the `bin/create-subscribers-table.sh` script to create the DynamoDB table,
+using a table name of your choice. Then run `aws dynamodb list-tables` to
+confirm that the new table is present.
+
+## Deployment
+
+Create a `deploy.env` file in the root directory of the following form
+(replacing each value with your own as appropriate):
+
+```sh
+API_DOMAIN_NAME="api.mike-bland.com"
+API_ROUTE_KEY="email"
+SENDER_EMAIL_ADDRESS="no-reply@mike-bland.com"
+SENDER_NAME="Mike Bland's blog"
+SUBSCRIBERS_TABLE_NAME="TABLE_NAME"
+```
+
+Then run `make deploy`.
+
+## URI Schema
+
+- `https://<api_hostname>/<route_key>/<operation>`
+- `mailto:unsubscribe@<email_hostname>?subject=<uid>`
+
+Where:
+
+- `<api_hostname>`: Hostname for the API Gateway instance
+- `<route_key>`: Route key for the API Gateway
+- `<operation>`: Endpoint for the list management operation:
+  - `/subscribe/<email>`
+  - `/verify/<email>/<uid>`
+  - `/unsubscribe/<email>/<uid>`
+- `<email>`: Subscriber's email address
+- `<uid>`: Identifier assigned to the subscriber by the system
+- `<email_hostname>`: Hostname serving as an SES verified identity for receiving email
+
+## Development
+
+The [Makefile](./Makefile) is very short and readable. Use it to run common
+tasks, or learn common commands from it to use as you please.
 
 ## Algorithms
 
-All responses will be [HTTP 303 See Other][], with the target page specified in
-the [Location HTTP header][].
+Unless otherwise noted, all responses will be [HTTP 303 See Other][], with the
+target page specified in the [Location HTTP header][].
+
+- The one exception will be unsubscribe requests from mail clients using the
+  `List-Unsubscribe` and `List-Unsubscribe-Post` email headers.
 
 ### Generating a new subscriber verification link
 
@@ -32,43 +182,47 @@ the [Location HTTP header][].
    1. Check the MX record of the host, or find an A or AAAA record that accepts
       connections on port 587 or 2525.
    1. If it fails validation, return the `INVALID` page.
-1. Check whether the email address is already in the SES contact list.
-   1. If so, return the `ALREADY_SUBSCRIBED` page.
-1. Generate a new verification UUID.
-1. Look for an existing DynamoDB record for the email address and its
-   verification UUID. If it does not exist:
-   1. If it doesn't exist, create a new DynamoDB record containing the email
-      address, the UUID, and a timestamp.
-   1. If it does exist, replace the old UUID with the new one.
-1. Generate a verification link using the UUID.
-1. Email this link to the given address.
+1. Look for an existing DynamoDB record for the email address.
+   1. If it exists and `SubscriberStatus` is `Verified`, return the
+      `ALREADY_SUBSCRIBED` page.
+1. Generate a UID.
+1. Write a DynamoDB record containing the email address, the UID, a timestamp,
+   and with `SubscriberStatus` set to `Unverified`.
+1. Generate a verification link using the email address and UID.
+1. Send the verification link to the email address.
    1. If the mail bounces or fails to send, return the `INVALID` page.
 1. Return the `CONFIRM` page.
 
 ### Responding to a subscriber verification link
 
-1. An HTTP request from the API Gateway comes in, containing POST data from a
-   user's unique verification link.
-1. Check whether there is a verification link record for the encoded email
-   address in DynamoDB.
+1. An HTTP request from the API Gateway comes in, containing a subscriber's
+   email address and UID.
+1. Check whether there is a record for the email address in DynamoDB.
    1. If not, return the `NOT_FOUND` page.
-1. Check whether the verification link UUID matches that from the DynamoDB
-   record.
+1. Check whether the UID matches that from the DynamoDB record.
    1. If not, return the `NOT_FOUND` page.
-1. Add the email address to the SES contact list.
-1. Remove the DynamoDB record.
-1. Send a `SUBSCRIBED` email containing the unsubscribe link (from SES).
+1. Set the `SubscriberStatus` of the record to `Verified`.
+1. Send a `SUBSCRIBED` email containing the unsubscribe link.
 1. Return the `SUBSCRIBED` page.
+
+### Responding to an unsubscribe request
+
+1. Either an HTTP Request from the API Gateway or a mailto: event from SES comes
+   in, containing a subscriber's email address and UID.
+1. Check whether there is a record for the email address in DynamoDB.
+   1. If not, return the `NOT_FOUND` page.
+1. Check whether the UID matches that from the DynamoDB record.
+   1. If not, return the `NOT_FOUND` page.
+1. Delete the DynamoDB record for the email address.
+1. If the request was an HTTP Request:
+   1. If it uses the `POST` method, and the data contains
+      `List-Unsubscribe=One-Click`, return [HTTP 204 No Content][].
+   1. Otherwise return the `UNSUBSCRIBED` page.
 
 ### Expiring unused subscriber verification links
 
 1. Retrieve all existing DynamoDB records.
-1. Delete any records exceeding the timeout (1h).
-
-### Removing unsubscribed email addresses
-
-1. Retrieve all contacts from the contact list.
-1. Delete all contacts that have unsubscribed.
+1. Delete any `Unverified` records exceeding the timeout (1h).
 
 ## Open Source License
 
@@ -113,6 +267,9 @@ This software is made available as [Open Source software][oss-def] under the
 - [Regions and Amazon SES][]
 - [DMARC GUIDE | DMARC: What is DMARC?][]
 - [Packing multiple binaries in a Golang package][]
+- [One-Click List-Unsubscribe Header – RFC 8058][]
+- [List-Unsubscribe header critical for sustained email delivery][]
+- [Stack Overflow: Post parameter in path or in body][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -121,11 +278,18 @@ This software is made available as [Open Source software][oss-def] under the
 [DynamoDB]: https://aws.amazon.com/dynamodb/
 [Simple Email Service]: https://aws.amazon.com/ses/
 [CloudFormation]: https://aws.amazon.com/cloudformation/
+[AWS Serverless Application Model (SAM)]: https://aws.amazon.com/serverless/sam/
 [victoriadrake/simple-subscribe]: https://github.com/victoriadrake/simple-subscribe/
+[GnuWin32.Make]: https://winget.run/pkg/GnuWin32/Make
+[Amazon Simple Email Service endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ses.html
+[AWS Command Line Interface: Quick Setup]: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+[Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
+[Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
 [HTTP 303 See Other]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
 [Location HTTP Header]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
 [RFC 5322 Section 3.2.3]: https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3
 [oss-def]:     https://opensource.org/osd-annotated
+[HTTP 204 No Content]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204
 [Mozilla Public License 2.0]: https://www.mozilla.org/en-US/MPL/
 [Building Lambda functions with Go]: https://docs.aws.amazon.com/lambda/latest/dg/lambda-golang.html
 [Using AWS Lambda with other services]: https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
@@ -162,3 +326,6 @@ This software is made available as [Open Source software][oss-def] under the
 [Regions and Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/regions.html#region-endpoints
 [DMARC GUIDE | DMARC: What is DMARC?]: https://dmarcguide.globalcyberalliance.org/#/dmarc/
 [Packing multiple binaries in a Golang package]: https://ieftimov.com/posts/golang-package-multiple-binaries/
+[One-Click List-Unsubscribe Header – RFC 8058]: https://certified-senders.org/wp-content/uploads/2017/07/CSA_one-click_list-unsubscribe.pdf
+[List-Unsubscribe header critical for sustained email delivery]: https://www.postmastery.com/list-unsubscribe-header-critical-for-sustained-email-delivery/
+[Stack Overflow: Post parameter in path or in body]: https://stackoverflow.com/questions/42390564/post-parameter-in-path-or-in-body

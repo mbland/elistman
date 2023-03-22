@@ -7,10 +7,10 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/mbland/ses-subscription-verifier/db"
-	"github.com/mbland/ses-subscription-verifier/email"
-	"github.com/mbland/ses-subscription-verifier/handler"
-	"github.com/mbland/ses-subscription-verifier/ops"
+	"github.com/mbland/elistman/db"
+	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/handler"
+	"github.com/mbland/elistman/ops"
 )
 
 func buildHandler() (*handler.LambdaHandler, error) {

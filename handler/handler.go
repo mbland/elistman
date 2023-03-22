@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/mbland/ses-subscription-verifier/ops"
+	"github.com/mbland/elistman/ops"
 )
 
-const defaultResponseLocation = "https://github.com/mbland/ses-subscription-verifier"
+const defaultResponseLocation = "https://github.com/mbland/elistman"
 
 type LambdaHandler struct {
 	SubscribeHandler ops.SubscribeHandler
