@@ -108,6 +108,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [aws/aws-lambda-go/events/README_SES.md][]
 - [Regions and Amazon SES][]
 - [DMARC GUIDE | DMARC: What is DMARC?][]
+- [Packing multiple binaries in a Golang package][]
 
 [Amazon Web Services]: https://aws.amazon.com
 [Simple Email Service]: https://aws.amazon.com/ses/
@@ -156,3 +157,4 @@ This software is made available as [Open Source software][oss-def] under the
 [aws/aws-lambda-go/events/README_SES.md]: https://github.com/aws/aws-lambda-go/blob/main/events/README_SES.md
 [Regions and Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/regions.html#region-endpoints
 [DMARC GUIDE | DMARC: What is DMARC?]: https://dmarcguide.globalcyberalliance.org/#/dmarc/
+[Packing multiple binaries in a Golang package]: https://ieftimov.com/posts/golang-package-multiple-binaries/

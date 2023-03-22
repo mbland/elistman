@@ -15,7 +15,7 @@ fi
 
 PARAMETER_OVERRIDES=(
   "ApiDomainName=${API_DOMAIN_NAME}"
-  "SenderArn=${SENDER_ARN}"
+  "ApiRouteKey=${API_ROUTE_KEY}"
   "SenderEmailAddress=${SENDER_EMAIL_ADDRESS}"
   "SenderName=${SENDER_NAME// /\ }"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME}"

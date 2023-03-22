@@ -1,6 +1,5 @@
 *.swp
 coverage.out
-main
-main-*
 .aws-sam/
 *.env
+lambda/lambda
