@@ -9,10 +9,13 @@ find_tool() {
   local version_flag="$2"
 
   tool="$(tool_path "$tool")"
-  local version="$("$tool" "$version_flag")"
 
-  [[ -n "$tool" ]] && \
-    printf "Found: %s\n       %s\n" "$tool" "${version%%$'\n'*}"
+  if [[ -z "$tool" ]]; then
+    return 1
+  fi
+
+  local version="$("$tool" "$version_flag")"
+  printf "Found: %s\n       %s\n" "$tool" "${version%%$'\n'*}"
 }
 
 check_for_tool() {
@@ -27,7 +30,7 @@ check_for_tool() {
   local msg="$3"
 
   if ! find_tool "$tool" "$version_flag"; then
-    printf "%s tool not found: '%s': %s\n" "$tool_label" "$tool" "$msg" >&2
+    printf "%s tool not found: %s\n       %s\n" "$tool_label" "$tool" "$msg" >&2
     [[ "$tool_label" == "Optional" ]] || ((EXIT_CODE+=1))
   fi
 }
