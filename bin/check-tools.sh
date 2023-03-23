@@ -1,7 +1,18 @@
 #!/bin/bash
 
 tool_path() {
-  command -v "$1" || command -v "${1}.exe"
+  command -v "$1" || command -v "${1}.exe" || command -v "${1}.cmd"
+}
+
+tool_version() {
+  local tool="$1"
+  local version_flag="$2"
+
+  if [[ "$tool" =~ .cmd$ ]]; then
+    cmd.exe /C "${tool##*/}" "$version_flag"
+  else
+    "$tool" "$version_flag"
+  fi
 }
 
 find_tool() {
@@ -14,7 +25,7 @@ find_tool() {
     return 1
   fi
 
-  local version="$("$tool" "$version_flag")"
+  local version="$(tool_version "$tool" "$version_flag")"
   printf "Found: %s\n       %s\n" "$tool" "${version%%$'\n'*}"
 }
 
