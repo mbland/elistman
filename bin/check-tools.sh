@@ -8,7 +8,7 @@ tool_version() {
   local tool="$1"
   local version_flag="$2"
 
-  if [[ "$tool" =~ .cmd$ ]]; then
+  if [[ "$tool" =~ .cmd$ && "$OSTYPE" != "msys" ]]; then
     cmd.exe /C "${tool##*/}" "$version_flag"
   else
     "$tool" "$version_flag"
