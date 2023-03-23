@@ -18,27 +18,26 @@ type LambdaHandler struct {
 func (h LambdaHandler) HandleEvent(event Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
-		return h.HandleApiRequest(event.ApiRequest)
+		return h.handleApiRequest(event.ApiRequest)
 	case MailtoEvent:
-		return nil, h.HandleMailtoEvent(event.MailtoEvent)
-	case NullEvent:
-		return nil, fmt.Errorf("event payload is null")
+		return nil, h.handleMailtoEvent(event.MailtoEvent)
 	}
-	return nil, fmt.Errorf("unknown event: %+v", event)
+	return nil, fmt.Errorf("unexpected event: %+v", event)
 }
 
-func (h LambdaHandler) HandleApiRequest(
+func (h LambdaHandler) handleApiRequest(
 	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	response.StatusCode = http.StatusSeeOther
-	response.Headers["Location"] = defaultResponseLocation
 
 	if request.RawPath == "/subscribe" {
 		h.SubscribeHandler.HandleRequest()
+		response.Headers["Location"] = defaultResponseLocation
 
 	} else if request.RawPath == "/verify" {
 		h.VerifyHandler.HandleRequest()
+		response.Headers["Location"] = defaultResponseLocation
 
 	} else {
 		response.StatusCode = http.StatusNotFound
@@ -46,6 +45,6 @@ func (h LambdaHandler) HandleApiRequest(
 	return response, nil
 }
 
-func (h LambdaHandler) HandleMailtoEvent(event events.SimpleEmailEvent) error {
+func (h LambdaHandler) handleMailtoEvent(event events.SimpleEmailEvent) error {
 	return nil
 }
