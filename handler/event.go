@@ -11,13 +11,16 @@ import (
 type EventType int
 
 const (
-	NullEvent EventType = iota
+	UnexpectedEvent EventType = iota - 1
+	NullEvent
 	ApiRequest
 	MailtoEvent
 )
 
 func (event EventType) String() string {
 	switch event {
+	case UnexpectedEvent:
+		return "Unexpected event"
 	case NullEvent:
 		return "Null event"
 	case ApiRequest:
@@ -39,12 +42,13 @@ type Event struct {
 func (event *Event) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte("null")) {
 		return nil
-	} else if err := json.Unmarshal(data, &event.ApiRequest); err == nil {
+	} else if bytes.Contains(data, []byte(`"rawPath":`)) {
 		event.Type = ApiRequest
-		return nil
-	} else if err = json.Unmarshal(data, &event.MailtoEvent); err == nil {
+		return json.Unmarshal(data, &event.ApiRequest)
+	} else if bytes.Contains(data, []byte(`"ses":`)) {
 		event.Type = MailtoEvent
-		return nil
+		return json.Unmarshal(data, &event.MailtoEvent)
 	}
-	return fmt.Errorf("failed to parse incoming event: %s", string(data[:]))
+	event.Type = UnexpectedEvent
+	return fmt.Errorf("failed to parse unexpected event: %s", string(data[:]))
 }

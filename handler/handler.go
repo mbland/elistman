@@ -3,7 +3,6 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -14,14 +13,6 @@ const defaultResponseLocation = "https://github.com/mbland/elistman"
 type LambdaHandler struct {
 	SubscribeHandler ops.SubscribeHandler
 	VerifyHandler    ops.VerifyHandler
-}
-
-func getEndpoint(request events.APIGatewayV2HTTPRequest) string {
-	if request.RouteKey == "" {
-		return request.RawPath
-	}
-	route_prefix := fmt.Sprintf("/%s", request.RouteKey)
-	return strings.TrimPrefix(request.RawPath, route_prefix)
 }
 
 func (h LambdaHandler) HandleEvent(event Event) (any, error) {
@@ -39,15 +30,14 @@ func (h LambdaHandler) HandleEvent(event Event) (any, error) {
 func (h LambdaHandler) HandleApiRequest(
 	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
-	endpoint := getEndpoint(request)
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	response.StatusCode = http.StatusSeeOther
 	response.Headers["Location"] = defaultResponseLocation
 
-	if endpoint == "/subscribe" {
+	if request.RawPath == "/subscribe" {
 		h.SubscribeHandler.HandleRequest()
 
-	} else if endpoint == "/verify" {
+	} else if request.RawPath == "/verify" {
 		h.VerifyHandler.HandleRequest()
 
 	} else {
