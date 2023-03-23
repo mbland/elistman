@@ -90,8 +90,6 @@ Resources:
   EListManReceiptRuleSet:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
     Type: AWS::SES::ReceiptRuleSet
-    Properties:
-      RuleSetName: "EListManReceiptRuleSet"
 
   EListManReceiptRuleSetPermission:
     Type: AWS::Lambda::Permission
