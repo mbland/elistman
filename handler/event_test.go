@@ -22,12 +22,12 @@ func TestUnmarshalNullEvent(t *testing.T) {
 	assert.DeepEqual(t, Event{}, e)
 }
 
-func TestUnmarshalInvalidEvent(t *testing.T) {
+func TestUnmarshalUnknownEvent(t *testing.T) {
 	e := Event{}
 
 	err := e.UnmarshalJSON([]byte(`{ "foo": "bar" }`))
 
-	assert.Error(t, err, `failed to parse unexpected event: { "foo": "bar" }`)
+	assert.NilError(t, err)
 	assert.Equal(t, "Unexpected event", e.Type.String())
 	assert.DeepEqual(t, Event{Type: UnexpectedEvent}, e)
 }
@@ -61,6 +61,12 @@ const mailtoEvent string = `{
 			"eventVersion": "1.0",
 			"eventSource": "ses.amazonaws.com",
 			"ses": {
+				"mail": {
+					"commonHeaders": {
+						"to": [ "unsubscribe@mike-bland.com" ],
+						"subject": "foo@bar.com UID"
+					}
+				}
 			}
 		}
 	]
@@ -80,7 +86,14 @@ func TestMailtoEvent(t *testing.T) {
 				{
 					EventVersion: "1.0",
 					EventSource:  "ses.amazonaws.com",
-					SES:          events.SimpleEmailService{},
+					SES: events.SimpleEmailService{
+						Mail: events.SimpleEmailMessage{
+							CommonHeaders: events.SimpleEmailCommonHeaders{
+								To:      []string{"unsubscribe@mike-bland.com"},
+								Subject: "foo@bar.com UID",
+							},
+						},
+					},
 				},
 			},
 		},

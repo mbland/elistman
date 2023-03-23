@@ -3,7 +3,6 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -45,10 +44,10 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 	} else if bytes.Contains(data, []byte(`"rawPath":`)) {
 		event.Type = ApiRequest
 		return json.Unmarshal(data, &event.ApiRequest)
-	} else if bytes.Contains(data, []byte(`"ses":`)) {
+	} else if bytes.Contains(data, []byte(`"commonHeaders":`)) {
 		event.Type = MailtoEvent
 		return json.Unmarshal(data, &event.MailtoEvent)
 	}
 	event.Type = UnexpectedEvent
-	return fmt.Errorf("failed to parse unexpected event: %s", string(data[:]))
+	return nil
 }

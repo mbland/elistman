@@ -76,7 +76,12 @@ func TestApiRequestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) 
 func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {
 	f := newFixture()
 
-	response, err := f.handleMailtoEvent([]byte(`{"Records": [{ "ses": {} }]}`))
+	response, err := f.handleMailtoEvent([]byte(`{
+		"Records": [{ "ses": { "mail": { "commonHeaders": {
+			"to": [ "unsubscribe@mike-bland.com" ],
+			"subject": "foo@bar.com UID"
+		}}}}]
+	}`))
 
 	assert.NilError(t, err)
 	assert.Equal(t, nil, response)
