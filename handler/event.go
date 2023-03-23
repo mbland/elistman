@@ -10,16 +10,13 @@ import (
 type EventType int
 
 const (
-	UnexpectedEvent EventType = iota - 1
-	NullEvent
+	NullEvent EventType = iota
 	ApiRequest
 	MailtoEvent
 )
 
 func (event EventType) String() string {
 	switch event {
-	case UnexpectedEvent:
-		return "Unexpected event"
 	case NullEvent:
 		return "Null event"
 	case ApiRequest:
@@ -48,6 +45,5 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.Type = MailtoEvent
 		return json.Unmarshal(data, &event.MailtoEvent)
 	}
-	event.Type = UnexpectedEvent
 	return nil
 }

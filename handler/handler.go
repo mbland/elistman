@@ -2,7 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -20,9 +22,12 @@ func (h LambdaHandler) HandleEvent(event Event) (any, error) {
 	case ApiRequest:
 		return h.handleApiRequest(event.ApiRequest)
 	case MailtoEvent:
-		return nil, h.handleMailtoEvent(event.MailtoEvent)
+		return nil, h.handleMailtoEvent(
+			event.MailtoEvent, "unsubscribe@"+os.Getenv("EMAIL_DOMAIN_NAME"),
+		)
+	default:
+		return nil, nil
 	}
-	return nil, fmt.Errorf("unexpected event: %+v", event)
 }
 
 func (h LambdaHandler) handleApiRequest(
@@ -30,21 +35,40 @@ func (h LambdaHandler) handleApiRequest(
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	response.StatusCode = http.StatusSeeOther
+	op, err := parseApiRequestOperation(request.RawPath, request.PathParameters)
 
-	if request.RawPath == "/subscribe" {
+	if err != nil {
+		response.StatusCode = http.StatusBadRequest
+		response.Body = err.Error()
+		return response, nil
+	}
+
+	switch op.Type {
+	case SubscribeOp:
 		h.SubscribeHandler.HandleRequest()
 		response.Headers["Location"] = defaultResponseLocation
-
-	} else if request.RawPath == "/verify" {
+	case VerifyOp:
 		h.VerifyHandler.HandleRequest()
 		response.Headers["Location"] = defaultResponseLocation
-
-	} else {
+	case UnsubscribeOp:
+	default:
 		response.StatusCode = http.StatusNotFound
 	}
 	return response, nil
 }
 
-func (h LambdaHandler) handleMailtoEvent(event events.SimpleEmailEvent) error {
+func (h LambdaHandler) handleMailtoEvent(
+	event events.SimpleEmailEvent, unsubscribe_recipient string,
+) error {
+	headers := event.Records[0].SES.Mail.CommonHeaders
+	op, err := parseMailtoEventOperation(
+		headers.From, headers.To, unsubscribe_recipient, headers.Subject,
+	)
+
+	if err != nil {
+		log.Printf("error parsing mailto event, ignoring: %s", err)
+		return nil
+	}
+	fmt.Print(op) // remove this when implemented
 	return nil
 }

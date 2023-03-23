@@ -135,7 +135,7 @@ Create a `deploy.env` file in the root directory of the following form
 ```sh
 API_DOMAIN_NAME="api.mike-bland.com"
 API_ROUTE_KEY="email"
-SENDER_EMAIL_ADDRESS="no-reply@mike-bland.com"
+EMAIL_DOMAIN_NAME="mike-bland.com"
 SENDER_NAME="Mike Bland's blog"
 SUBSCRIBERS_TABLE_NAME="TABLE_NAME"
 ```
@@ -145,7 +145,7 @@ Then run `make deploy`.
 ## URI Schema
 
 - `https://<api_hostname>/<route_key>/<operation>`
-- `mailto:unsubscribe@<email_hostname>?subject=<uid>`
+- `mailto:unsubscribe@<email_hostname>?subject=<email>%20<uid>`
 
 Where:
 
@@ -155,7 +155,8 @@ Where:
   - `/subscribe/<email>`
   - `/verify/<email>/<uid>`
   - `/unsubscribe/<email>/<uid>`
-- `<email>`: Subscriber's email address
+- `<email>`: Subscriber's URI encoded (for `https`) or query encoded (for
+  `mailto`) email address
 - `<uid>`: Identifier assigned to the subscriber by the system
 - `<email_hostname>`: Hostname serving as an SES verified identity for receiving email
 

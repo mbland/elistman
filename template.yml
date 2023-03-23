@@ -48,25 +48,25 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref EListManApi
-            Path: /subscribe
+            Path: /subscribe/{email}
             Method: POST
         Verify:
           Type: HttpApi
           Properties:
             ApiId: !Ref EListManApi
-            Path: /verify
+            Path: /verify/{email}/{uid}
             Method: GET
         UnsubscribeGet:
           Type: HttpApi
           Properties:
             ApiId: !Ref EListManApi
-            Path: /unsubscribe
+            Path: /unsubscribe/{email}/{uid}
             Method: Get
         UnsubscribePost:
           Type: HttpApi
           Properties:
             ApiId: !Ref EListManApi
-            Path: /unsubscribe
+            Path: /unsubscribe/{email}/{uid}
             Method: POST
 
   EListManApiMapping:

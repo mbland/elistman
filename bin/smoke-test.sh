@@ -13,6 +13,5 @@ if [[ "$1" == "--local" ]]; then
 fi
 
 set -xe 
-curl -d "email=mbland@acm.org" -i "${BASE_URL}/subscribe"
-curl -i "${BASE_URL}/verify"
-curl -i "${BASE_URL}/verify/"  # should return 404"
+curl -i -X POST "${BASE_URL}/subscribe/mbland%40acm.org"
+curl -i "${BASE_URL}/verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444"

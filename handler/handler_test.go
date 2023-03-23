@@ -54,23 +54,28 @@ func (f *fixture) handleMailtoEvent(data []byte) (any, error) {
 	return f.h.HandleEvent(f.e)
 }
 
-func TestUnexpectedEvent(t *testing.T) {
+func TestIgnoreUnexpectedEvent(t *testing.T) {
 	f := newFixture()
 
 	response, err := f.h.HandleEvent(f.e)
 
-	assert.ErrorContains(t, err, `unexpected event: {Type:Null event`)
+	assert.NilError(t, err)
 	assert.Equal(t, nil, response)
 }
 
 func TestApiRequestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) {
 	f := newFixture()
 
-	response, err := f.handleApiRequest([]byte(`{"rawPath": "/subscribe"}`))
+	response, err := f.handleApiRequest([]byte(`{
+		"rawPath": "/subscribe",
+		"pathParameters": {
+			"email": "mbland%40acm.org",
+			"uid": "00000000-1111-2222-3333-444444444444"
+		}
+	}`))
 
 	assert.NilError(t, err)
-	assert.Equal(t, response.StatusCode, http.StatusSeeOther)
-	assert.Equal(t, response.Headers["Location"], defaultResponseLocation)
+	assert.Equal(t, response.StatusCode, http.StatusBadRequest)
 }
 
 func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {

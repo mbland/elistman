@@ -8,11 +8,11 @@ import (
 )
 
 func TestUnknownEvent(t *testing.T) {
-	unknownEvent := UnexpectedEvent - 1
+	unknownEvent := NullEvent - 1
 	assert.Equal(t, "Unknown event", unknownEvent.String())
 }
 
-func TestUnmarshalNullEvent(t *testing.T) {
+func TestUnmarshalNullEventIsNop(t *testing.T) {
 	e := Event{}
 
 	err := e.UnmarshalJSON([]byte("null"))
@@ -22,14 +22,14 @@ func TestUnmarshalNullEvent(t *testing.T) {
 	assert.DeepEqual(t, Event{}, e)
 }
 
-func TestUnmarshalUnknownEvent(t *testing.T) {
+func TestUnmarshalUnknownEventIsNop(t *testing.T) {
 	e := Event{}
 
 	err := e.UnmarshalJSON([]byte(`{ "foo": "bar" }`))
 
 	assert.NilError(t, err)
-	assert.Equal(t, "Unexpected event", e.Type.String())
-	assert.DeepEqual(t, Event{Type: UnexpectedEvent}, e)
+	assert.Equal(t, "Null event", e.Type.String())
+	assert.DeepEqual(t, Event{}, e)
 }
 
 const apiRequest = `{
