@@ -271,6 +271,10 @@ This software is made available as [Open Source software][oss-def] under the
 - [One-Click List-Unsubscribe Header – RFC 8058][]
 - [List-Unsubscribe header critical for sustained email delivery][]
 - [Stack Overflow: Post parameter in path or in body][]
+- [How to Verify Email Address Without Sending an Email][]
+- [25, 2525, 465, 587, and Other Numbers: All About SMTP Ports][]
+- [How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)][]
+- [Which SMTP port should I use? Understanding ports 25, 465 & 587][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -330,3 +334,7 @@ This software is made available as [Open Source software][oss-def] under the
 [One-Click List-Unsubscribe Header – RFC 8058]: https://certified-senders.org/wp-content/uploads/2017/07/CSA_one-click_list-unsubscribe.pdf
 [List-Unsubscribe header critical for sustained email delivery]: https://www.postmastery.com/list-unsubscribe-header-critical-for-sustained-email-delivery/
 [Stack Overflow: Post parameter in path or in body]: https://stackoverflow.com/questions/42390564/post-parameter-in-path-or-in-body
+[How to Verify Email Address Without Sending an Email]: https://mailtrap.io/blog/verify-email-address-without-sending/
+[25, 2525, 465, 587, and Other Numbers: All About SMTP Ports]: https://mailtrap.io/blog/smtp-ports-25-465-587-used-for/
+[How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)]: https://kinsta.com/blog/smtp-port/
+[Which SMTP port should I use? Understanding ports 25, 465 & 587]: https://www.mailgun.com/blog/email/which-smtp-port-understanding-ports-25-465-587/
