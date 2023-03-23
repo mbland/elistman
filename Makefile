@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .POSIX:
-.PHONY: all clean test coverage delete build-EListMan
+.PHONY: all clean delete deploy run-local sam-build coverage test build-EListMan
 
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
 # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html

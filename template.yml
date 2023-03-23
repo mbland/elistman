@@ -9,7 +9,7 @@ Parameters:
     Type: String
   ApiRouteKey:
     Type: String
-  SenderEmailAddress:
+  EmailDomainName:
     Type: String
   SenderName:
     Type: String
@@ -36,12 +36,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SubscribersTableName
         - SESCrudPolicy:
-            IdentityName: !Select [ "1", !Split [ "@", !Ref SenderEmailAddress ] ]
+            IdentityName: !Ref EmailDomainName
       Tracing: Active
       Environment:
         Variables:
           SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
-          SENDER_EMAIL_ADDRESS: !Ref SenderEmailAddress
+          EMAIL_DOMAIN_NAME: !Ref EmailDomainName
           SENDER_NAME: !Ref SenderName
       Events:
         Subscribe:
@@ -56,6 +56,18 @@ Resources:
             ApiId: !Ref EListManApi
             Path: /verify
             Method: GET
+        UnsubscribeGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EListManApi
+            Path: /unsubscribe
+            Method: Get
+        UnsubscribePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EListManApi
+            Path: /unsubscribe
+            Method: POST
 
   EListManApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
@@ -75,6 +87,37 @@ Resources:
         ThrottlingRateLimit: 10
         ThrottlingBurstLimit: 100
 
+  EListManReceiptRuleSet:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: "EListManReceiptRuleSet"
+
+  EListManReceiptRuleSetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt EListMan.Arn
+      Principal: "ses.amazonaws.com"
+      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${EListManReceiptRuleSet}:receipt-rule/*"
+
+  EListManUnsubscribeReceiptRule:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
+    Type: AWS::SES::ReceiptRule
+    Properties:
+      RuleSetName: !Ref EListManReceiptRuleSet
+      Rule:
+        Name: EListManUnsubscribe
+        Enabled: true
+        TlsPolicy: Require
+        ScanEnabled: true
+        Recipients:
+          - !Sub "unsubscribe@${EmailDomainName}"
+        Actions:
+          - LambdaAction:
+              FunctionArn: !GetAtt EListMan.Arn
+    DependsOn: EListManReceiptRuleSetPermission
+
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   EListManApi:
@@ -88,4 +131,4 @@ Outputs:
     Value: !GetAtt EListManRole.Arn
   SenderEmailAddress:
     Description: "Sender email address"
-    Value: !Ref SenderEmailAddress
+    Value: !Sub "${SenderName} <no-reply@${EmailDomainName}>"
