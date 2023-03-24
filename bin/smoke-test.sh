@@ -13,5 +13,21 @@ if [[ "$1" == "--local" ]]; then
 fi
 
 set -xe 
+
+echo Expect 303
 curl -i -X POST "${BASE_URL}/subscribe/mbland%40acm.org"
+
+echo Expect 303
 curl -i "${BASE_URL}/verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444"
+
+echo Expect 404
+curl -i -X POST "${BASE_URL}/foobar/mbland%40acm.org"
+
+echo Expect 303
+curl -i -X POST "${BASE_URL}/subscribe/foo%20bar"
+
+echo Expect 400
+curl -i "${BASE_URL}/verify/foobar/00000000-1111-2222-3333-444444444444"
+
+echo Expect 400
+curl -i "${BASE_URL}/unsubscribe/mbland%40acm.org/bad-uid"

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -34,12 +35,11 @@ func (h LambdaHandler) handleApiRequest(
 	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
-	response.StatusCode = http.StatusSeeOther
+	response.Headers["Content-Type"] = "text/plain; charset=utf-8"
 	op, err := parseApiRequestOperation(request.RawPath, request.PathParameters)
 
 	if err != nil {
-		response.StatusCode = http.StatusBadRequest
-		response.Body = err.Error()
+		h.prepareParseErrorResponse(request.RawPath, &response, err)
 		return response, nil
 	}
 
@@ -54,15 +54,32 @@ func (h LambdaHandler) handleApiRequest(
 	default:
 		response.StatusCode = http.StatusNotFound
 	}
+	response.StatusCode = http.StatusSeeOther
 	return response, nil
 }
 
+func (h LambdaHandler) prepareParseErrorResponse(
+	endpoint string, response *events.APIGatewayV2HTTPResponse, err error,
+) {
+	// Treat email parse errors differently for the Subscribe operation, since
+	// it may be due to a user typo. In all other cases, the assumption is that
+	// it's a bad machine generated request.
+	if strings.Contains(err.Error(), "failed to parse email") &&
+		strings.HasPrefix(endpoint, SubcribePrefix) {
+		response.StatusCode = http.StatusSeeOther
+		response.Headers["Location"] = defaultResponseLocation
+	} else {
+		response.StatusCode = http.StatusBadRequest
+		response.Body = fmt.Sprintf("%s\n", err)
+	}
+}
+
 func (h LambdaHandler) handleMailtoEvent(
-	event events.SimpleEmailEvent, unsubscribe_recipient string,
+	event events.SimpleEmailEvent, unsubscribeRecipient string,
 ) error {
 	headers := event.Records[0].SES.Mail.CommonHeaders
 	op, err := parseMailtoEventOperation(
-		headers.From, headers.To, unsubscribe_recipient, headers.Subject,
+		headers.From, headers.To, unsubscribeRecipient, headers.Subject,
 	)
 
 	if err != nil {

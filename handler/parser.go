@@ -2,10 +2,17 @@ package handler
 
 import (
 	"fmt"
+	"net/mail"
 	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
+)
+
+const (
+	SubcribePrefix    = "/subscribe/"
+	VerifyPrefix      = "/verify/"
+	UnsubscribePrefix = "/unsubscribe/"
 )
 
 type eventOperationType int
@@ -26,73 +33,120 @@ type eventOperation struct {
 func parseApiRequestOperation(
 	endpoint string, params map[string]string,
 ) (*eventOperation, error) {
-	op := eventOperation{}
-
-	if strings.HasPrefix(endpoint, "/subscribe/") {
-		op.Type = SubscribeOp
-	} else if strings.HasPrefix(endpoint, "/verify/") {
-		op.Type = VerifyOp
-	} else if strings.HasPrefix(endpoint, "/unsubscribe/") {
-		op.Type = UnsubscribeOp
+	if optype, err := parseOperationTypeFromEndpoint(endpoint); err != nil {
+		return nil, err
+	} else if email, err := parseEmailFromPathParam(endpoint, params); err != nil {
+		return nil, err
+	} else if uid, err := parseUidFromPathParam(optype, endpoint, params); err != nil {
+		return nil, err
 	} else {
-		return nil, fmt.Errorf("unexpected endpoint: %s", endpoint)
+		return &eventOperation{Type: optype, Email: email, Uid: uid}, nil
 	}
+}
 
+func parseOperationTypeFromEndpoint(
+	endpoint string,
+) (eventOperationType, error) {
+	if strings.HasPrefix(endpoint, SubcribePrefix) {
+		return SubscribeOp, nil
+	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
+		return VerifyOp, nil
+	} else if strings.HasPrefix(endpoint, UnsubscribePrefix) {
+		return UnsubscribeOp, nil
+	}
+	return UndefinedOp, fmt.Errorf("unexpected endpoint: %s", endpoint)
+}
+
+func parseEmailFromPathParam(
+	endpoint string, params map[string]string,
+) (string, error) {
 	if escapedEmail, ok := params["email"]; !ok {
-		return nil, fmt.Errorf("missing email path parameter: %s", endpoint)
-	} else if email, err := url.PathUnescape(escapedEmail); err != nil {
-		return nil, fmt.Errorf(
+		return "", fmt.Errorf("missing email path parameter: %s", endpoint)
+	} else if emailParam, err := url.PathUnescape(escapedEmail); err != nil {
+		return "", fmt.Errorf(
 			"failed to unescape email path parameter: %s: %s", escapedEmail, err,
 		)
+	} else if email, err := mail.ParseAddress(emailParam); err != nil {
+		return "", fmt.Errorf(
+			"failed to parse email path parameter: %s: %s", emailParam, err,
+		)
 	} else {
-		op.Email = email
+		return email.Address, nil
 	}
+}
 
-	if op.Type == SubscribeOp {
-		return &op, nil
-	}
-
-	if uidParam, ok := params["uid"]; !ok {
-		return nil, fmt.Errorf("missing uid path parameter: %s", endpoint)
+func parseUidFromPathParam(
+	optype eventOperationType, endpoint string, params map[string]string,
+) (uuid.UUID, error) {
+	if optype == SubscribeOp {
+		return uuid.Nil, nil
+	} else if uidParam, ok := params["uid"]; !ok {
+		return uuid.Nil, fmt.Errorf("missing uid path parameter: %s", endpoint)
 	} else if uid, err := uuid.Parse(uidParam); err != nil {
-		return nil, fmt.Errorf("failed to parse uid path parameter: %s", err)
+		return uuid.Nil, fmt.Errorf(
+			"failed to parse uid path parameter: %s: %s", uidParam, err,
+		)
 	} else {
-		op.Uid = uid
+		return uid, nil
 	}
-	return &op, nil
 }
 
 func parseMailtoEventOperation(
-	froms, tos []string, unsubscribe_recipient, subject string,
+	froms, tos []string, unsubscribeRecipient, subject string,
 ) (*eventOperation, error) {
-	op := eventOperation{}
+	if err := checkMailAddresses(froms, tos, unsubscribeRecipient); err != nil {
+		return nil, err
+	} else if email, uid, err := parseEmailSubject(subject); err != nil {
+		return nil, err
+	} else {
+		return &eventOperation{Type: UnsubscribeOp, Email: email, Uid: uid}, nil
+	}
+}
 
+func checkMailAddresses(
+	froms, tos []string, unsubscribeRecipient string,
+) error {
 	if len(froms) != 1 {
-		return nil, fmt.Errorf(
-			"too many From addresses: %s", strings.Join(froms, ","),
+		return fmt.Errorf(
+			"more than one From address: %s", strings.Join(froms, ","),
 		)
 	} else if len(tos) != 1 {
-		return nil, fmt.Errorf(
-			"too many To: addresses: %s", strings.Join(tos, ","),
+		return fmt.Errorf(
+			"more than one To: address: %s", strings.Join(tos, ","),
 		)
-	} else if to := tos[0]; to != unsubscribe_recipient {
-		return nil, fmt.Errorf(
-			"not addressed to %s: %s", unsubscribe_recipient, to,
-		)
-	} else if params := strings.Split(subject, " "); len(params) != 2 {
-		return nil, fmt.Errorf(
+	} else if to := tos[0]; to != unsubscribeRecipient {
+		return fmt.Errorf("not addressed to %s: %s", unsubscribeRecipient, to)
+	}
+	return nil
+}
+
+func parseEmailSubject(subject string) (string, uuid.UUID, error) {
+	params := strings.Split(subject, " ")
+	if len(params) != 2 || params[0] == "" || params[1] == "" {
+		return "", uuid.Nil, fmt.Errorf(
 			"subject not in `<email> <uid>` format: %s", subject,
 		)
-	} else if email, err := url.QueryUnescape(params[0]); err != nil {
-		return nil, fmt.Errorf(
-			"failed to unescape email from subject: %s: %s", params[0], err,
-		)
+	} else if email, err := parseEmailFromSubject(params[0]); err != nil {
+		return "", uuid.Nil, err
 	} else if uid, err := uuid.Parse(params[1]); err != nil {
-		return nil, fmt.Errorf("invalid uid in subject: %s: %s", params[1], err)
+		return "", uuid.Nil, fmt.Errorf(
+			"invalid uid in subject: %s: %s", params[1], err,
+		)
 	} else {
-		op.Type = UnsubscribeOp
-		op.Email = email
-		op.Uid = uid
+		return email, uid, nil
 	}
-	return &op, nil
+}
+
+func parseEmailFromSubject(escapedEmail string) (string, error) {
+	if emailParam, err := url.QueryUnescape(escapedEmail); err != nil {
+		return "", fmt.Errorf(
+			"failed to unescape email from subject: %s: %s", escapedEmail, err,
+		)
+	} else if email, err := mail.ParseAddress(emailParam); err != nil {
+		return "", fmt.Errorf(
+			"failed to parse email from subject: %s: %s", emailParam, err,
+		)
+	} else {
+		return email.Address, nil
+	}
 }
