@@ -3,7 +3,6 @@ package handler
 import (
 	"fmt"
 	"net/mail"
-	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -60,12 +59,8 @@ func parseOperationTypeFromEndpoint(
 func parseEmailFromPathParam(
 	endpoint string, params map[string]string,
 ) (string, error) {
-	if escapedEmail, ok := params["email"]; !ok {
+	if emailParam, ok := params["email"]; !ok {
 		return "", fmt.Errorf("missing email path parameter: %s", endpoint)
-	} else if emailParam, err := url.PathUnescape(escapedEmail); err != nil {
-		return "", fmt.Errorf(
-			"failed to unescape email path parameter: %s: %s", escapedEmail, err,
-		)
 	} else if email, err := mail.ParseAddress(emailParam); err != nil {
 		return "", fmt.Errorf(
 			"failed to parse email path parameter: %s: %s", emailParam, err,
@@ -137,12 +132,8 @@ func parseEmailSubject(subject string) (string, uuid.UUID, error) {
 	}
 }
 
-func parseEmailFromSubject(escapedEmail string) (string, error) {
-	if emailParam, err := url.QueryUnescape(escapedEmail); err != nil {
-		return "", fmt.Errorf(
-			"failed to unescape email from subject: %s: %s", escapedEmail, err,
-		)
-	} else if email, err := mail.ParseAddress(emailParam); err != nil {
+func parseEmailFromSubject(emailParam string) (string, error) {
+	if email, err := mail.ParseAddress(emailParam); err != nil {
 		return "", fmt.Errorf(
 			"failed to parse email from subject: %s: %s", emailParam, err,
 		)
