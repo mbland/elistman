@@ -35,7 +35,7 @@ func (h LambdaHandler) handleApiRequest(
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	response.Headers["Content-Type"] = "text/plain; charset=utf-8"
-	op, err := parseApiRequestOperation(request.RawPath, request.PathParameters)
+	op, err := parseApiEvent(request.RawPath, request.PathParameters)
 
 	if err != nil {
 		h.prepareParseErrorResponse(request.RawPath, &response, err)
@@ -87,12 +87,14 @@ func (h LambdaHandler) prepareParseErrorResponse(
 func (h LambdaHandler) handleMailtoEvent(
 	event events.SimpleEmailEvent, unsubscribeRecipient string,
 ) error {
-	headers := event.Records[0].SES.Mail.CommonHeaders
-	op, err := parseMailtoEventOperation(
-		headers.From, headers.To, unsubscribeRecipient, headers.Subject,
-	)
+	ses := event.Records[0].SES
+	headers := ses.Mail.CommonHeaders
 
-	if err != nil {
+	if isSpam(ses.Receipt) {
+		return nil
+	} else if op, err := parseMailtoEvent(
+		headers.From, headers.To, unsubscribeRecipient, headers.Subject,
+	); err != nil {
 		log.Printf("error parsing mailto event, ignoring: %s", err)
 	} else if ok, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
 		return fmt.Errorf("error while unsubscribing %s: %s", op.Email, err)
@@ -100,4 +102,8 @@ func (h LambdaHandler) handleMailtoEvent(
 		log.Printf("unsubscribed: %s", op.Email)
 	}
 	return nil
+}
+
+func isSpam(receipt events.SimpleEmailReceipt) bool {
+	return false
 }

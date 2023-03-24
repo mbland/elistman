@@ -29,7 +29,7 @@ type eventOperation struct {
 	Uid   uuid.UUID
 }
 
-func parseApiRequestOperation(
+func parseApiEvent(
 	endpoint string, params map[string]string,
 ) (*eventOperation, error) {
 	if optype, err := parseOperationType(endpoint); err != nil {
@@ -80,7 +80,7 @@ func parseUidParam(
 	}
 }
 
-func parseMailtoEventOperation(
+func parseMailtoEvent(
 	froms, tos []string, unsubscribeRecipient, subject string,
 ) (*eventOperation, error) {
 	if err := checkMailAddresses(froms, tos, unsubscribeRecipient); err != nil {
