@@ -6,16 +6,22 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/google/uuid"
 	"gotest.tools/assert"
 )
 
-type testSubscribeHandler struct{}
-type testVerifyHandler struct{}
+type testAgent struct{}
 
-func (h testSubscribeHandler) HandleRequest() {
+func (h testAgent) Subscribe(email string) (bool, error) {
+	return true, nil
 }
 
-func (h testVerifyHandler) HandleRequest() {
+func (h testAgent) Verify(email string, uid uuid.UUID) (bool, error) {
+	return true, nil
+}
+
+func (h testAgent) Unsubscribe(email string, uid uuid.UUID) (bool, error) {
+	return true, nil
 }
 
 type fixture struct {
@@ -26,8 +32,7 @@ type fixture struct {
 func newFixture() *fixture {
 	return &fixture{
 		h: LambdaHandler{
-			SubscribeHandler: testSubscribeHandler{},
-			VerifyHandler:    testVerifyHandler{},
+			Agent: testAgent{},
 		},
 	}
 }

@@ -14,8 +14,7 @@ import (
 const defaultResponseLocation = "https://github.com/mbland/elistman"
 
 type LambdaHandler struct {
-	SubscribeHandler ops.SubscribeHandler
-	VerifyHandler    ops.VerifyHandler
+	Agent ops.SubscriptionAgent
 }
 
 func (h LambdaHandler) HandleEvent(event Event) (any, error) {
@@ -43,18 +42,29 @@ func (h LambdaHandler) handleApiRequest(
 		return response, nil
 	}
 
+	ok := false
+
 	switch op.Type {
 	case SubscribeOp:
-		h.SubscribeHandler.HandleRequest()
-		response.Headers["Location"] = defaultResponseLocation
+		ok, err = h.Agent.Subscribe(op.Email)
 	case VerifyOp:
-		h.VerifyHandler.HandleRequest()
-		response.Headers["Location"] = defaultResponseLocation
+		ok, err = h.Agent.Verify(op.Email, op.Uid)
 	case UnsubscribeOp:
+		ok, err = h.Agent.Unsubscribe(op.Email, op.Uid)
 	default:
 		response.StatusCode = http.StatusNotFound
 	}
+
+	if err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	} else if ok {
+		log.Printf("TODO: Redirect to success page")
+	} else {
+		log.Printf("TODO: Redirect to error page")
+	}
 	response.StatusCode = http.StatusSeeOther
+	response.Headers["Location"] = defaultResponseLocation
 	return response, nil
 }
 
@@ -84,8 +94,10 @@ func (h LambdaHandler) handleMailtoEvent(
 
 	if err != nil {
 		log.Printf("error parsing mailto event, ignoring: %s", err)
-		return nil
+	} else if ok, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
+		return fmt.Errorf("error while unsubscribing %s: %s", op.Email, err)
+	} else if ok {
+		log.Printf("unsubscribed: %s", op.Email)
 	}
-	fmt.Print(op) // remove this when implemented
 	return nil
 }

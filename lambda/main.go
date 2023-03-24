@@ -20,13 +20,13 @@ func buildHandler() (*handler.LambdaHandler, error) {
 		return nil, err
 	}
 
-	sh := ops.ProdSubscribeHandler{
-		Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
-		Validator: email.AddressValidatorImpl{},
-		Mailer:    email.NewSesMailer(cfg),
-	}
-	vh := ops.ProdVerifyHandler{Db: sh.Db, Mailer: sh.Mailer}
-	return &handler.LambdaHandler{SubscribeHandler: sh, VerifyHandler: vh}, nil
+	return &handler.LambdaHandler{
+		Agent: ops.ProdAgent{
+			Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+			Validator: email.AddressValidatorImpl{},
+			Mailer:    email.NewSesMailer(cfg),
+		},
+	}, nil
 }
 
 func main() {
