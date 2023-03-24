@@ -74,7 +74,7 @@ func (h LambdaHandler) prepareParseErrorResponse(
 	// Treat email parse errors differently for the Subscribe operation, since
 	// it may be due to a user typo. In all other cases, the assumption is that
 	// it's a bad machine generated request.
-	if strings.Contains(err.Error(), "failed to parse email") &&
+	if strings.Contains(err.Error(), "invalid email address") &&
 		strings.HasPrefix(endpoint, SubcribePrefix) {
 		response.StatusCode = http.StatusSeeOther
 		response.Headers["Location"] = defaultResponseLocation

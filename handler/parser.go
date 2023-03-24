@@ -32,20 +32,18 @@ type eventOperation struct {
 func parseApiRequestOperation(
 	endpoint string, params map[string]string,
 ) (*eventOperation, error) {
-	if optype, err := parseOperationTypeFromEndpoint(endpoint); err != nil {
+	if optype, err := parseOperationType(endpoint); err != nil {
 		return nil, err
-	} else if email, err := parseEmailFromPathParam(endpoint, params); err != nil {
+	} else if email, err := parseEmailParam(endpoint, params); err != nil {
 		return nil, err
-	} else if uid, err := parseUidFromPathParam(optype, endpoint, params); err != nil {
+	} else if uid, err := parseUidParam(optype, endpoint, params); err != nil {
 		return nil, err
 	} else {
 		return &eventOperation{Type: optype, Email: email, Uid: uid}, nil
 	}
 }
 
-func parseOperationTypeFromEndpoint(
-	endpoint string,
-) (eventOperationType, error) {
+func parseOperationType(endpoint string) (eventOperationType, error) {
 	if strings.HasPrefix(endpoint, SubcribePrefix) {
 		return SubscribeOp, nil
 	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
@@ -56,31 +54,27 @@ func parseOperationTypeFromEndpoint(
 	return UndefinedOp, fmt.Errorf("unexpected endpoint: %s", endpoint)
 }
 
-func parseEmailFromPathParam(
+func parseEmailParam(
 	endpoint string, params map[string]string,
 ) (string, error) {
 	if emailParam, ok := params["email"]; !ok {
-		return "", fmt.Errorf("missing email path parameter: %s", endpoint)
+		return "", fmt.Errorf("missing email parameter: %s", endpoint)
 	} else if email, err := mail.ParseAddress(emailParam); err != nil {
-		return "", fmt.Errorf(
-			"failed to parse email path parameter: %s: %s", emailParam, err,
-		)
+		return "", fmt.Errorf("invalid email address: %s: %s", emailParam, err)
 	} else {
 		return email.Address, nil
 	}
 }
 
-func parseUidFromPathParam(
+func parseUidParam(
 	optype eventOperationType, endpoint string, params map[string]string,
 ) (uuid.UUID, error) {
 	if optype == SubscribeOp {
 		return uuid.Nil, nil
 	} else if uidParam, ok := params["uid"]; !ok {
-		return uuid.Nil, fmt.Errorf("missing uid path parameter: %s", endpoint)
+		return uuid.Nil, fmt.Errorf("missing uid parameter: %s", endpoint)
 	} else if uid, err := uuid.Parse(uidParam); err != nil {
-		return uuid.Nil, fmt.Errorf(
-			"failed to parse uid path parameter: %s: %s", uidParam, err,
-		)
+		return uuid.Nil, fmt.Errorf("invalid uid: %s: %s", uidParam, err)
 	} else {
 		return uid, nil
 	}
@@ -107,7 +101,7 @@ func checkMailAddresses(
 		)
 	} else if len(tos) != 1 {
 		return fmt.Errorf(
-			"more than one To: address: %s", strings.Join(tos, ","),
+			"more than one To address: %s", strings.Join(tos, ","),
 		)
 	} else if to := tos[0]; to != unsubscribeRecipient {
 		return fmt.Errorf("not addressed to %s: %s", unsubscribeRecipient, to)
@@ -121,23 +115,13 @@ func parseEmailSubject(subject string) (string, uuid.UUID, error) {
 		return "", uuid.Nil, fmt.Errorf(
 			"subject not in `<email> <uid>` format: %s", subject,
 		)
-	} else if email, err := parseEmailFromSubject(params[0]); err != nil {
-		return "", uuid.Nil, err
-	} else if uid, err := uuid.Parse(params[1]); err != nil {
+	} else if email, err := mail.ParseAddress(params[0]); err != nil {
 		return "", uuid.Nil, fmt.Errorf(
-			"invalid uid in subject: %s: %s", params[1], err,
+			"invalid email address: %s: %s", params[0], err,
 		)
+	} else if uid, err := uuid.Parse(params[1]); err != nil {
+		return "", uuid.Nil, fmt.Errorf("invalid uid: %s: %s", params[1], err)
 	} else {
-		return email, uid, nil
-	}
-}
-
-func parseEmailFromSubject(emailParam string) (string, error) {
-	if email, err := mail.ParseAddress(emailParam); err != nil {
-		return "", fmt.Errorf(
-			"failed to parse email from subject: %s: %s", emailParam, err,
-		)
-	} else {
-		return email.Address, nil
+		return email.Address, uid, nil
 	}
 }
