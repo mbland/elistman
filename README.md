@@ -275,6 +275,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [25, 2525, 465, 587, and Other Numbers: All About SMTP Ports][]
 - [How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)][]
 - [Which SMTP port should I use? Understanding ports 25, 465 & 587][]
+- [Using curl to send email][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -338,3 +339,4 @@ This software is made available as [Open Source software][oss-def] under the
 [25, 2525, 465, 587, and Other Numbers: All About SMTP Ports]: https://mailtrap.io/blog/smtp-ports-25-465-587-used-for/
 [How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)]: https://kinsta.com/blog/smtp-port/
 [Which SMTP port should I use? Understanding ports 25, 465 & 587]: https://www.mailgun.com/blog/email/which-smtp-port-understanding-ports-25-465-587/
+[Using curl to send email]: https://stackoverflow.com/questions/14722556/using-curl-to-send-email
