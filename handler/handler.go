@@ -104,6 +104,8 @@ func (h LambdaHandler) handleMailtoEvent(
 	return nil
 }
 
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 func isSpam(receipt events.SimpleEmailReceipt) bool {
 	return false
 }

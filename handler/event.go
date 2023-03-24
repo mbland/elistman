@@ -34,7 +34,9 @@ type Event struct {
 }
 
 // Inspired by:
-// https://www.synvert-tcm.com/blog/handling-multiple-aws-lambda-event-types-with-go/
+// - https://www.synvert-tcm.com/blog/handling-multiple-aws-lambda-event-types-with-go/
+// See also:
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-event.html
 func (event *Event) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte("null")) {
 		return nil
