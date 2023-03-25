@@ -7,7 +7,7 @@ Description: >
 Parameters:
   ApiDomainName:
     Type: String
-  ApiRouteKey:
+  ApiMappingKey:
     Type: String
   EmailDomainName:
     Type: String
@@ -74,7 +74,7 @@ Resources:
     Properties:
       ApiId: !Ref EListManApi
       DomainName: !Ref ApiDomainName
-      ApiMappingKey: !Ref ApiRouteKey
+      ApiMappingKey: !Ref ApiMappingKey
       # https://github.com/aws/serverless-application-model/issues/192#issuecomment-520893111
       Stage: !Ref EListManApi.Stage
 
@@ -120,7 +120,7 @@ Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   EListManApi:
     Description: "API Gateway root URL for the EListMan function"
-    Value: !Sub "https://${ApiDomainName}/${ApiRouteKey}"
+    Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
   EListManFunction:
     Description: "EListMan Lambda function ARN"
     Value: !GetAtt EListMan.Arn
