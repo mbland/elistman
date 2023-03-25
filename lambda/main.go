@@ -13,20 +13,18 @@ import (
 	"github.com/mbland/elistman/ops"
 )
 
-func buildHandler() (*handler.LambdaHandler, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-
-	if err != nil {
+func buildHandler() (*handler.Handler, error) {
+	if cfg, err := config.LoadDefaultConfig(context.TODO()); err != nil {
 		return nil, err
+	} else {
+		return &handler.Handler{
+			Agent: ops.ProdAgent{
+				Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+				Validator: email.AddressValidatorImpl{},
+				Mailer:    email.NewSesMailer(cfg),
+			},
+		}, nil
 	}
-
-	return &handler.LambdaHandler{
-		Agent: ops.ProdAgent{
-			Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
-			Validator: email.AddressValidatorImpl{},
-			Mailer:    email.NewSesMailer(cfg),
-		},
-	}, nil
 }
 
 func main() {

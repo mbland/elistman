@@ -26,12 +26,12 @@ func (h testAgent) Unsubscribe(email string, uid uuid.UUID) (bool, error) {
 
 type fixture struct {
 	e Event
-	h LambdaHandler
+	h Handler
 }
 
 func newFixture() *fixture {
 	return &fixture{
-		h: LambdaHandler{
+		h: Handler{
 			Agent: testAgent{},
 		},
 	}

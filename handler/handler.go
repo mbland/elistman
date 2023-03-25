@@ -13,11 +13,11 @@ import (
 
 const defaultResponseLocation = "https://github.com/mbland/elistman"
 
-type LambdaHandler struct {
+type Handler struct {
 	Agent ops.SubscriptionAgent
 }
 
-func (h LambdaHandler) HandleEvent(event Event) (any, error) {
+func (h *Handler) HandleEvent(event Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
 		return h.handleApiRequest(event.ApiRequest)
@@ -30,7 +30,7 @@ func (h LambdaHandler) HandleEvent(event Event) (any, error) {
 	}
 }
 
-func (h LambdaHandler) handleApiRequest(
+func (h *Handler) handleApiRequest(
 	request events.APIGatewayV2HTTPRequest,
 ) (events.APIGatewayV2HTTPResponse, error) {
 	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
@@ -68,7 +68,7 @@ func (h LambdaHandler) handleApiRequest(
 	return response, nil
 }
 
-func (h LambdaHandler) prepareParseErrorResponse(
+func (h *Handler) prepareParseErrorResponse(
 	endpoint string, response *events.APIGatewayV2HTTPResponse, err error,
 ) {
 	// Treat email parse errors differently for the Subscribe operation, since
@@ -84,7 +84,10 @@ func (h LambdaHandler) prepareParseErrorResponse(
 	}
 }
 
-func (h LambdaHandler) handleMailtoEvent(
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
+// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
+func (h *Handler) handleMailtoEvent(
 	event events.SimpleEmailEvent, unsubscribeRecipient string,
 ) error {
 	ses := event.Records[0].SES
@@ -104,8 +107,6 @@ func (h LambdaHandler) handleMailtoEvent(
 	return nil
 }
 
-// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
-// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 func isSpam(receipt events.SimpleEmailReceipt) bool {
 	return false
 }
