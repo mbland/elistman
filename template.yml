@@ -15,6 +15,18 @@ Parameters:
     Type: String
   SubscribersTableName:
     Type: String
+  InvalidRequestUrl:
+    Type: String
+  AlreadySubscribedUrl:
+    Type: String
+  VerifyLinkSentUrl:
+    Type: String
+  SubscribedUrl:
+    Type: String
+  NotSubscribedUrl:
+    Type: String
+  UnsubscribedUrl:
+    Type: String
 
 Resources:
   EListMan:
@@ -40,9 +52,17 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
-          SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
+          API_DOMAIN_NAME: !Ref ApiDomainName
+          API_MAPPING_KEY: !Ref ApiMappingKey
           EMAIL_DOMAIN_NAME: !Ref EmailDomainName
           SENDER_NAME: !Ref SenderName
+          SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
+          INVALID_REQUEST_URL: !Ref InvalidRequestUrl
+          ALREADY_SUBSCRIBED_URL: !Ref AlreadySubscribedUrl
+          VERIFY_LINK_SENT_URL: !Ref VerifyLinkSentUrl
+          SUBSCRIBED_URL: !Ref SubscribedUrl
+          NOT_SUBSCRIBED_URL: !Ref NotSubscribedUrl
+          UNSUBSCRIBED_URL: !Ref UnsubscribedUrl
       Events:
         Subscribe:
           Type: HttpApi

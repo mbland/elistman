@@ -16,10 +16,12 @@ import (
 func buildHandler() (*handler.Handler, error) {
 	if cfg, err := config.LoadDefaultConfig(context.TODO()); err != nil {
 		return nil, err
+	} else if opts, err := handler.GetOptions(os.Getenv); err != nil {
+		return nil, err
 	} else {
 		return &handler.Handler{
 			Agent: ops.ProdAgent{
-				Db:        db.NewDynamoDb(cfg, os.Getenv("DB_TABLE_NAME")),
+				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    email.NewSesMailer(cfg),
 			},
