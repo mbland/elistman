@@ -46,30 +46,6 @@ check_for_tool() {
   fi
 }
 
-install_tool() {
-  local tool="$1"
-  local version_flag="$2"
-  local msg="$3"
-  local install_tool="$4"
-  shift 4
-  local install_cmd=("$(tool_path "$install_tool")" "${@}")
-
-  if find_tool "$tool" "$version_flag"; then
-    return
-  elif [[ -z "${install_cmd[0]}" ]]; then
-    printf "Could not install '%s' because '%s' not found\n" \
-      "$tool" "$install_tool" >&2
-    ((EXIT_CODE+=1))
-  elif ! "${install_cmd[@]}"; then
-    printf "Failed to install '%s' via: %s\n  %s\n" \
-      "$tool" "${install_cmd[*]}" "$msg" >&2
-    ((EXIT_CODE+=1))
-  else
-    tool="$(tool_path "$tool")"
-    printf "Installed: %s\n       %s\n" "$tool" "$("$tool" "$version_flag")"
-  fi
-}
-
 EXIT_CODE=0
 
 check_for_tool go version \
@@ -83,9 +59,6 @@ check_for_tool --optional docker --version \
   "See https://docs.docker.com/get-docker/"
 check_for_tool --optional curl --version \
   "See https://curl.se/download.html or https://winget.run/pkg/cURL/cURL"
-
-install_tool staticcheck --version "See https://staticcheck.io" \
-  go install honnef.co/go/tools/cmd/staticcheck@latest
 
 if [[ $EXIT_CODE -ne 0 ]]; then
   printf "\n%s\n" \
