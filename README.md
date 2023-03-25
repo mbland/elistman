@@ -2,8 +2,12 @@
 
 Mailing list system providing address validation and unsubscribe URIs.
 
+Source: <https://github.com/mbland/elistman>
+
 _**NOTE:** This project is just beginning. When it's operational, I'll remove
 this notice._
+
+[![License](https://img.shields.io/github/license/mbland/elistman.svg)](https://github.com/mbland/elistman/blob/main/LICENSE.txt)
 
 Only serves one list at a time as defined by deployment parameters. (_I may
 change this in a future version._)
