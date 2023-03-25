@@ -20,7 +20,7 @@ curl -i -X POST "${BASE_URL}/subscribe/mbland%40acm.org"
 echo Expect 303
 curl -i "${BASE_URL}/verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444"
 
-echo Expect 404
+echo Expect 403
 curl -i -X POST "${BASE_URL}/foobar/mbland%40acm.org"
 
 echo Expect 303
