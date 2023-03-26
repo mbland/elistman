@@ -29,4 +29,9 @@ jobs:
         run: go build -v ./...
 
       - name: Test
-        run: go test -covermode=count ./...
+        run: go test -covermode=count -coverprofile=coverage.out ./...
+
+      - name: Post test coverage to Coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.out
