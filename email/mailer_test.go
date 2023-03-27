@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
 )
 
 func newTestMailer() *SesMailer {
@@ -17,5 +17,5 @@ func newTestMailer() *SesMailer {
 func TestMailerInitialization(t *testing.T) {
 	mailer := newTestMailer()
 
-	assert.NotNil(t, mailer)
+	assert.Assert(t, mailer != nil)
 }
