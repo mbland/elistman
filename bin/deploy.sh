@@ -19,12 +19,12 @@ PARAMETER_OVERRIDES=(
   "EmailDomainName=${EMAIL_DOMAIN_NAME}"
   "SenderName=${SENDER_NAME// /\ }"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME}"
-  "InvalidRequestUrl=${INVALID_REQUEST_URL}"
-  "AlreadySubscribedUrl=${ALREADY_SUBSCRIBED_URL}"
-  "VerifyLinkSentUrl=${VERIFY_LINK_SENT_URL}"
-  "SubscribedUrl=${SUBSCRIBED_URL}"
-  "NotSubscribedUrl=${NOT_SUBSCRIBED_URL}"
-  "UnsubscribedUrl=${UNSUBSCRIBED_URL}"
+  "InvalidRequestPath=${INVALID_REQUEST_PATH}"
+  "AlreadySubscribedPath=${ALREADY_SUBSCRIBED_PATH}"
+  "VerifyLinkSentPath=${VERIFY_LINK_SENT_PATH}"
+  "SubscribedPath=${SUBSCRIBED_PATH}"
+  "NotSubscribedPath=${NOT_SUBSCRIBED_PATH}"
+  "UnsubscribedPath=${UNSUBSCRIBED_PATH}"
 )
 
 exec sam deploy --parameter-overrides "${PARAMETER_OVERRIDES[*]}"

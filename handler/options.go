@@ -1,11 +1,10 @@
 package handler
 
 import (
-	"fmt"
 	"strings"
 )
 
-type RedirectUrls struct {
+type RedirectPaths struct {
 	Invalid           string
 	AlreadySubscribed string
 	VerifyLinkSent    string
@@ -21,7 +20,16 @@ type Options struct {
 	SenderName           string
 	SubscribersTableName string
 
-	RedirectUrls RedirectUrls
+	RedirectPaths RedirectPaths
+}
+
+type UndefinedEnvVarsError struct {
+	UndefinedVars []string
+}
+
+func (e *UndefinedEnvVarsError) Error() string {
+	return "undefined environment variables: " +
+		strings.Join(e.UndefinedVars, ", ")
 }
 
 func GetOptions(getenv func(string) string) (*Options, error) {
@@ -30,8 +38,8 @@ func GetOptions(getenv func(string) string) (*Options, error) {
 }
 
 type environment struct {
-	getenv      func(string) string
-	missingVars []string
+	getenv        func(string) string
+	undefinedVars []string
 }
 
 func (env *environment) options() (*Options, error) {
@@ -42,27 +50,29 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.SenderName, "SENDER_NAME")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
 
-	redirects := &opts.RedirectUrls
-	env.assign(&redirects.Invalid, "INVALID_REQUEST_URL")
-	env.assign(&redirects.AlreadySubscribed, "ALREADY_SUBSCRIBED_URL")
-	env.assign(&redirects.VerifyLinkSent, "VERIFY_LINK_SENT_URL")
-	env.assign(&redirects.Subscribed, "SUBSCRIBED_URL")
-	env.assign(&redirects.NotSubscribed, "NOT_SUBSCRIBED_URL")
-	env.assign(&redirects.Unsubscribed, "UNSUBSCRIBED_URL")
+	redirects := &opts.RedirectPaths
+	env.assignRedirect(&redirects.Invalid, "INVALID_REQUEST_PATH")
+	env.assignRedirect(&redirects.AlreadySubscribed, "ALREADY_SUBSCRIBED_PATH")
+	env.assignRedirect(&redirects.VerifyLinkSent, "VERIFY_LINK_SENT_PATH")
+	env.assignRedirect(&redirects.Subscribed, "SUBSCRIBED_PATH")
+	env.assignRedirect(&redirects.NotSubscribed, "NOT_SUBSCRIBED_PATH")
+	env.assignRedirect(&redirects.Unsubscribed, "UNSUBSCRIBED_PATH")
 
-	if len(env.missingVars) != 0 {
-		return nil, fmt.Errorf(
-			"undefined environment variables:\n  %s",
-			strings.Join(env.missingVars, "\n  "),
-		)
+	if len(env.undefinedVars) != 0 {
+		return nil, &UndefinedEnvVarsError{UndefinedVars: env.undefinedVars}
 	}
 	return &opts, nil
 }
 
 func (env *environment) assign(opt *string, varname string) {
 	if value := env.getenv(varname); value == "" {
-		env.missingVars = append(env.missingVars, varname)
+		env.undefinedVars = append(env.undefinedVars, varname)
 	} else {
 		*opt = value
 	}
+}
+
+func (env *environment) assignRedirect(opt *string, varname string) {
+	env.assign(opt, varname)
+	*opt, _ = strings.CutPrefix(*opt, "/")
 }
