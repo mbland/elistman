@@ -19,11 +19,13 @@ jobs:
 
       - name: Check that go.mod is tidy
         run: |
-          result="$(go mod tidy -x -v 2>&1)" && echo "$result" && [[ -z "$result" ]]
+          go mod tidy
+          result="$(git diff)" && echo "$result" && [[ -z "$result" ]]
 
       - name: Run static checks
         run: |
-          result="$(go fmt ./...)" && echo "$result" && [[ -z "$result" ]]
+          go fmt ./...
+          result="$(git diff)" && echo "$result" && [[ -z "$result" ]]
           go vet ./...
           go run honnef.co/go/tools/cmd/staticcheck ./...
 
