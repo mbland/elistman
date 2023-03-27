@@ -23,14 +23,14 @@ sam-build: template.yml
 	sam validate --lint
 	sam build
 
-run-local: sam-build
-	sam local start-api --port 8080
+run-local: sam-build deploy.env
+	bin/sam-with-env.sh deploy.env local start-api --port 8080
 
 deploy: sam-build deploy.env
-	bin/deploy.sh deploy.env
+	bin/sam-with-env.sh deploy.env deploy
 
-delete:
-	sam delete
+delete: template.yml deploy.env
+	bin/sam-with-env.sh deploy.env delete
 
 clean:
 	rm -rf coverage.out .aws-sam

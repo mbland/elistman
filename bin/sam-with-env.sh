@@ -1,17 +1,22 @@
 #!/bin/bash
 
-DEPLOY_ENV="$1"
+ENV_FILE="$1"
+shift
 
-if [[ -z "$DEPLOY_ENV" ]]; then
-  printf 'Usage: %s [deployment environment variables file]\n' "$0" >&2
+if [[ -z "$ENV_FILE" ]]; then
+  printf 'Usage: %s [deployment environment variables file] [sam args...]\n' \
+    "$0" >&2
   exit 1
-elif [[ ! -r "$DEPLOY_ENV" ]]; then
+elif [[ ! -r "$ENV_FILE" ]]; then
   printf 'Deployment environment variable file missing or not readable: %s\n' \
-    "$DEPLOY_ENV" >&2
+    "$ENV_FILE" >&2
+  exit 1
+elif [[ "$#" -eq 0 ]]; then
+  printf "No arguments for 'sam' command given.\n" >&2
   exit 1
 fi
 
-. "$DEPLOY_ENV"
+. "$ENV_FILE"
 
 PARAMETER_OVERRIDES=(
   "ApiDomainName=${API_DOMAIN_NAME}"
@@ -27,4 +32,4 @@ PARAMETER_OVERRIDES=(
   "UnsubscribedPath=${UNSUBSCRIBED_PATH}"
 )
 
-exec sam deploy --parameter-overrides "${PARAMETER_OVERRIDES[*]}"
+exec sam "${@}" --parameter-overrides "${PARAMETER_OVERRIDES[*]}"
