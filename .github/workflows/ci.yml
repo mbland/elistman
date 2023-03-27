@@ -16,7 +16,7 @@ jobs:
 
       - name: Check that go.mod is tidy and install dependencies
         run: |
-          result="$(go mod tidy -x -v ./... 2>&1)" && echo "$result" && [[ -z "$result" ]]
+          result="$(go mod tidy -x -v 2>&1)" && echo "$result" && [[ -z "$result" ]]
           go get ./...
 
       - name: Run static checks
