@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SubcribePrefix    = "/subscribe/"
+	SubscribePrefix   = "/subscribe/"
 	VerifyPrefix      = "/verify/"
 	UnsubscribePrefix = "/unsubscribe/"
 )
@@ -44,7 +44,7 @@ func parseApiEvent(
 }
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
-	if strings.HasPrefix(endpoint, SubcribePrefix) {
+	if strings.HasPrefix(endpoint, SubscribePrefix) {
 		return SubscribeOp, nil
 	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
 		return VerifyOp, nil

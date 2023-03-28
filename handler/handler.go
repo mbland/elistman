@@ -75,7 +75,7 @@ func (h *Handler) prepareParseErrorResponse(
 	// it may be due to a user typo. In all other cases, the assumption is that
 	// it's a bad machine generated request.
 	if strings.Contains(err.Error(), "invalid email address") &&
-		strings.HasPrefix(endpoint, SubcribePrefix) {
+		strings.HasPrefix(endpoint, SubscribePrefix) {
 		response.StatusCode = http.StatusSeeOther
 		response.Headers["Location"] = defaultResponseLocation
 	} else {
