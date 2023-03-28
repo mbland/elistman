@@ -86,6 +86,7 @@ expect_status_from_endpoint \
   'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444'
 
 printf_info "SUITE: Not found (403 locally, 404 in prod)\n"
+
 not_found_status=404
 if [[ -n "$LOCAL" ]]; then
   not_found_status=403
@@ -102,9 +103,15 @@ expect_status_from_endpoint \
 
 printf_info "%s\n" \
   "SUITE: Redirect if missing or invalid email address for /subscribe"
+
+missing_address_status=303
+if [[ -n "$LOCAL" ]]; then
+  missing_address_status=403
+fi
+
 expect_status_from_endpoint \
-  "missing email address" \
-  303 POST \
+  "missing email address (403 locally, 303 in prod)" \
+  "$missing_address_status" POST \
   'subscribe/'
 expect_status_from_endpoint \
   "invalid email address" \
