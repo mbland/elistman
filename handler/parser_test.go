@@ -9,6 +9,11 @@ import (
 	"gotest.tools/assert"
 )
 
+func TestUnknownEventOperationType(t *testing.T) {
+	unknownOp := UndefinedOp - 1
+	assert.Equal(t, "Unknown", unknownOp.String())
+}
+
 func TestParseError(t *testing.T) {
 	err := &ParseError{
 		Type:     SubscribeOp,
