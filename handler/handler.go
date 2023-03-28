@@ -42,15 +42,15 @@ func (h *Handler) handleApiRequest(
 		return response, nil
 	}
 
-	ok := false
+	result := ops.Invalid
 
 	switch op.Type {
 	case SubscribeOp:
-		ok, err = h.Agent.Subscribe(op.Email)
+		result, err = h.Agent.Subscribe(op.Email)
 	case VerifyOp:
-		ok, err = h.Agent.Verify(op.Email, op.Uid)
+		result, err = h.Agent.Verify(op.Email, op.Uid)
 	case UnsubscribeOp:
-		ok, err = h.Agent.Unsubscribe(op.Email, op.Uid)
+		result, err = h.Agent.Unsubscribe(op.Email, op.Uid)
 	default:
 		response.StatusCode = http.StatusNotFound
 	}
@@ -58,7 +58,7 @@ func (h *Handler) handleApiRequest(
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
 		return response, err
-	} else if ok {
+	} else if result != ops.Invalid {
 		log.Printf("TODO: Redirect to success page")
 	} else {
 		log.Printf("TODO: Redirect to error page")
@@ -98,9 +98,9 @@ func (h *Handler) handleMailtoEvent(
 		headers.From, headers.To, unsubscribeRecipient, headers.Subject,
 	); err != nil {
 		log.Printf("error parsing mailto event, ignoring: %s", err)
-	} else if ok, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
+	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
 		return fmt.Errorf("error while unsubscribing %s: %s", op.Email, err)
-	} else if ok {
+	} else if result == ops.Unsubscribed {
 		log.Printf("unsubscribed: %s", op.Email)
 	}
 	return nil

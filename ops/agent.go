@@ -7,9 +7,9 @@ import (
 )
 
 type SubscriptionAgent interface {
-	Subscribe(email string) (bool, error)
-	Verify(email string, uid uuid.UUID) (bool, error)
-	Unsubscribe(email string, uid uuid.UUID) (bool, error)
+	Subscribe(email string) (OperationResult, error)
+	Verify(email string, uid uuid.UUID) (OperationResult, error)
+	Unsubscribe(email string, uid uuid.UUID) (OperationResult, error)
 }
 
 type ProdAgent struct {
@@ -18,14 +18,18 @@ type ProdAgent struct {
 	Mailer    email.Mailer
 }
 
-func (h ProdAgent) Subscribe(email string) (bool, error) {
-	return true, nil
+func (a *ProdAgent) Subscribe(email string) (OperationResult, error) {
+	return Invalid, nil
 }
 
-func (h ProdAgent) Verify(email string, uid uuid.UUID) (bool, error) {
-	return true, nil
+func (a *ProdAgent) Verify(
+	email string, uid uuid.UUID,
+) (OperationResult, error) {
+	return Invalid, nil
 }
 
-func (h ProdAgent) Unsubscribe(email string, uid uuid.UUID) (bool, error) {
-	return true, nil
+func (a *ProdAgent) Unsubscribe(
+	email string, uid uuid.UUID) (OperationResult, error,
+) {
+	return Invalid, nil
 }

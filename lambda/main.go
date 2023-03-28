@@ -20,7 +20,7 @@ func buildHandler() (*handler.Handler, error) {
 		return nil, err
 	} else {
 		return &handler.Handler{
-			Agent: ops.ProdAgent{
+			Agent: &ops.ProdAgent{
 				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    email.NewSesMailer(cfg),

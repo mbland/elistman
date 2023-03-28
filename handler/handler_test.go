@@ -7,21 +7,36 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
 )
 
-type testAgent struct{}
-
-func (h testAgent) Subscribe(email string) (bool, error) {
-	return true, nil
+type testAgent struct {
+	Email       string
+	Uid         uuid.UUID
+	ReturnValue ops.OperationResult
+	Error       error
 }
 
-func (h testAgent) Verify(email string, uid uuid.UUID) (bool, error) {
-	return true, nil
+func (a *testAgent) Subscribe(email string) (ops.OperationResult, error) {
+	a.Email = email
+	return a.ReturnValue, a.Error
 }
 
-func (h testAgent) Unsubscribe(email string, uid uuid.UUID) (bool, error) {
-	return true, nil
+func (a *testAgent) Verify(
+	email string, uid uuid.UUID,
+) (ops.OperationResult, error) {
+	a.Email = email
+	a.Uid = uid
+	return a.ReturnValue, a.Error
+}
+
+func (a *testAgent) Unsubscribe(
+	email string, uid uuid.UUID,
+) (ops.OperationResult, error) {
+	a.Email = email
+	a.Uid = uid
+	return a.ReturnValue, a.Error
 }
 
 type fixture struct {
@@ -32,7 +47,7 @@ type fixture struct {
 func newFixture() *fixture {
 	return &fixture{
 		h: Handler{
-			Agent: testAgent{},
+			Agent: &testAgent{},
 		},
 	}
 }
