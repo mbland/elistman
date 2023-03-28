@@ -18,13 +18,13 @@ const (
 func (event EventType) String() string {
 	switch event {
 	case NullEvent:
-		return "Null event"
+		return "Null"
 	case ApiRequest:
-		return "API Request event"
+		return "API Request"
 	case MailtoEvent:
-		return "Mailto event"
+		return "Mailto"
 	}
-	return "Unknown event"
+	return "Unknown"
 }
 
 type Event struct {
