@@ -23,23 +23,71 @@ const (
 	UnsubscribeOp
 )
 
+func (t eventOperationType) String() string {
+	switch t {
+	case UndefinedOp:
+		return "Undefined"
+	case SubscribeOp:
+		return "Subscribe"
+	case VerifyOp:
+		return "Verify"
+	case UnsubscribeOp:
+		return "Unsubscribe"
+	}
+	return "Unknown"
+}
+
 type eventOperation struct {
 	Type  eventOperationType
 	Email string
 	Uid   uuid.UUID
 }
 
+type ParseError struct {
+	Type     eventOperationType
+	Endpoint string
+	Message  string
+}
+
+func (e *ParseError) Error() string {
+	return e.Type.String() + ": " + e.Message + ": " + e.Endpoint
+}
+
+func (e *ParseError) Is(target error) bool {
+	// Inspired by the example from the "Customizing error tests with Is and As
+	// methods" section of https://go.dev/blog/go1.13-errors.
+	if t, ok := target.(*ParseError); !ok {
+		return false
+	} else {
+		return e.Type == t.Type || t.Type == UndefinedOp
+	}
+}
+
 func parseApiEvent(
 	endpoint string, params map[string]string,
 ) (*eventOperation, error) {
-	if optype, err := parseOperationType(endpoint); err != nil {
+	if pi, err := newPathInfo(endpoint, params); err != nil {
 		return nil, err
-	} else if email, err := parseEmailParam(endpoint, params); err != nil {
+	} else if email, err := pi.parseEmail(); err != nil {
 		return nil, err
-	} else if uid, err := parseUidParam(optype, endpoint, params); err != nil {
+	} else if uid, err := pi.parseUid(); err != nil {
 		return nil, err
 	} else {
-		return &eventOperation{Type: optype, Email: email, Uid: uid}, nil
+		return &eventOperation{pi.Type, email, uid}, nil
+	}
+}
+
+type pathInfo struct {
+	Type     eventOperationType
+	Endpoint string
+	Params   map[string]string
+}
+
+func newPathInfo(endpoint string, params map[string]string) (*pathInfo, error) {
+	if optype, err := parseOperationType(endpoint); err != nil {
+		return nil, err
+	} else {
+		return &pathInfo{optype, endpoint, params}, nil
 	}
 }
 
@@ -51,33 +99,45 @@ func parseOperationType(endpoint string) (eventOperationType, error) {
 	} else if strings.HasPrefix(endpoint, UnsubscribePrefix) {
 		return UnsubscribeOp, nil
 	}
-	return UndefinedOp, fmt.Errorf("unexpected endpoint: %s", endpoint)
+	return UndefinedOp, &ParseError{
+		Type: UndefinedOp, Message: "unknown endpoint", Endpoint: endpoint,
+	}
 }
 
-func parseEmailParam(
-	endpoint string, params map[string]string,
-) (string, error) {
-	if emailParam, ok := params["email"]; !ok {
-		return "", fmt.Errorf("missing email parameter: %s", endpoint)
-	} else if email, err := mail.ParseAddress(emailParam); err != nil {
-		return "", fmt.Errorf("invalid email address: %s: %s", emailParam, err)
+func (pi *pathInfo) parseEmail() (string, error) {
+	return parsePathParam(pi, "email", "", parseEmailAddress)
+}
+
+func (pi *pathInfo) parseUid() (uuid.UUID, error) {
+	if pi.Type == SubscribeOp {
+		return uuid.Nil, nil
+	}
+	return parsePathParam(pi, "uid", uuid.Nil, uuid.Parse)
+}
+
+func parseEmailAddress(emailParam string) (string, error) {
+	if email, err := mail.ParseAddress(emailParam); err != nil {
+		return "", err
 	} else {
 		return email.Address, nil
 	}
 }
 
-func parseUidParam(
-	optype eventOperationType, endpoint string, params map[string]string,
-) (uuid.UUID, error) {
-	if optype == SubscribeOp {
-		return uuid.Nil, nil
-	} else if uidParam, ok := params["uid"]; !ok {
-		return uuid.Nil, fmt.Errorf("missing uid parameter: %s", endpoint)
-	} else if uid, err := uuid.Parse(uidParam); err != nil {
-		return uuid.Nil, fmt.Errorf("invalid uid: %s: %s", uidParam, err)
+func parsePathParam[T string | uuid.UUID](
+	pi *pathInfo, name string, nilValue T, parse func(string) (T, error),
+) (T, error) {
+	if value, ok := pi.Params[name]; !ok {
+		return nilValue, pi.parseError("missing " + name + " parameter")
+	} else if v, err := parse(value); err != nil {
+		msg := fmt.Sprintf("invalid %s parameter: %s: %s", name, value, err)
+		return nilValue, pi.parseError(msg)
 	} else {
-		return uid, nil
+		return v, nil
 	}
+}
+
+func (pi *pathInfo) parseError(message string) error {
+	return &ParseError{Type: pi.Type, Endpoint: pi.Endpoint, Message: message}
 }
 
 func parseMailtoEvent(
@@ -115,13 +175,13 @@ func parseEmailSubject(subject string) (string, uuid.UUID, error) {
 		return "", uuid.Nil, fmt.Errorf(
 			"subject not in `<email> <uid>` format: %s", subject,
 		)
-	} else if email, err := mail.ParseAddress(params[0]); err != nil {
+	} else if email, err := parseEmailAddress(params[0]); err != nil {
 		return "", uuid.Nil, fmt.Errorf(
 			"invalid email address: %s: %s", params[0], err,
 		)
 	} else if uid, err := uuid.Parse(params[1]); err != nil {
 		return "", uuid.Nil, fmt.Errorf("invalid uid: %s: %s", params[1], err)
 	} else {
-		return email.Address, uid, nil
+		return email, uid, nil
 	}
 }

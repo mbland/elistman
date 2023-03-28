@@ -1,11 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -38,7 +38,7 @@ func (h *Handler) handleApiRequest(
 	op, err := parseApiEvent(request.RawPath, request.PathParameters)
 
 	if err != nil {
-		h.prepareParseErrorResponse(request.RawPath, &response, err)
+		h.prepareParseErrorResponse(&response, err)
 		return response, nil
 	}
 
@@ -69,13 +69,12 @@ func (h *Handler) handleApiRequest(
 }
 
 func (h *Handler) prepareParseErrorResponse(
-	endpoint string, response *events.APIGatewayV2HTTPResponse, err error,
+	response *events.APIGatewayV2HTTPResponse, err error,
 ) {
 	// Treat email parse errors differently for the Subscribe operation, since
 	// it may be due to a user typo. In all other cases, the assumption is that
 	// it's a bad machine generated request.
-	if strings.Contains(err.Error(), "invalid email address") &&
-		strings.HasPrefix(endpoint, SubscribePrefix) {
+	if errors.Is(err, &ParseError{Type: SubscribeOp}) {
 		response.StatusCode = http.StatusSeeOther
 		response.Headers["Location"] = defaultResponseLocation
 	} else {
