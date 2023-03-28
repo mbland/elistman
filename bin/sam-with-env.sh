@@ -18,18 +18,20 @@ fi
 
 . "$ENV_FILE"
 
+
+printf "${SENDER_NAME:?}" >/dev/null
 PARAMETER_OVERRIDES=(
-  "ApiDomainName=${API_DOMAIN_NAME}"
-  "ApiMappingKey=${API_MAPPING_KEY}"
-  "EmailDomainName=${EMAIL_DOMAIN_NAME}"
+  "ApiDomainName=${API_DOMAIN_NAME:?}"
+  "ApiMappingKey=${API_MAPPING_KEY:?}"
+  "EmailDomainName=${EMAIL_DOMAIN_NAME:?}"
   "SenderName=${SENDER_NAME// /\ }"
-  "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME}"
-  "InvalidRequestPath=${INVALID_REQUEST_PATH}"
-  "AlreadySubscribedPath=${ALREADY_SUBSCRIBED_PATH}"
-  "VerifyLinkSentPath=${VERIFY_LINK_SENT_PATH}"
-  "SubscribedPath=${SUBSCRIBED_PATH}"
-  "NotSubscribedPath=${NOT_SUBSCRIBED_PATH}"
-  "UnsubscribedPath=${UNSUBSCRIBED_PATH}"
+  "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME:?}"
+  "InvalidRequestPath=${INVALID_REQUEST_PATH:?}"
+  "AlreadySubscribedPath=${ALREADY_SUBSCRIBED_PATH:?}"
+  "VerifyLinkSentPath=${VERIFY_LINK_SENT_PATH:?}"
+  "SubscribedPath=${SUBSCRIBED_PATH:?}"
+  "NotSubscribedPath=${NOT_SUBSCRIBED_PATH:?}"
+  "UnsubscribedPath=${UNSUBSCRIBED_PATH:?}"
 )
 
 exec sam "${@}" --parameter-overrides "${PARAMETER_OVERRIDES[*]}"
