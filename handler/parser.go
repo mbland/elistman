@@ -140,48 +140,59 @@ func (pi *pathInfo) parseError(message string) error {
 	return &ParseError{Type: pi.Type, Endpoint: pi.Endpoint, Message: message}
 }
 
+type parsedSubject struct {
+	Email string
+	Uid   uuid.UUID
+}
+
+var nilSubject *parsedSubject = &parsedSubject{}
+
 func parseMailtoEvent(
 	froms, tos []string, unsubscribeRecipient, subject string,
 ) (*eventOperation, error) {
 	if err := checkMailAddresses(froms, tos, unsubscribeRecipient); err != nil {
 		return nil, err
-	} else if email, uid, err := parseEmailSubject(subject); err != nil {
+	} else if subject, err := parseEmailSubject(subject); err != nil {
 		return nil, err
 	} else {
-		return &eventOperation{Type: UnsubscribeOp, Email: email, Uid: uid}, nil
+		return &eventOperation{UnsubscribeOp, subject.Email, subject.Uid}, nil
 	}
 }
 
 func checkMailAddresses(
 	froms, tos []string, unsubscribeRecipient string,
 ) error {
-	if len(froms) != 1 {
-		return fmt.Errorf(
-			"more than one From address: %s", strings.Join(froms, ","),
-		)
-	} else if len(tos) != 1 {
-		return fmt.Errorf(
-			"more than one To address: %s", strings.Join(tos, ","),
-		)
+	if err := checkForOnlyOneAddress("From", froms); err != nil {
+		return err
+	} else if err := checkForOnlyOneAddress("To", tos); err != nil {
+		return err
 	} else if to := tos[0]; to != unsubscribeRecipient {
 		return fmt.Errorf("not addressed to %s: %s", unsubscribeRecipient, to)
 	}
 	return nil
 }
 
-func parseEmailSubject(subject string) (string, uuid.UUID, error) {
+func checkForOnlyOneAddress(headerName string, addrs []string) error {
+	if len(addrs) == 0 {
+		return fmt.Errorf("missing %s address", headerName)
+	} else if len(addrs) != 1 {
+		errFormat := "more than one %s address: %s"
+		return fmt.Errorf(errFormat, headerName, strings.Join(addrs, ","))
+	}
+	return nil
+}
+
+func parseEmailSubject(subject string) (*parsedSubject, error) {
 	params := strings.Split(subject, " ")
 	if len(params) != 2 || params[0] == "" || params[1] == "" {
-		return "", uuid.Nil, fmt.Errorf(
-			"subject not in `<email> <uid>` format: %s", subject,
-		)
+		const errFormat = "subject not in `<email> <uid>` format: \"%s\""
+		return nilSubject, fmt.Errorf(errFormat, subject)
 	} else if email, err := parseEmailAddress(params[0]); err != nil {
-		return "", uuid.Nil, fmt.Errorf(
-			"invalid email address: %s: %s", params[0], err,
-		)
+		const errFormat = "invalid email address: %s: %s"
+		return nilSubject, fmt.Errorf(errFormat, params[0], err)
 	} else if uid, err := uuid.Parse(params[1]); err != nil {
-		return "", uuid.Nil, fmt.Errorf("invalid uid: %s: %s", params[1], err)
+		return nilSubject, fmt.Errorf("invalid uid: %s: %s", params[1], err)
 	} else {
-		return email, uid, nil
+		return &parsedSubject{email, uid}, nil
 	}
 }

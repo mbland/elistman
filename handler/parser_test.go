@@ -3,10 +3,12 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestUnknownEventOperationType(t *testing.T) {
@@ -145,7 +147,7 @@ func TestParseApiEvent(t *testing.T) {
 	t.Run("Unknown", func(t *testing.T) {
 		result, err := parseApiEvent("/foobar", map[string]string{})
 
-		assert.Assert(t, result == nil)
+		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: UndefinedOp}))
 		assert.ErrorContains(t, err, "unknown endpoint: /foobar")
 	})
@@ -155,7 +157,7 @@ func TestParseApiEvent(t *testing.T) {
 			SubscribePrefix+"foobar", map[string]string{"email": "foobar"},
 		)
 
-		assert.Assert(t, result == nil)
+		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: SubscribeOp}))
 		assert.ErrorContains(t, err, "invalid email parameter: foobar")
 	})
@@ -166,21 +168,164 @@ func TestParseApiEvent(t *testing.T) {
 			map[string]string{"email": "mbland@acm.org", "uid": "0123456789"},
 		)
 
-		assert.Assert(t, result == nil)
+		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: VerifyOp}))
 		assert.ErrorContains(t, err, "invalid uid parameter: 0123456789")
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		uuidStr := "00000000-1111-2222-3333-444444444444"
+		uidStr := "00000000-1111-2222-3333-444444444444"
 		result, err := parseApiEvent(
-			UnsubscribePrefix+"/mbland@acm.org/"+uuidStr,
-			map[string]string{"email": "mbland@acm.org", "uid": uuidStr},
+			UnsubscribePrefix+"/mbland@acm.org/"+uidStr,
+			map[string]string{"email": "mbland@acm.org", "uid": uidStr},
 		)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, result, &eventOperation{
-			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uuidStr),
+			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uidStr),
 		})
+	})
+}
+
+func TestCheckForOnlyOneAddress(t *testing.T) {
+	t.Run("MissingAddress", func(t *testing.T) {
+		err := checkForOnlyOneAddress("From", []string{})
+
+		assert.Error(t, err, "missing From address")
+	})
+	t.Run("MoreThanOneAddress", func(t *testing.T) {
+		froms := []string{"mbland@acm.org", "foobar@example.com"}
+		err := checkForOnlyOneAddress("From", froms)
+
+		expected := "more than one From address: " + strings.Join(froms, ",")
+		assert.Error(t, err, expected)
+	})
+}
+
+func TestCheckMailAddresses(t *testing.T) {
+	emptyAddrs := []string{}
+	froms := []string{"mbland@acm.org"}
+	unsubscribeAddr := "unsubscribe@mike-bland.com"
+	tos := []string{unsubscribeAddr}
+
+	t.Run("MissingFromAddress", func(t *testing.T) {
+		err := checkMailAddresses(emptyAddrs, tos, unsubscribeAddr)
+		assert.Error(t, err, "missing From address")
+	})
+
+	t.Run("MissingToAddress", func(t *testing.T) {
+		err := checkMailAddresses(froms, emptyAddrs, unsubscribeAddr)
+		assert.Error(t, err, "missing To address")
+	})
+
+	t.Run("InvalidToAddress", func(t *testing.T) {
+		toAddr := "foobar@mike-bland.com"
+
+		err := checkMailAddresses(froms, []string{toAddr}, unsubscribeAddr)
+
+		expected := fmt.Sprintf(
+			"not addressed to %s: %s", unsubscribeAddr, toAddr,
+		)
+		assert.Error(t, err, expected)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		assert.NilError(t, checkMailAddresses(froms, tos, unsubscribeAddr))
+	})
+}
+
+func TestParseEmailSubject(t *testing.T) {
+	email := "mbland@acm.org"
+	uidStr := "00000000-1111-2222-3333-444444444444"
+	uid := uuid.MustParse(uidStr)
+
+	t.Run("EmptyString", func(t *testing.T) {
+		result, err := parseEmailSubject("")
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.Error(t, err, "subject not in `<email> <uid>` format: \"\"")
+	})
+
+	t.Run("WhitespaceOnly", func(t *testing.T) {
+		result, err := parseEmailSubject(" ")
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.Error(t, err, "subject not in `<email> <uid>` format: \" \"")
+	})
+
+	t.Run("BlankEmail", func(t *testing.T) {
+		subject := " " + uidStr
+		result, err := parseEmailSubject(subject)
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.Error(
+			t, err, "subject not in `<email> <uid>` format: \""+subject+"\"",
+		)
+	})
+
+	t.Run("BlankUid", func(t *testing.T) {
+		subject := email + " "
+		result, err := parseEmailSubject(subject)
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.Error(
+			t, err, "subject not in `<email> <uid>` format: \""+subject+"\"",
+		)
+	})
+
+	t.Run("InvalidEmail", func(t *testing.T) {
+		subject := "mbland+acm.org " + uidStr
+		result, err := parseEmailSubject(subject)
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.ErrorContains(t, err, "invalid email address: mbland+acm.org")
+	})
+
+	t.Run("InvalidUid", func(t *testing.T) {
+		subject := email + " 0123456789"
+		result, err := parseEmailSubject(subject)
+
+		assert.DeepEqual(t, nilSubject, result)
+		assert.ErrorContains(t, err, "invalid uid: 0123456789")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		result, err := parseEmailSubject(email + " " + uidStr)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, &parsedSubject{email, uid}, result)
+	})
+}
+
+func TestParseMailtoEvent(t *testing.T) {
+	froms := []string{"mbland@acm.org"}
+	unsubscribeAddr := "unsubscribe@mike-bland.com"
+	tos := []string{unsubscribeAddr}
+	email := "mbland@acm.org"
+	uidStr := "00000000-1111-2222-3333-444444444444"
+	uid := uuid.MustParse(uidStr)
+	subject := email + " " + uidStr
+
+	t.Run("MissingFromAddress", func(t *testing.T) {
+		result, err := parseMailtoEvent(
+			[]string{}, tos, unsubscribeAddr, subject,
+		)
+
+		assert.Assert(t, is.Nil(result))
+		assert.Error(t, err, "missing From address")
+	})
+
+	t.Run("EmptySubject", func(t *testing.T) {
+		result, err := parseMailtoEvent(froms, tos, unsubscribeAddr, "")
+
+		assert.Assert(t, is.Nil(result))
+		assert.Error(t, err, "subject not in `<email> <uid>` format: \"\"")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		result, err := parseMailtoEvent(froms, tos, unsubscribeAddr, subject)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, &eventOperation{UnsubscribeOp, email, uid}, result)
 	})
 }
