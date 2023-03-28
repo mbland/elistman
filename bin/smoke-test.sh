@@ -43,16 +43,18 @@ printf_fail() {
 }
 
 expect_status_from_endpoint() {
-  local status="$1"
-  local method="$2"
-  local endpoint="${BASE_URL}/${3}"
+  local description="$1"
+  local status="$2"
+  local method="$3"
+  local endpoint="${BASE_URL}/${4}"
 
-  printf_info "Expect %s from: %s %s\n" "$status" "$method" "$endpoint"
+  printf_info "TEST: %s\nExpect %s from: %s %s\n" \
+    "$description" "$status" "$method" "$endpoint"
 
   local curl_cmd=("curl" "-isS" "-X" "$method" "$endpoint")
   local response="$("${curl_cmd[@]}")"
 
-  printf "%s\n\n%s\n\n" "${curl_cmd[*]}" "${response}"
+  printf "%s\n\n%s\n" "${curl_cmd[*]}" "${response/%$'\n'}"
 
   local response_status=""
 
@@ -60,35 +62,63 @@ expect_status_from_endpoint() {
     response_status="${BASH_REMATCH[1]}"
 
     if [[ "$response_status" == "$status" ]]; then
-      printf_pass "%s\n\n" "$status"
+      printf_pass "%s: %s\n\n" "$description" "$status"
     else
-      printf_fail "Expected %s, actual %s:\n" "$status" "$response_status"
+      printf_fail "%s: Expected %s, actual %s\n\n" \
+        "$description" "$status" "$response_status"
       ((EXIT_CODE+=1))
     fi
 
   else
-    printf_fail "Couldn't determine response status from:\n"
+    printf_fail "%s: Couldn't determine response status\n\n" "$description"
     ((EXIT_CODE+=1))
   fi
 }
 
-expect_status_from_endpoint 303 POST \
+printf_info "SUITE: Success\n"
+expect_status_from_endpoint \
+  "successful subscribe" \
+  303 POST \
   'subscribe/mbland%40acm.org'
-expect_status_from_endpoint 303 GET \
+expect_status_from_endpoint \
+  "successful verify" \
+  303 GET \
   'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444'
 
+printf_info "SUITE: Not found (403 locally, 404 in prod)\n"
 not_found_status=404
 if [[ -n "$LOCAL" ]]; then
   not_found_status=403
 fi
 
-expect_status_from_endpoint "$not_found_status" POST \
+expect_status_from_endpoint \
+  "invalid endpoint not found" \
+  "$not_found_status" POST \
   'foobar/mbland%40acm.org'
-expect_status_from_endpoint 303 POST \
+expect_status_from_endpoint \
+  "endpoint without trailing slash not found" \
+  "$not_found_status" POST \
+  'subscribe'
+
+printf_info "%s\n" \
+  "SUITE: Redirect if missing or invalid email address for /subscribe"
+expect_status_from_endpoint \
+  "missing email address" \
+  303 POST \
+  'subscribe/'
+expect_status_from_endpoint \
+  "invalid email address" \
+  303 POST \
   'subscribe/foo%20bar'
-expect_status_from_endpoint 400 GET \
+
+printf_info "SUITE: All other missing or invalid parameters return 400\n"
+expect_status_from_endpoint \
+  "invalid email address for /verify" \
+  400 GET \
   'verify/foobar/00000000-1111-2222-3333-444444444444'
-expect_status_from_endpoint 400 GET \
+expect_status_from_endpoint \
+  "invalid UID for /unsubscribe" \
+  400 GET \
   'unsubscribe/mbland%40acm.org/bad-uid'
 
 if [[ "$EXIT_CODE" -eq 0 ]]; then
