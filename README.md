@@ -282,6 +282,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)][]
 - [Which SMTP port should I use? Understanding ports 25, 465 & 587][]
 - [Using curl to send email][]
+- [Email Sender Reputation Made Simple][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -346,3 +347,4 @@ This software is made available as [Open Source software][oss-def] under the
 [How to Choose the Right SMTP Port (Port 25, 587, 465, or 2525)]: https://kinsta.com/blog/smtp-port/
 [Which SMTP port should I use? Understanding ports 25, 465 & 587]: https://www.mailgun.com/blog/email/which-smtp-port-understanding-ports-25-465-587/
 [Using curl to send email]: https://stackoverflow.com/questions/14722556/using-curl-to-send-email
+[Email Sender Reputation Made Simple]: https://mailtrap.io/blog/email-sender-reputation/
