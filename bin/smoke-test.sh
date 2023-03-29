@@ -13,7 +13,8 @@ if [[ "$1" == '--local' ]]; then
   LOCAL=1
 fi
 
-EXIT_CODE=0
+TEST_CASES=()
+FAILED_CASES=()
 
 printf_with_highlight() {
   local style_code="$1"
@@ -43,7 +44,7 @@ printf_fail() {
 }
 
 expect_status_from_endpoint() {
-  local description="$1"
+  local description="$((${#TEST_CASES[@]} + 1)) — $1"
   local status="$2"
   local method="$3"
   local endpoint="${BASE_URL}/${4}"
@@ -61,6 +62,7 @@ expect_status_from_endpoint() {
     postdata+=("$curl_data_flag" "$arg")
   done
 
+  TEST_CASES+=("$description")
   printf_info 'TEST: %s\nExpect %s from: %s %s\n' \
     "$description" "$status" "$method" "$endpoint"
 
@@ -78,12 +80,12 @@ expect_status_from_endpoint() {
     else
       printf_fail '%s: Expected %s, actual %s\n\n' \
         "$description" "$status" "$response_status"
-      ((EXIT_CODE+=1))
+      FAILED_CASES+=("$description")
     fi
 
   else
     printf_fail "%s: Couldn't determine response status\n\n" "$description"
-    ((EXIT_CODE+=1))
+    FAILED_CASES+=("$description")
   fi
 }
 
@@ -162,9 +164,11 @@ expect_status_from_endpoint \
   400 GET \
   'unsubscribe/mbland%40acm.org/bad-uid'
 
-if [[ "$EXIT_CODE" -eq 0 ]]; then
-  printf_pass 'All smoke tests passed!\n'
+if [[ "${#FAILED_CASES[@]}" -eq 0 ]]; then
+  printf_pass 'All %d smoke tests passed!\n' "${#TEST_CASES[@]}"
 else
-  printf_fail 'Some expectations failed; see above output for details.\n'
+  printf_fail '%d/%d expectations failed; see above output for details.\n' \
+    "${#FAILED_CASES[@]}" "${#TEST_CASES[@]}"
+  printf_fail '    %s\n' '' "${FAILED_CASES[@]}"
 fi
-exit "$EXIT_CODE"
+exit "${#FAILED_CASES[@]}"
