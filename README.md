@@ -283,6 +283,8 @@ This software is made available as [Open Source software][oss-def] under the
 - [Which SMTP port should I use? Understanding ports 25, 465 & 587][]
 - [Using curl to send email][]
 - [Email Sender Reputation Made Simple][]
+- [Why Go: Command-line Interfaces (CLIs)][]
+- [spf13/cobra][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -348,3 +350,5 @@ This software is made available as [Open Source software][oss-def] under the
 [Which SMTP port should I use? Understanding ports 25, 465 & 587]: https://www.mailgun.com/blog/email/which-smtp-port-understanding-ports-25-465-587/
 [Using curl to send email]: https://stackoverflow.com/questions/14722556/using-curl-to-send-email
 [Email Sender Reputation Made Simple]: https://mailtrap.io/blog/email-sender-reputation/
+[Why Go: Command-line Interfaces (CLIs)]: https://go.dev/solutions/clis
+[spf13/cobra]: https://github.com/spf13/cobra
