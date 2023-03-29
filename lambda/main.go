@@ -19,13 +19,15 @@ func buildHandler() (*handler.Handler, error) {
 	} else if opts, err := handler.GetOptions(os.Getenv); err != nil {
 		return nil, err
 	} else {
-		return &handler.Handler{
-			Agent: &ops.ProdAgent{
+		return handler.NewHandler(
+			opts.EmailDomainName,
+			opts.RedirectPaths,
+			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    email.NewSesMailer(cfg),
 			},
-		}, nil
+		), nil
 	}
 }
 
