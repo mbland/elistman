@@ -19,17 +19,17 @@ type ProdAgent struct {
 }
 
 func (a *ProdAgent) Subscribe(email string) (OperationResult, error) {
-	return Invalid, nil
+	return VerifyLinkSent, nil
 }
 
 func (a *ProdAgent) Verify(
 	email string, uid uuid.UUID,
 ) (OperationResult, error) {
-	return Invalid, nil
+	return Subscribed, nil
 }
 
 func (a *ProdAgent) Unsubscribe(
 	email string, uid uuid.UUID) (OperationResult, error,
 ) {
-	return Invalid, nil
+	return Unsubscribed, nil
 }
