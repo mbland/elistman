@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -62,6 +63,8 @@ func (h *Handler) handleApiRequest(
 	} else if result, err := h.performOperation(op, err); err != nil {
 		res.StatusCode = http.StatusInternalServerError
 		return res, err
+	} else if isOneClickUnsubscribeRequest(op, req) {
+		res.StatusCode = http.StatusOK
 	} else if redirect, ok := h.Redirects[result]; !ok {
 		res.StatusCode = http.StatusInternalServerError
 		return res, fmt.Errorf("no redirect for op result: %s", result)
@@ -103,6 +106,21 @@ func (h *Handler) performOperation(
 		return h.Agent.Unsubscribe(op.Email, op.Uid)
 	}
 	return ops.Invalid, fmt.Errorf("can't handle operation type: %s", op.Type)
+}
+
+func isOneClickUnsubscribeRequest(
+	op *eventOperation,
+	req *events.APIGatewayV2HTTPRequest,
+) bool {
+	if op.Type == UnsubscribeOp &&
+		req.RequestContext.HTTP.Method == http.MethodPost {
+		if postparams, err := url.ParseQuery(req.Body); err != nil {
+			return false
+		} else {
+			return postparams.Get("List-Unsubscribe") == "One-Click"
+		}
+	}
+	return false
 }
 
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html

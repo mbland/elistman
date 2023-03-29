@@ -47,15 +47,20 @@ expect_status_from_endpoint() {
   local status="$2"
   local method="$3"
   local endpoint="${BASE_URL}/${4}"
+  shift 4
+  local postdata=()
+
+  for arg in "$@"; do
+    postdata+=("-d" "$arg")
+  done
 
   printf_info "TEST: %s\nExpect %s from: %s %s\n" \
     "$description" "$status" "$method" "$endpoint"
 
-  local curl_cmd=("curl" "-isS" "-X" "$method" "$endpoint")
+  local curl_cmd=("curl" "-isS" "-X" "$method" "${postdata[@]}" "$endpoint")
   local response="$("${curl_cmd[@]}")"
 
   printf "%s\n\n%s\n" "${curl_cmd[*]}" "${response/%$'\n'}"
-
   local response_status=""
 
   if [[ "$response" =~ HTTP/[^\ ]+\ ([1-5][0-9][0-9]) ]]; then
@@ -84,6 +89,15 @@ expect_status_from_endpoint \
   "successful verify" \
   303 GET \
   'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444'
+expect_status_from_endpoint \
+  "unsubscribe" \
+  303 GET \
+  "unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444"
+expect_status_from_endpoint \
+  "one-click unsubscribe" \
+  200 POST \
+  "unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444" \
+  "List-Unsubscribe=One-Click"
 
 printf_info "SUITE: Not found (403 locally, 404 in prod)\n"
 
