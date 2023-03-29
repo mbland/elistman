@@ -2,7 +2,21 @@
 #
 # Checks that the service is running responding to requests.
 
-BASE_URL='https://api.mike-bland.com/email'
+ENV_FILE="$1"
+shift
+
+if [[ -z "$ENV_FILE" ]]; then
+  printf 'Usage: %s [deployment environment variables file]\n' "$0" >&2
+  exit 1
+elif [[ ! -r "$ENV_FILE" ]]; then
+  printf 'Deployment environment variable file missing or not readable: %s\n' \
+    "$ENV_FILE" >&2
+  exit 1
+fi
+
+. "$ENV_FILE"
+
+BASE_URL="https://${API_DOMAIN_NAME:?}/${API_MAPPING_KEY:?}"
 
 if [[ "$1" == '--local' ]]; then
   if [[ -z "$(ps -ef | grep -- '[s]am local start-api --port 8080')" ]]; then
@@ -12,6 +26,20 @@ if [[ "$1" == '--local' ]]; then
   BASE_URL='http://127.0.0.1:8080'
   LOCAL=1
 fi
+
+EMAIL_DOMAIN_NAME="${EMAIL_DOMAIN_NAME:?}"
+INVALID_REQUEST_PATH="${EMAIL_DOMAIN_NAME}/${INVALID_REQUEST_PATH:?}"
+INVALID_REQUEST_PATH="https://${INVALID_REQUEST_PATH//\/\///}"
+ALREADY_SUBSCRIBED_PATH="${EMAIL_DOMAIN_NAME}/${ALREADY_SUBSCRIBED_PATH:?}"
+ALREADY_SUBSCRIBED_PATH="https://${ALREADY_SUBSCRIBED_PATH//\/\///}"
+VERIFY_LINK_SENT_PATH="${EMAIL_DOMAIN_NAME}/${VERIFY_LINK_SENT_PATH:?}"
+VERIFY_LINK_SENT_PATH="https://${VERIFY_LINK_SENT_PATH//\/\///}"
+SUBSCRIBED_PATH="${EMAIL_DOMAIN_NAME}/${SUBSCRIBED_PATH:?}"
+SUBSCRIBED_PATH="https://${SUBSCRIBED_PATH//\/\///}"
+NOT_SUBSCRIBED_PATH="${EMAIL_DOMAIN_NAME}/${NOT_SUBSCRIBED_PATH:?}"
+NOT_SUBSCRIBED_PATH="https://${NOT_SUBSCRIBED_PATH//\/\///}"
+UNSUBSCRIBED_PATH="${EMAIL_DOMAIN_NAME}/${UNSUBSCRIBED_PATH:?}"
+UNSUBSCRIBED_PATH="https://${UNSUBSCRIBED_PATH//\/\///}"
 
 TEST_CASES=()
 FAILED_CASES=()
@@ -43,13 +71,19 @@ printf_fail() {
   printf_with_highlight '\033[1;31m' 'FAILED: ' "$@"
 }
 
+register_failure() {
+  printf_fail "$@"
+  FAILED_CASES+=("$(printf "$@")")
+}
+
 expect_status_from_endpoint() {
   local description="$((${#TEST_CASES[@]} + 1)) — $1"
-  local status="$2"
-  local method="$3"
-  local endpoint="${BASE_URL}/${4}"
-  local content_type="$5"
-  local num_shift_args="$(($# < 5 ? $# : 5))"
+  local method="$2"
+  local endpoint="${BASE_URL}/${3}"
+  local status="$4"
+  local location="$5"
+  local content_type="$6"
+  local num_shift_args="$(($# < 6 ? $# : 6))"
   local curl_data_flag='-d'  # for application/x-www-form-urlencoded
   local postdata=()
 
@@ -69,59 +103,80 @@ expect_status_from_endpoint() {
   local curl_cmd=('curl' '-isS' '-X' "$method" "${postdata[@]}" "$endpoint")
   local response="$("${curl_cmd[@]}")"
 
-  printf '%s\n\n%s\n' "${curl_cmd[*]}" "${response/%$'\n'}"
-  local response_status=''
+  printf '%s\n\n%s\n' "${curl_cmd[*]}" "${response}"
 
-  if [[ "$response" =~ HTTP/[^\ ]+\ ([1-5][0-9][0-9]) ]]; then
-    response_status="${BASH_REMATCH[1]}"
+  local passing_results=()
+  local failing_results=()
 
-    if [[ "$response_status" == "$status" ]]; then
-      printf_pass '%s: %s\n\n' "$description" "$status"
-    else
-      printf_fail '%s: Expected %s, actual %s\n\n' \
-        "$description" "$status" "$response_status"
-      FAILED_CASES+=("$description")
-    fi
+  check_response_for 'status' 'HTTP/[^\ ]+\ ([1-5][0-9][0-9])' "$status" \
+    "$response" "Couldn't determine response status"
 
-  else
-    printf_fail "%s: Couldn't determine response status\n\n" "$description"
-    FAILED_CASES+=("$description")
+  if [[ -n "$location" ]]; then
+    check_response_for 'Location' 'Location:\ ([^[:space:]]+)' "$location" \
+      "$response" "No 'Location:' in response"
   fi
+
+  local result_op="printf_pass"
+  if [[ "${#failing_results[@]}" -ne 0 ]]; then
+      result_op="register_failure"
+  fi
+  results="$(printf '    %s\n' "${passing_results[@]}" "${failing_results[@]}")"
+  "$result_op" '%s:\n%s\n\n' "$description" "$results"
+}
+
+check_response_for() {
+  local name="$1"
+  local pattern="$2"
+  local expected="$3"
+  local response="$4"
+  local failure_msg="$5"
+  local actual=""
+
+  if [[ "$response" =~ $pattern ]]; then
+    actual="${BASH_REMATCH[1]}"
+  else
+    failing_results+=("$(printf "$result_var_name" '%s' "$failure_msg")")
+    return 1
+  fi
+
+  if [[ "$expected" != "$actual" ]]; then
+    failing_results+=(
+      "$(printf 'Expected: %s\n    Actual:   %s' "$expected" "$actual")"
+    )
+    return 1
+  fi
+  passing_results+=("$(printf '%s: %s' "$name" "$actual")")
 }
 
 printf_info 'SUITE: Success\n'
-expect_status_from_endpoint \
-  'successful subscribe using urlencoded params' \
-  303 POST \
-  'subscribe' \
-  'application/x-www-form-urlencoded' \
-  'email=mbland%40acm.org'
-expect_status_from_endpoint \
-  'successful subscribe using form-data' \
-  303 POST \
-  'subscribe' \
-  'multipart/form-data' \
-  'email=mbland%40acm.org'
-expect_status_from_endpoint \
-  'successful verify' \
-  303 GET \
-  'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444'
-expect_status_from_endpoint \
-  'unsubscribe' \
-  303 GET \
-  'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444'
-expect_status_from_endpoint \
-  'one-click unsubscribe using urlencoded params' \
-  200 POST \
-  'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  'application/x-www-form-urlencoded' \
-  'List-Unsubscribe=One-Click'
-expect_status_from_endpoint \
-  'one-click unsubscribe using form-data' \
-  200 POST \
-  'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  'multipart/form-data' \
-  'List-Unsubscribe=One-Click'
+
+expect_status_from_endpoint 'successful subscribe using urlencoded params' \
+  POST 'subscribe' \
+  303 "$VERIFY_LINK_SENT_PATH" \
+  'application/x-www-form-urlencoded' 'email=mbland%40acm.org'
+
+expect_status_from_endpoint 'successful subscribe using form-data' \
+  POST 'subscribe' \
+  303 "$VERIFY_LINK_SENT_PATH" \
+  'multipart/form-data' 'email=mbland%40acm.org'
+
+expect_status_from_endpoint 'successful verify' \
+  GET 'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
+  303 "$SUBSCRIBED_PATH"
+
+expect_status_from_endpoint 'unsubscribe' \
+  GET 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
+  303 "$UNSUBSCRIBED_PATH"
+
+expect_status_from_endpoint 'one-click unsubscribe using urlencoded params' \
+  POST 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
+  200 "" \
+  'application/x-www-form-urlencoded' 'List-Unsubscribe=One-Click'
+
+expect_status_from_endpoint 'one-click unsubscribe using form-data' \
+  POST 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
+  200 "" \
+  'multipart/form-data' 'List-Unsubscribe=One-Click'
 
 printf_info 'SUITE: Not found (403 locally, 404 in prod)\n'
 
@@ -130,45 +185,44 @@ if [[ -n "$LOCAL" ]]; then
   not_found_status=403
 fi
 
-expect_status_from_endpoint \
-  'invalid endpoint not found' \
-  "$not_found_status" POST \
-  'foobar/mbland%40acm.org'
+expect_status_from_endpoint 'invalid endpoint not found' \
+  POST 'foobar/mbland%40acm.org' \
+  "$not_found_status"
 
 printf_info '%s\n' \
   'SUITE: Redirect if missing or invalid email address for /subscribe'
 
 missing_address_status=303
+missing_address_path="$INVALID_REQUEST_PATH"
 if [[ -n "$LOCAL" ]]; then
   missing_address_status=403
+  missing_address_path=""
 fi
 
-expect_status_from_endpoint \
-  'missing email address (403 locally, 303 in prod)' \
-  "$missing_address_status" POST \
-  'subscribe'
-expect_status_from_endpoint \
-  'invalid email address' \
-  303 POST \
-  'subscribe'
-  'application/x-www-form-urlencoded' \
-  'email=foo%20bar'
+expect_status_from_endpoint 'missing email address (403 locally, 303 in prod)' \
+   POST 'subscribe' \
+  "$missing_address_status" "$missing_address_path"
 
-printf_info 'SUITE: All other missing or invalid parameters return 401\n'
-expect_status_from_endpoint \
-  'invalid email address for /verify' \
-  400 GET \
-  'verify/foobar/00000000-1111-2222-3333-444444444444'
-expect_status_from_endpoint \
-  'invalid UID for /unsubscribe' \
-  400 GET \
-  'unsubscribe/mbland%40acm.org/bad-uid'
+expect_status_from_endpoint 'invalid email address' \
+  POST 'subscribe' \
+  303 "$INVALID_REQUEST_PATH" \
+  'application/x-www-form-urlencoded' 'email=foo%20bar'
+
+printf_info 'SUITE: All other missing or invalid parameters return 400\n'
+
+expect_status_from_endpoint 'invalid email address for /verify' \
+  GET 'verify/foobar/00000000-1111-2222-3333-444444444444' \
+  400 ""
+
+expect_status_from_endpoint 'invalid UID for /unsubscribe' \
+  GET 'unsubscribe/mbland%40acm.org/bad-uid' \
+  400 ""
 
 if [[ "${#FAILED_CASES[@]}" -eq 0 ]]; then
   printf_pass 'All %d smoke tests passed!\n' "${#TEST_CASES[@]}"
 else
-  printf_fail '%d/%d expectations failed; see above output for details.\n' \
+  printf_fail '%d/%d tests failed; see above output for details.\n' \
     "${#FAILED_CASES[@]}" "${#TEST_CASES[@]}"
-  printf_fail '    %s\n' '' "${FAILED_CASES[@]}"
+  printf_fail '    %s\n' '' "${FAILED_CASES[@]//    /        }"
 fi
 exit "${#FAILED_CASES[@]}"
