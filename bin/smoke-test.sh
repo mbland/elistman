@@ -47,11 +47,18 @@ expect_status_from_endpoint() {
   local status="$2"
   local method="$3"
   local endpoint="${BASE_URL}/${4}"
-  shift 4
+  local content_type="$5"
+  local num_shift_args="$(($# < 5 ? $# : 5))"
+  local curl_data_flag="-d"  # for application/x-www-form-urlencoded
   local postdata=()
 
+  if [[ "$content_type" == "multipart/form-data" ]]; then
+    curl_data_flag="-F"
+  fi
+  shift "$num_shift_args"
+
   for arg in "$@"; do
-    postdata+=("-d" "$arg")
+    postdata+=("$curl_data_flag" "$arg")
   done
 
   printf_info "TEST: %s\nExpect %s from: %s %s\n" \
@@ -82,9 +89,17 @@ expect_status_from_endpoint() {
 
 printf_info "SUITE: Success\n"
 expect_status_from_endpoint \
-  "successful subscribe" \
+  'successful subscribe using urlencoded params' \
   303 POST \
-  'subscribe/mbland%40acm.org'
+  'subscribe' \
+  'application/x-www-form-urlencoded' \
+  'email=mbland%40acm.org'
+expect_status_from_endpoint \
+  'successful subscribe using form-data' \
+  303 POST \
+  'subscribe' \
+  'multipart/form-data' \
+  'email=mbland%40acm.org'
 expect_status_from_endpoint \
   "successful verify" \
   303 GET \
@@ -94,10 +109,17 @@ expect_status_from_endpoint \
   303 GET \
   "unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444"
 expect_status_from_endpoint \
-  "one-click unsubscribe" \
+  'one-click unsubscribe using urlencoded params' \
+  200 POST \
+  'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
+  'application/x-www-form-urlencoded' \
+  'List-Unsubscribe=One-Click'
+expect_status_from_endpoint \
+  'one-click unsubscribe using form-data' \
   200 POST \
   "unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444" \
-  "List-Unsubscribe=One-Click"
+  'multipart/form-data' \
+  'List-Unsubscribe=One-Click'
 
 printf_info "SUITE: Not found (403 locally, 404 in prod)\n"
 
@@ -110,10 +132,6 @@ expect_status_from_endpoint \
   "invalid endpoint not found" \
   "$not_found_status" POST \
   'foobar/mbland%40acm.org'
-expect_status_from_endpoint \
-  "endpoint without trailing slash not found" \
-  "$not_found_status" POST \
-  'subscribe'
 
 printf_info "%s\n" \
   "SUITE: Redirect if missing or invalid email address for /subscribe"
@@ -126,11 +144,13 @@ fi
 expect_status_from_endpoint \
   "missing email address (403 locally, 303 in prod)" \
   "$missing_address_status" POST \
-  'subscribe/'
+  'subscribe'
 expect_status_from_endpoint \
   "invalid email address" \
   303 POST \
-  'subscribe/foo%20bar'
+  'subscribe'
+  'application/x-www-form-urlencoded' \
+  'email=foo%20bar'
 
 printf_info "SUITE: All other missing or invalid parameters return 400\n"
 expect_status_from_endpoint \
