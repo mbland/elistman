@@ -54,15 +54,14 @@ func newFixture() *fixture {
 
 func (f *fixture) handleApiRequest(
 	data []byte,
-) (events.APIGatewayV2HTTPResponse, error) {
+) (*events.APIGatewayV2HTTPResponse, error) {
 	if err := f.e.UnmarshalJSON(data); err != nil {
-		return events.APIGatewayV2HTTPResponse{}, err
+		return nil, err
 	} else if f.e.Type != ApiRequest {
-		return events.APIGatewayV2HTTPResponse{},
-			fmt.Errorf("not an API request: %s", f.e.Type)
+		return nil, fmt.Errorf("not an API request: %s", f.e.Type)
 	}
-	response, err := f.h.HandleEvent(f.e)
-	return response.(events.APIGatewayV2HTTPResponse), err
+	response, err := f.h.HandleEvent(&f.e)
+	return response.(*events.APIGatewayV2HTTPResponse), err
 }
 
 func (f *fixture) handleMailtoEvent(data []byte) (any, error) {
@@ -71,13 +70,13 @@ func (f *fixture) handleMailtoEvent(data []byte) (any, error) {
 	} else if f.e.Type != MailtoEvent {
 		return nil, fmt.Errorf("not a mailto event: %s", f.e.Type)
 	}
-	return f.h.HandleEvent(f.e)
+	return f.h.HandleEvent(&f.e)
 }
 
 func TestIgnoreUnexpectedEvent(t *testing.T) {
 	f := newFixture()
 
-	response, err := f.h.HandleEvent(f.e)
+	response, err := f.h.HandleEvent(&f.e)
 
 	assert.NilError(t, err)
 	assert.Equal(t, nil, response)

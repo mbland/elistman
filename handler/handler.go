@@ -17,13 +17,13 @@ type Handler struct {
 	Agent ops.SubscriptionAgent
 }
 
-func (h *Handler) HandleEvent(event Event) (any, error) {
+func (h *Handler) HandleEvent(event *Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
-		return h.handleApiRequest(event.ApiRequest)
+		return h.handleApiRequest(&event.ApiRequest)
 	case MailtoEvent:
 		return nil, h.handleMailtoEvent(
-			event.MailtoEvent, "unsubscribe@"+os.Getenv("EMAIL_DOMAIN_NAME"),
+			&event.MailtoEvent, "unsubscribe@"+os.Getenv("EMAIL_DOMAIN_NAME"),
 		)
 	default:
 		return nil, nil
@@ -31,14 +31,14 @@ func (h *Handler) HandleEvent(event Event) (any, error) {
 }
 
 func (h *Handler) handleApiRequest(
-	request events.APIGatewayV2HTTPRequest,
-) (events.APIGatewayV2HTTPResponse, error) {
-	response := events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
+	request *events.APIGatewayV2HTTPRequest,
+) (*events.APIGatewayV2HTTPResponse, error) {
+	response := &events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	response.Headers["Content-Type"] = "text/plain; charset=utf-8"
 	op, err := parseApiEvent(request.RawPath, request.PathParameters)
 
 	if err != nil {
-		h.prepareParseErrorResponse(&response, err)
+		h.prepareParseErrorResponse(response, err)
 		return response, nil
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) prepareParseErrorResponse(
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
 func (h *Handler) handleMailtoEvent(
-	event events.SimpleEmailEvent, unsubscribeRecipient string,
+	event *events.SimpleEmailEvent, unsubscribeRecipient string,
 ) error {
 	ses := event.Records[0].SES
 	headers := ses.Mail.CommonHeaders
