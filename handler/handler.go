@@ -21,8 +21,8 @@ type Handler struct {
 
 func NewHandler(
 	emailDomain string,
-	paths RedirectPaths,
 	agent ops.SubscriptionAgent,
+	paths RedirectPaths,
 ) *Handler {
 	fullUrl := func(path string) string {
 		return "https://" + emailDomain + "/" + path
@@ -56,9 +56,9 @@ func (h *Handler) handleApiRequest(
 ) (*events.APIGatewayV2HTTPResponse, error) {
 	res := &events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	res.Headers["Content-Type"] = "text/plain; charset=utf-8"
-	endpoint, params := req.RawPath, req.PathParameters
+	params := req.PathParameters
 
-	if op, err := parseApiEvent(endpoint, params); err != nil {
+	if op, err := parseApiEvent(req.RawPath, params); err != nil {
 		return h.respondToParseError(res, err)
 	} else if result, err := h.performOperation(op, err); err != nil {
 		res.StatusCode = http.StatusInternalServerError

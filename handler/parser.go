@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SubscribePrefix   = "/subscribe/"
+	SubscribePrefix   = "/subscribe"
 	VerifyPrefix      = "/verify/"
 	UnsubscribePrefix = "/unsubscribe/"
 )
@@ -44,13 +44,12 @@ type eventOperation struct {
 }
 
 type ParseError struct {
-	Type     eventOperationType
-	Endpoint string
-	Message  string
+	Type    eventOperationType
+	Message string
 }
 
 func (e *ParseError) Error() string {
-	return e.Type.String() + ": " + e.Message + ": " + e.Endpoint
+	return e.Type.String() + ": " + e.Message
 }
 
 func (e *ParseError) Is(target error) bool {
@@ -78,16 +77,15 @@ func parseApiEvent(
 }
 
 type pathInfo struct {
-	Type     eventOperationType
-	Endpoint string
-	Params   map[string]string
+	Type   eventOperationType
+	Params map[string]string
 }
 
 func newPathInfo(endpoint string, params map[string]string) (*pathInfo, error) {
 	if optype, err := parseOperationType(endpoint); err != nil {
 		return nil, err
 	} else {
-		return &pathInfo{optype, endpoint, params}, nil
+		return &pathInfo{optype, params}, nil
 	}
 }
 
@@ -100,19 +98,19 @@ func parseOperationType(endpoint string) (eventOperationType, error) {
 		return UnsubscribeOp, nil
 	}
 	return UndefinedOp, &ParseError{
-		Type: UndefinedOp, Message: "unknown endpoint", Endpoint: endpoint,
+		Type: UndefinedOp, Message: "unknown endpoint: " + endpoint,
 	}
 }
 
 func (pi *pathInfo) parseEmail() (string, error) {
-	return parsePathParam(pi, "email", "", parseEmailAddress)
+	return parseParam(pi, "email", "", parseEmailAddress)
 }
 
 func (pi *pathInfo) parseUid() (uuid.UUID, error) {
 	if pi.Type == SubscribeOp {
 		return uuid.Nil, nil
 	}
-	return parsePathParam(pi, "uid", uuid.Nil, uuid.Parse)
+	return parseParam(pi, "uid", uuid.Nil, uuid.Parse)
 }
 
 func parseEmailAddress(emailParam string) (string, error) {
@@ -123,7 +121,7 @@ func parseEmailAddress(emailParam string) (string, error) {
 	}
 }
 
-func parsePathParam[T string | uuid.UUID](
+func parseParam[T string | uuid.UUID](
 	pi *pathInfo, name string, nilValue T, parse func(string) (T, error),
 ) (T, error) {
 	if value, ok := pi.Params[name]; !ok {
@@ -137,7 +135,7 @@ func parsePathParam[T string | uuid.UUID](
 }
 
 func (pi *pathInfo) parseError(message string) error {
-	return &ParseError{Type: pi.Type, Endpoint: pi.Endpoint, Message: message}
+	return &ParseError{Type: pi.Type, Message: message}
 }
 
 type parsedSubject struct {

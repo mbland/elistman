@@ -68,7 +68,7 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref EListManApi
-            Path: /subscribe/{email}
+            Path: /subscribe
             Method: POST
         Verify:
           Type: HttpApi

@@ -21,12 +21,12 @@ func buildHandler() (*handler.Handler, error) {
 	} else {
 		return handler.NewHandler(
 			opts.EmailDomainName,
-			opts.RedirectPaths,
 			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    email.NewSesMailer(cfg),
 			},
+			opts.RedirectPaths,
 		), nil
 	}
 }

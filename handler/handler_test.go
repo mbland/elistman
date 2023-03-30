@@ -41,14 +41,22 @@ func (a *testAgent) Unsubscribe(
 
 type fixture struct {
 	e Event
-	h Handler
+	h *Handler
 }
 
 func newFixture() *fixture {
 	return &fixture{
-		h: Handler{
-			Agent: &testAgent{},
-		},
+		h: NewHandler(
+			"mike-bland.com",
+			&testAgent{},
+			RedirectPaths{
+				"invalid",
+				"already-subscribed",
+				"verify-link-sent",
+				"subscribed",
+				"not-subscribed",
+				"unsubscribed",
+			}),
 	}
 }
 
@@ -82,19 +90,17 @@ func TestIgnoreUnexpectedEvent(t *testing.T) {
 	assert.Equal(t, nil, response)
 }
 
-func TestApiRequestReturnsDefaultResponseLocationUntilImplemented(t *testing.T) {
+func TestApiRequestReturnsInvalidRequestLocationUntilImplemented(t *testing.T) {
 	f := newFixture()
 
 	response, err := f.handleApiRequest([]byte(`{
 		"rawPath": "/subscribe",
-		"pathParameters": {
-			"email": "mbland%40acm.org",
-			"uid": "00000000-1111-2222-3333-444444444444"
-		}
+		"body": "email=mbland%40acm.org"
 	}`))
 
 	assert.NilError(t, err)
-	assert.Equal(t, response.StatusCode, http.StatusBadRequest)
+	assert.Equal(t, response.StatusCode, http.StatusSeeOther)
+	assert.Equal(t, response.Headers["Location"], f.h.Redirects[ops.Invalid])
 }
 
 func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {
