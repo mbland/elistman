@@ -189,19 +189,16 @@ expect_status_from_endpoint 'invalid endpoint not found' \
   POST 'foobar/mbland%40acm.org' \
   "$not_found_status"
 
+expect_status_from_endpoint '/subscribe with trailing component not found' \
+  POST 'subscribe/foobar' \
+  "$not_found_status"
+
 printf_info '%s\n' \
   'SUITE: Redirect if missing or invalid email address for /subscribe'
 
-missing_address_status=303
-missing_address_path="$INVALID_REQUEST_PATH"
-if [[ -n "$LOCAL" ]]; then
-  missing_address_status=403
-  missing_address_path=""
-fi
-
-expect_status_from_endpoint 'missing email address (403 locally, 303 in prod)' \
-   POST 'subscribe' \
-  "$missing_address_status" "$missing_address_path"
+expect_status_from_endpoint 'missing email address' \
+  POST 'subscribe' \
+  303 "$INVALID_REQUEST_PATH"
 
 expect_status_from_endpoint 'invalid email address' \
   POST 'subscribe' \
