@@ -81,7 +81,7 @@ func TestParseOperationType(t *testing.T) {
 // parseEmailAddress and parseParam functions.
 func TestParseEmail(t *testing.T) {
 	t.Run("ParamMissing", func(t *testing.T) {
-		pi := &pathInfo{VerifyOp, map[string]string{}}
+		pi := &opInfo{VerifyOp, map[string]string{}}
 		result, err := pi.parseEmail()
 
 		assert.Equal(t, "", result)
@@ -91,7 +91,7 @@ func TestParseEmail(t *testing.T) {
 	})
 
 	t.Run("ParamInvalid", func(t *testing.T) {
-		pi := &pathInfo{VerifyOp, map[string]string{"email": "bazquux"}}
+		pi := &opInfo{VerifyOp, map[string]string{"email": "bazquux"}}
 		result, err := pi.parseEmail()
 
 		assert.Equal(t, "", result)
@@ -102,9 +102,7 @@ func TestParseEmail(t *testing.T) {
 	})
 
 	t.Run("ParamValid", func(t *testing.T) {
-		pi := &pathInfo{
-			SubscribeOp, map[string]string{"email": "mbland@acm.org"},
-		}
+		pi := &opInfo{SubscribeOp, map[string]string{"email": "mbland@acm.org"}}
 		result, err := pi.parseEmail()
 
 		assert.NilError(t, err)
@@ -114,7 +112,7 @@ func TestParseEmail(t *testing.T) {
 
 func TestParseUid(t *testing.T) {
 	t.Run("IgnoreSubscribeOp", func(t *testing.T) {
-		pi := &pathInfo{SubscribeOp, map[string]string{}}
+		pi := &opInfo{SubscribeOp, map[string]string{}}
 		result, err := pi.parseUid()
 
 		assert.NilError(t, err)
@@ -125,7 +123,7 @@ func TestParseUid(t *testing.T) {
 		expected, err := uuid.Parse("00000000-1111-2222-3333-444444444444")
 		assert.NilError(t, err)
 
-		pi := &pathInfo{VerifyOp, map[string]string{"uid": expected.String()}}
+		pi := &opInfo{VerifyOp, map[string]string{"uid": expected.String()}}
 		result, err := pi.parseUid()
 
 		assert.NilError(t, err)

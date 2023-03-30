@@ -65,7 +65,7 @@ func (e *ParseError) Is(target error) bool {
 func parseApiEvent(
 	endpoint string, params map[string]string,
 ) (*eventOperation, error) {
-	if pi, err := newPathInfo(endpoint, params); err != nil {
+	if pi, err := newOpInfo(endpoint, params); err != nil {
 		return nil, err
 	} else if email, err := pi.parseEmail(); err != nil {
 		return nil, err
@@ -76,16 +76,16 @@ func parseApiEvent(
 	}
 }
 
-type pathInfo struct {
+type opInfo struct {
 	Type   eventOperationType
 	Params map[string]string
 }
 
-func newPathInfo(endpoint string, params map[string]string) (*pathInfo, error) {
+func newOpInfo(endpoint string, params map[string]string) (*opInfo, error) {
 	if optype, err := parseOperationType(endpoint); err != nil {
 		return nil, err
 	} else {
-		return &pathInfo{optype, params}, nil
+		return &opInfo{optype, params}, nil
 	}
 }
 
@@ -102,15 +102,15 @@ func parseOperationType(endpoint string) (eventOperationType, error) {
 	}
 }
 
-func (pi *pathInfo) parseEmail() (string, error) {
-	return parseParam(pi, "email", "", parseEmailAddress)
+func (oi *opInfo) parseEmail() (string, error) {
+	return parseParam(oi, "email", "", parseEmailAddress)
 }
 
-func (pi *pathInfo) parseUid() (uuid.UUID, error) {
-	if pi.Type == SubscribeOp {
+func (oi *opInfo) parseUid() (uuid.UUID, error) {
+	if oi.Type == SubscribeOp {
 		return uuid.Nil, nil
 	}
-	return parseParam(pi, "uid", uuid.Nil, uuid.Parse)
+	return parseParam(oi, "uid", uuid.Nil, uuid.Parse)
 }
 
 func parseEmailAddress(emailParam string) (string, error) {
@@ -122,20 +122,20 @@ func parseEmailAddress(emailParam string) (string, error) {
 }
 
 func parseParam[T string | uuid.UUID](
-	pi *pathInfo, name string, nilValue T, parse func(string) (T, error),
+	oi *opInfo, name string, nilValue T, parse func(string) (T, error),
 ) (T, error) {
-	if value, ok := pi.Params[name]; !ok {
-		return nilValue, pi.parseError("missing " + name + " parameter")
+	if value, ok := oi.Params[name]; !ok {
+		return nilValue, oi.parseError("missing " + name + " parameter")
 	} else if v, err := parse(value); err != nil {
 		msg := fmt.Sprintf("invalid %s parameter: %s: %s", name, value, err)
-		return nilValue, pi.parseError(msg)
+		return nilValue, oi.parseError(msg)
 	} else {
 		return v, nil
 	}
 }
 
-func (pi *pathInfo) parseError(message string) error {
-	return &ParseError{Type: pi.Type, Message: message}
+func (oi *opInfo) parseError(message string) error {
+	return &ParseError{Type: oi.Type, Message: message}
 }
 
 type parsedSubject struct {
