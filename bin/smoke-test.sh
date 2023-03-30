@@ -103,7 +103,7 @@ expect_status_from_endpoint() {
   local curl_cmd=('curl' '-isS' '-X' "$method" "${postdata[@]}" "$endpoint")
   local response="$("${curl_cmd[@]}")"
 
-  printf '%s\n\n%s\n' "${curl_cmd[*]}" "${response}"
+  printf '\n%s\n\n%s\n\n' "${curl_cmd[*]}" "${response%$'\r\n\r'}"
 
   local passing_results=()
   local failing_results=()
