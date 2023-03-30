@@ -133,7 +133,9 @@ func TestParseUid(t *testing.T) {
 
 func TestParseApiEvent(t *testing.T) {
 	t.Run("Unknown", func(t *testing.T) {
-		result, err := parseApiEvent("/foobar", map[string]string{})
+		result, err := parseApiRequest(&apiRequest{
+			RawPath: "/foobar", Params: map[string]string{},
+		})
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: UndefinedOp}))
@@ -141,9 +143,10 @@ func TestParseApiEvent(t *testing.T) {
 	})
 
 	t.Run("InvalidEmail", func(t *testing.T) {
-		result, err := parseApiEvent(
-			SubscribePrefix+"foobar", map[string]string{"email": "foobar"},
-		)
+		result, err := parseApiRequest(&apiRequest{
+			RawPath: SubscribePrefix + "foobar",
+			Params:  map[string]string{"email": "foobar"},
+		})
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: SubscribeOp}))
@@ -151,10 +154,12 @@ func TestParseApiEvent(t *testing.T) {
 	})
 
 	t.Run("InvalidUid", func(t *testing.T) {
-		result, err := parseApiEvent(
-			VerifyPrefix+"mbland@acm.org/0123456789",
-			map[string]string{"email": "mbland@acm.org", "uid": "0123456789"},
-		)
+		result, err := parseApiRequest(&apiRequest{
+			RawPath: VerifyPrefix + "mbland@acm.org/0123456789",
+			Params: map[string]string{
+				"email": "mbland@acm.org", "uid": "0123456789",
+			},
+		})
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.Is(err, &ParseError{Type: VerifyOp}))
@@ -163,10 +168,12 @@ func TestParseApiEvent(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		uidStr := "00000000-1111-2222-3333-444444444444"
-		result, err := parseApiEvent(
-			UnsubscribePrefix+"/mbland@acm.org/"+uidStr,
-			map[string]string{"email": "mbland@acm.org", "uid": uidStr},
-		)
+		result, err := parseApiRequest(&apiRequest{
+			RawPath: UnsubscribePrefix + "/mbland@acm.org/" + uidStr,
+			Params: map[string]string{
+				"email": "mbland@acm.org", "uid": uidStr,
+			},
+		})
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, result, &eventOperation{
@@ -296,7 +303,7 @@ func TestParseMailtoEvent(t *testing.T) {
 
 	t.Run("MissingFromAddress", func(t *testing.T) {
 		result, err := parseMailtoEvent(
-			[]string{}, tos, unsubscribeAddr, subject,
+			&mailtoEvent{To: tos, Subject: subject}, unsubscribeAddr,
 		)
 
 		assert.Assert(t, is.Nil(result))
@@ -304,14 +311,18 @@ func TestParseMailtoEvent(t *testing.T) {
 	})
 
 	t.Run("EmptySubject", func(t *testing.T) {
-		result, err := parseMailtoEvent(froms, tos, unsubscribeAddr, "")
-
+		result, err := parseMailtoEvent(
+			&mailtoEvent{From: froms, To: tos}, unsubscribeAddr,
+		)
 		assert.Assert(t, is.Nil(result))
 		assert.Error(t, err, "subject not in `<email> <uid>` format: \"\"")
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		result, err := parseMailtoEvent(froms, tos, unsubscribeAddr, subject)
+		result, err := parseMailtoEvent(
+			&mailtoEvent{From: froms, To: tos, Subject: subject},
+			unsubscribeAddr,
+		)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, &eventOperation{UnsubscribeOp, email, uid}, result)

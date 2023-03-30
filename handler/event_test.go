@@ -32,7 +32,7 @@ func TestUnmarshalUnknownEventIsNop(t *testing.T) {
 	assert.DeepEqual(t, Event{}, e)
 }
 
-const apiRequest = `{
+const apiRequestJson = `{
 	"version": "2.0",
 	"routeKey": "POST /subscribe",
 	"rawPath": "/subscribe"
@@ -41,7 +41,7 @@ const apiRequest = `{
 func TestApiRequest(t *testing.T) {
 	e := Event{}
 
-	err := e.UnmarshalJSON([]byte(apiRequest))
+	err := e.UnmarshalJSON([]byte(apiRequestJson))
 
 	assert.NilError(t, err)
 	assert.Equal(t, "API Request", e.Type.String())
@@ -55,7 +55,7 @@ func TestApiRequest(t *testing.T) {
 	})
 }
 
-const mailtoEvent string = `{
+const mailtoEventJson string = `{
 	"Records": [
 		{
 			"eventVersion": "1.0",
@@ -75,7 +75,7 @@ const mailtoEvent string = `{
 func TestMailtoEvent(t *testing.T) {
 	e := Event{}
 
-	err := e.UnmarshalJSON([]byte(mailtoEvent))
+	err := e.UnmarshalJSON([]byte(mailtoEventJson))
 
 	assert.NilError(t, err)
 	assert.Equal(t, "Mailto", e.Type.String())

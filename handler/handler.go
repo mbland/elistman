@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -44,21 +43,39 @@ func NewHandler(
 func (h *Handler) HandleEvent(event *Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
-		return h.handleApiRequest(&event.ApiRequest)
+		return h.handleApiRequest(newApiRequest(&event.ApiRequest))
 	case MailtoEvent:
-		return nil, h.handleMailtoEvent(&event.MailtoEvent)
+		if ev, err := newMailtoEvent(&event.MailtoEvent); err != nil {
+			return nil, err
+		} else {
+			return nil, h.handleMailtoEvent(ev)
+		}
 	}
 	return nil, nil
 }
 
+func newApiRequest(req *events.APIGatewayV2HTTPRequest) *apiRequest {
+	params := map[string]string{}
+
+	for k, v := range req.PathParameters {
+		params[k] = v
+	}
+	return &apiRequest{
+		req.RawPath,
+		req.RequestContext.HTTP.Method,
+		req.Headers["Content-Type"],
+		params,
+		req.Body,
+	}
+}
+
 func (h *Handler) handleApiRequest(
-	req *events.APIGatewayV2HTTPRequest,
+	req *apiRequest,
 ) (*events.APIGatewayV2HTTPResponse, error) {
 	res := &events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
 	res.Headers["Content-Type"] = "text/plain; charset=utf-8"
-	params := req.PathParameters
 
-	if op, err := parseApiEvent(req.RawPath, params); err != nil {
+	if op, err := parseApiRequest(req); err != nil {
 		return h.respondToParseError(res, err)
 	} else if result, err := h.performOperation(op, err); err != nil {
 		res.StatusCode = http.StatusInternalServerError
@@ -108,33 +125,43 @@ func (h *Handler) performOperation(
 	return ops.Invalid, fmt.Errorf("can't handle operation type: %s", op.Type)
 }
 
-func isOneClickUnsubscribeRequest(
-	op *eventOperation,
-	req *events.APIGatewayV2HTTPRequest,
-) bool {
-	if op.Type == UnsubscribeOp &&
-		req.RequestContext.HTTP.Method == http.MethodPost {
-		if postparams, err := url.ParseQuery(req.Body); err != nil {
-			return false
-		} else {
-			return postparams.Get("List-Unsubscribe") == "One-Click"
-		}
+func isOneClickUnsubscribeRequest(op *eventOperation, req *apiRequest) bool {
+	return op.Type == UnsubscribeOp &&
+		req.Method == http.MethodPost &&
+		req.Params["List-Unsubscribe"] == "One-Click"
+}
+
+func newMailtoEvent(e *events.SimpleEmailEvent) (*mailtoEvent, error) {
+	if len(e.Records) != 1 {
+		return nil, fmt.Errorf(
+			"expected one SES event Record, got %d", len(e.Records),
+		)
 	}
-	return false
+
+	ses := e.Records[0].SES
+	headers := ses.Mail.CommonHeaders
+	receipt := &ses.Receipt
+
+	return &mailtoEvent{
+		From:         headers.From,
+		To:           headers.To,
+		Subject:      headers.Subject,
+		SpfVerdict:   receipt.SPFVerdict.Status,
+		DkimVerdict:  receipt.DKIMVerdict.Status,
+		SpamVerdict:  receipt.SpamVerdict.Status,
+		VirusVerdict: receipt.VirusVerdict.Status,
+		DmarcVerdict: receipt.DMARCVerdict.Status,
+		DmarcPolicy:  receipt.DMARCPolicy,
+	}, nil
 }
 
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
-func (h *Handler) handleMailtoEvent(event *events.SimpleEmailEvent) error {
-	ses := event.Records[0].SES
-	headers := ses.Mail.CommonHeaders
-
-	if isSpam(ses.Receipt) {
+func (h *Handler) handleMailtoEvent(ev *mailtoEvent) error {
+	if isSpam(ev) {
 		log.Printf("received spam, ignoring")
-	} else if op, err := parseMailtoEvent(
-		headers.From, headers.To, h.UnsubscribeAddr, headers.Subject,
-	); err != nil {
+	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
 		log.Printf("error parsing mailto event, ignoring: %s", err)
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
 		return fmt.Errorf("error while unsubscribing %s: %s", op.Email, err)
@@ -144,6 +171,6 @@ func (h *Handler) handleMailtoEvent(event *events.SimpleEmailEvent) error {
 	return nil
 }
 
-func isSpam(receipt events.SimpleEmailReceipt) bool {
+func isSpam(ev *mailtoEvent) bool {
 	return false
 }

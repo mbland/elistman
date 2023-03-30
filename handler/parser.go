@@ -62,10 +62,16 @@ func (e *ParseError) Is(target error) bool {
 	}
 }
 
-func parseApiEvent(
-	endpoint string, params map[string]string,
-) (*eventOperation, error) {
-	if pi, err := newOpInfo(endpoint, params); err != nil {
+type apiRequest struct {
+	RawPath     string
+	Method      string
+	ContentType string
+	Params      map[string]string
+	Body        string
+}
+
+func parseApiRequest(req *apiRequest) (*eventOperation, error) {
+	if pi, err := newOpInfo(req.RawPath, req.Params); err != nil {
 		return nil, err
 	} else if email, err := pi.parseEmail(); err != nil {
 		return nil, err
@@ -145,27 +151,37 @@ type parsedSubject struct {
 
 var nilSubject *parsedSubject = &parsedSubject{}
 
+type mailtoEvent struct {
+	From         []string
+	To           []string
+	Subject      string
+	SpfVerdict   string
+	DkimVerdict  string
+	SpamVerdict  string
+	VirusVerdict string
+	DmarcVerdict string
+	DmarcPolicy  string
+}
+
 func parseMailtoEvent(
-	froms, tos []string, unsubscribeRecipient, subject string,
+	ev *mailtoEvent, unsubscribeAddr string,
 ) (*eventOperation, error) {
-	if err := checkMailAddresses(froms, tos, unsubscribeRecipient); err != nil {
+	if err := checkMailAddresses(ev.From, ev.To, unsubscribeAddr); err != nil {
 		return nil, err
-	} else if subject, err := parseEmailSubject(subject); err != nil {
+	} else if subject, err := parseEmailSubject(ev.Subject); err != nil {
 		return nil, err
 	} else {
 		return &eventOperation{UnsubscribeOp, subject.Email, subject.Uid}, nil
 	}
 }
 
-func checkMailAddresses(
-	froms, tos []string, unsubscribeRecipient string,
-) error {
+func checkMailAddresses(froms, tos []string, unsubscribeAddr string) error {
 	if err := checkForOnlyOneAddress("From", froms); err != nil {
 		return err
 	} else if err := checkForOnlyOneAddress("To", tos); err != nil {
 		return err
-	} else if to := tos[0]; to != unsubscribeRecipient {
-		return fmt.Errorf("not addressed to %s: %s", unsubscribeRecipient, to)
+	} else if to := tos[0]; to != unsubscribeAddr {
+		return fmt.Errorf("not addressed to %s: %s", unsubscribeAddr, to)
 	}
 	return nil
 }
