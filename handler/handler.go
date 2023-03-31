@@ -45,11 +45,15 @@ func (h *Handler) HandleEvent(event *Event) (any, error) {
 	case ApiRequest:
 		return h.handleApiRequest(newApiRequest(&event.ApiRequest))
 	case MailtoEvent:
-		if ev, err := newMailtoEvent(&event.MailtoEvent); err != nil {
-			return nil, err
-		} else {
-			return nil, h.handleMailtoEvent(ev)
+		// If I understand the contract correctly, there should only ever be one
+		// valid Record per event. However, we have the technology to deal
+		// gracefully with the unexpected.
+		errs := make([]error, len(event.MailtoEvent.Records))
+
+		for i, record := range event.MailtoEvent.Records {
+			errs[i] = h.handleMailtoEvent(newMailtoEvent(&record.SES))
 		}
+		return nil, errors.Join(errs...)
 	}
 	return nil, nil
 }
@@ -131,14 +135,7 @@ func isOneClickUnsubscribeRequest(op *eventOperation, req *apiRequest) bool {
 		req.Params["List-Unsubscribe"] == "One-Click"
 }
 
-func newMailtoEvent(e *events.SimpleEmailEvent) (*mailtoEvent, error) {
-	if len(e.Records) != 1 {
-		return nil, fmt.Errorf(
-			"expected one SES event Record, got %d", len(e.Records),
-		)
-	}
-
-	ses := e.Records[0].SES
+func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 	headers := ses.Mail.CommonHeaders
 	receipt := &ses.Receipt
 
