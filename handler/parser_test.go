@@ -301,8 +301,44 @@ func TestParseUid(t *testing.T) {
 	})
 }
 
-func TestParseApiEvent(t *testing.T) {
+func TestIsOneClickSubscribeRequest(t *testing.T) {
+	postReq := &apiRequest{Method: http.MethodPost}
+	oneClickParams := map[string]string{"List-Unsubscribe": "One-Click"}
 
+	t.Run("FalseIfNotAnUnsubscribeOp", func(t *testing.T) {
+		result := isOneClickUnsubscribeRequest(
+			SubscribeOp, postReq, oneClickParams,
+		)
+
+		assert.Assert(t, result == false)
+	})
+
+	t.Run("FalseIfNotAPostRequest", func(t *testing.T) {
+		result := isOneClickUnsubscribeRequest(
+			UnsubscribeOp, &apiRequest{Method: http.MethodGet}, oneClickParams,
+		)
+
+		assert.Assert(t, result == false)
+	})
+
+	t.Run("FalseIfNoOneClickParameter", func(t *testing.T) {
+		result := isOneClickUnsubscribeRequest(
+			UnsubscribeOp, postReq, map[string]string{},
+		)
+
+		assert.Assert(t, result == false)
+	})
+
+	t.Run("True", func(t *testing.T) {
+		result := isOneClickUnsubscribeRequest(
+			UnsubscribeOp, postReq, oneClickParams,
+		)
+
+		assert.Assert(t, result == true)
+	})
+}
+
+func TestParseApiEvent(t *testing.T) {
 	t.Run("Unknown", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
 			RawPath: "/foobar", Params: map[string]string{},

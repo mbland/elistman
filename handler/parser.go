@@ -218,9 +218,8 @@ func parseParam[T string | uuid.UUID](
 func isOneClickUnsubscribeRequest(
 	optype eventOperationType, req *apiRequest, params map[string]string,
 ) bool {
-	// See the file comments in email/mailer.go for details on the one click
-	// unsubscribe mechanism for references describing the one click unsubscribe
-	// mechanism.
+	// See the file comments in email/mailer.go for references describing the
+	// one click unsubscribe mechanism.
 	return optype == UnsubscribeOp &&
 		req.Method == http.MethodPost &&
 		params["List-Unsubscribe"] == "One-Click"
