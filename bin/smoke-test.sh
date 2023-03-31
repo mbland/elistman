@@ -84,8 +84,10 @@ expect_status_from_endpoint() {
   local location="$5"
   local content_type="$6"
   local num_shift_args="$(($# < 6 ? $# : 6))"
-  local curl_data_flag='-d'  # for application/x-www-form-urlencoded
   local postdata=()
+
+  # for application/x-www-form-urlencoded
+  local curl_data_flag='--data-urlencode'  
 
   if [[ "$content_type" == 'multipart/form-data' ]]; then
     curl_data_flag='-F'
@@ -153,12 +155,12 @@ printf_info 'SUITE: Success\n'
 expect_status_from_endpoint 'successful subscribe using urlencoded params' \
   POST 'subscribe' \
   303 "$VERIFY_LINK_SENT_PATH" \
-  'application/x-www-form-urlencoded' 'email=mbland%40acm.org'
+  'application/x-www-form-urlencoded' 'email=mbland@acm.org'
 
 expect_status_from_endpoint 'successful subscribe using form-data' \
   POST 'subscribe' \
   303 "$VERIFY_LINK_SENT_PATH" \
-  'multipart/form-data' 'email=mbland%40acm.org'
+  'multipart/form-data' 'email=mbland@acm.org'
 
 expect_status_from_endpoint 'successful verify' \
   GET 'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
@@ -203,7 +205,7 @@ expect_status_from_endpoint 'missing email address' \
 expect_status_from_endpoint 'invalid email address' \
   POST 'subscribe' \
   303 "$INVALID_REQUEST_PATH" \
-  'application/x-www-form-urlencoded' 'email=foo%20bar'
+  'application/x-www-form-urlencoded' 'email=foo bar'
 
 printf_info 'SUITE: All other missing or invalid parameters return 400\n'
 
