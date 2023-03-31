@@ -85,7 +85,7 @@ func (h *Handler) handleApiRequest(
 	} else if result, err := h.performOperation(op, err); err != nil {
 		res.StatusCode = http.StatusInternalServerError
 		return res, err
-	} else if isOneClickUnsubscribeRequest(op, req) {
+	} else if op.OneClick {
 		res.StatusCode = http.StatusOK
 	} else if redirect, ok := h.Redirects[result]; !ok {
 		res.StatusCode = http.StatusInternalServerError
@@ -128,15 +128,6 @@ func (h *Handler) performOperation(
 		return h.Agent.Unsubscribe(op.Email, op.Uid)
 	}
 	return ops.Invalid, fmt.Errorf("can't handle operation type: %s", op.Type)
-}
-
-func isOneClickUnsubscribeRequest(op *eventOperation, req *apiRequest) bool {
-	// See the file comments in email/mailer.go for details on the one click
-	// unsubscribe mechanism for references describing the one click unsubscribe
-	// mechanism.
-	return op.Type == UnsubscribeOp &&
-		req.Method == http.MethodPost &&
-		req.Params["List-Unsubscribe"] == "One-Click"
 }
 
 func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {

@@ -43,9 +43,10 @@ func (t eventOperationType) String() string {
 }
 
 type eventOperation struct {
-	Type  eventOperationType
-	Email string
-	Uid   uuid.UUID
+	Type     eventOperationType
+	Email    string
+	Uid      uuid.UUID
+	OneClick bool
 }
 
 type ParseError struct {
@@ -78,14 +79,19 @@ type apiRequest struct {
 func parseApiRequest(req *apiRequest) (*eventOperation, error) {
 	if optype, err := parseOperationType(req.RawPath); err != nil {
 		return parseError(optype, err)
-	} else if err := parseParams(req); err != nil {
+	} else if params, err := parseParams(req); err != nil {
 		return parseError(optype, err)
-	} else if email, err := parseEmail(req.Params); err != nil {
+	} else if email, err := parseEmail(params); err != nil {
 		return parseError(optype, err)
-	} else if uid, err := parseUid(optype, req.Params); err != nil {
+	} else if uid, err := parseUid(optype, params); err != nil {
 		return parseError(optype, err)
 	} else {
-		return &eventOperation{optype, email, uid}, nil
+		return &eventOperation{
+			optype,
+			email,
+			uid,
+			isOneClickUnsubscribeRequest(optype, req, params),
+		}, nil
 	}
 }
 
@@ -104,27 +110,33 @@ func parseOperationType(endpoint string) (eventOperationType, error) {
 	return UndefinedOp, fmt.Errorf("unknown endpoint: %s", endpoint)
 }
 
-func parseParams(req *apiRequest) error {
+func parseParams(req *apiRequest) (map[string]string, error) {
 	if req.Method != http.MethodPost {
-		return nil
+		return req.Params, nil
 	}
 
 	values, err := parseBody(req.ContentType, req.Body)
 
 	if err != nil {
 		const errFmt = `failed to parse body params with Content-Type %q: %s`
-		return fmt.Errorf(errFmt, req.ContentType, err)
+		return map[string]string{}, fmt.Errorf(errFmt, req.ContentType, err)
 	}
+
+	params := map[string]string{}
 
 	for k, v := range values {
 		if len(v) != 1 {
 			values := strings.Join(v, ", ")
-			return fmt.Errorf("multiple values for %q: %s", k, values)
-		} else if _, exists := req.Params[k]; !exists {
-			req.Params[k] = v[0]
+			err = fmt.Errorf("multiple values for %q: %s", k, values)
+			return map[string]string{}, err
 		}
+		params[k] = v[0]
 	}
-	return nil
+
+	for k, v := range req.Params {
+		params[k] = v
+	}
+	return params, nil
 }
 
 func parseBody(contentType, body string) (url.Values, error) {
@@ -199,6 +211,17 @@ func parseParam[T string | uuid.UUID](
 	}
 }
 
+func isOneClickUnsubscribeRequest(
+	optype eventOperationType, req *apiRequest, params map[string]string,
+) bool {
+	// See the file comments in email/mailer.go for details on the one click
+	// unsubscribe mechanism for references describing the one click unsubscribe
+	// mechanism.
+	return optype == UnsubscribeOp &&
+		req.Method == http.MethodPost &&
+		params["List-Unsubscribe"] == "One-Click"
+}
+
 type parsedSubject struct {
 	Email string
 	Uid   uuid.UUID
@@ -227,7 +250,9 @@ func parseMailtoEvent(
 	} else if subject, err := parseEmailSubject(ev.Subject); err != nil {
 		return nil, err
 	} else {
-		return &eventOperation{UnsubscribeOp, subject.Email, subject.Uid}, nil
+		return &eventOperation{
+			UnsubscribeOp, subject.Email, subject.Uid, true,
+		}, nil
 	}
 }
 

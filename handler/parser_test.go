@@ -170,57 +170,57 @@ func TestParseParams(t *testing.T) {
 		req := newRequest()
 		req.Method = http.MethodGet
 
-		err := parseParams(req)
+		result, err := parseParams(req)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, map[string]string{}, req.Params)
+		assert.DeepEqual(t, map[string]string{}, result)
 	})
 
 	t.Run("ParseError", func(t *testing.T) {
 		req := newRequest()
 		req.Body = "email=mbland@acm.org;uid=0123-456-789"
 
-		err := parseParams(req)
+		result, err := parseParams(req)
 
 		expected := fmt.Sprintf(
 			`failed to parse body params with Content-Type "%s": `,
 			req.ContentType,
 		)
 		assert.ErrorContains(t, err, expected)
-		assert.DeepEqual(t, map[string]string{}, req.Params)
+		assert.DeepEqual(t, map[string]string{}, result)
 	})
 
 	t.Run("Success", func(t *testing.T) {
 		req := newRequest()
 
-		err := parseParams(req)
+		result, err := parseParams(req)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, parsedParams, req.Params)
+		assert.DeepEqual(t, parsedParams, result)
 	})
 
 	t.Run("PreferIncomingParamsOverBodyParams", func(t *testing.T) {
 		req := newRequest()
 		req.Params["email"] = "foo@bar.com"
 
-		err := parseParams(req)
+		result, err := parseParams(req)
 
 		assert.NilError(t, err)
 		expected := map[string]string{
 			"email": "foo@bar.com", "uid": parsedParams["uid"],
 		}
-		assert.DeepEqual(t, expected, req.Params)
+		assert.DeepEqual(t, expected, result)
 	})
 
 	t.Run("ErrorIfParamHasMultipleValues", func(t *testing.T) {
 		req := newRequest()
 		req.Body = "email=mbland%40acm.org&email=foo%40bar.com"
 
-		err := parseParams(req)
+		result, err := parseParams(req)
 
 		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
 		assert.ErrorContains(t, err, expected)
-		assert.DeepEqual(t, map[string]string{}, req.Params)
+		assert.DeepEqual(t, map[string]string{}, result)
 	})
 }
 
@@ -368,7 +368,9 @@ func TestParseApiEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.DeepEqual(
-			t, result, &eventOperation{SubscribeOp, "mbland@acm.org", uuid.Nil},
+			t, result, &eventOperation{
+				SubscribeOp, "mbland@acm.org", uuid.Nil, false,
+			},
 		)
 	})
 
@@ -391,9 +393,8 @@ func TestParseApiEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, result, &eventOperation{
-			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uidStr),
+			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uidStr), true,
 		})
-		assert.Equal(t, "One-Click", req.Params["List-Unsubscribe"])
 	})
 }
 
@@ -540,6 +541,8 @@ func TestParseMailtoEvent(t *testing.T) {
 		)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, &eventOperation{UnsubscribeOp, email, uid}, result)
+		assert.DeepEqual(
+			t, &eventOperation{UnsubscribeOp, email, uid, true}, result,
+		)
 	})
 }
