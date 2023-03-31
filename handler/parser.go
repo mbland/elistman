@@ -76,23 +76,21 @@ type apiRequest struct {
 }
 
 func parseApiRequest(req *apiRequest) (*eventOperation, error) {
-	var info *opInfo = nil
-
 	if optype, err := parseOperationType(req.RawPath); err != nil {
-		return nil, &ParseError{optype, err.Error()}
+		return parseError(optype, err)
 	} else if err := parseParams(req); err != nil {
-		return nil, &ParseError{optype, err.Error()}
+		return parseError(optype, err)
+	} else if email, err := parseEmail(req.Params); err != nil {
+		return parseError(optype, err)
+	} else if uid, err := parseUid(optype, req.Params); err != nil {
+		return parseError(optype, err)
 	} else {
-		info = &opInfo{optype, req.Params}
+		return &eventOperation{optype, email, uid}, nil
 	}
+}
 
-	if email, err := info.parseEmail(); err != nil {
-		return nil, &ParseError{info.Type, err.Error()}
-	} else if uid, err := info.parseUid(); err != nil {
-		return nil, &ParseError{info.Type, err.Error()}
-	} else {
-		return &eventOperation{info.Type, email, uid}, nil
-	}
+func parseError(optype eventOperationType, err error) (*eventOperation, error) {
+	return nil, &ParseError{optype, err.Error()}
 }
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
@@ -164,20 +162,17 @@ func parseFormData(body string, params map[string]string) (url.Values, error) {
 	return values, nil
 }
 
-type opInfo struct {
-	Type   eventOperationType
-	Params map[string]string
+func parseEmail(params map[string]string) (string, error) {
+	return parseParam(params, "email", "", parseEmailAddress)
 }
 
-func (oi *opInfo) parseEmail() (string, error) {
-	return parseParam(oi, "email", "", parseEmailAddress)
-}
-
-func (oi *opInfo) parseUid() (uuid.UUID, error) {
-	if oi.Type == SubscribeOp {
+func parseUid(
+	optype eventOperationType, params map[string]string,
+) (uuid.UUID, error) {
+	if optype == SubscribeOp {
 		return uuid.Nil, nil
 	}
-	return parseParam(oi, "uid", uuid.Nil, uuid.Parse)
+	return parseParam(params, "uid", uuid.Nil, uuid.Parse)
 }
 
 func parseEmailAddress(emailParam string) (string, error) {
@@ -189,9 +184,12 @@ func parseEmailAddress(emailParam string) (string, error) {
 }
 
 func parseParam[T string | uuid.UUID](
-	oi *opInfo, name string, nilValue T, parse func(string) (T, error),
+	params map[string]string,
+	name string,
+	nilValue T,
+	parse func(string) (T, error),
 ) (T, error) {
-	if value, ok := oi.Params[name]; !ok {
+	if value, ok := params[name]; !ok {
 		return nilValue, fmt.Errorf("missing %s parameter", name)
 	} else if v, err := parse(value); err != nil {
 		e := fmt.Errorf("invalid %s parameter: %s: %s", name, value, err)
