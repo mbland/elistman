@@ -3,6 +3,10 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -22,7 +26,7 @@ func TestParseError(t *testing.T) {
 		Message: "invalid email parameter: mbland acm.org",
 	}
 
-	t.Run("StringIncludesOptypeMessageAndEndpoint", func(t *testing.T) {
+	t.Run("StringIncludesOptypeAndMessage", func(t *testing.T) {
 		assert.Equal(
 			t,
 			"Subscribe: invalid email parameter: mbland acm.org",
@@ -37,7 +41,7 @@ func TestParseError(t *testing.T) {
 
 	t.Run("IsFalse", func(t *testing.T) {
 		stringErr := fmt.Errorf(
-			"Subscribe: invalid email parameter: /subscribe/mbland acm.org",
+			"Subscribe: invalid email parameter: mbland acm.org",
 		)
 
 		assert.Assert(t, !err.Is(stringErr), "string")
@@ -45,9 +49,184 @@ func TestParseError(t *testing.T) {
 	})
 }
 
+type testParams map[string]string
+
+func (tp testParams) urlencoded() (string, string) {
+	values := url.Values{}
+
+	for k, v := range tp {
+		values.Add(k, v)
+	}
+	return "application/x-www-form-urlencoded", values.Encode()
+}
+
+func (tp testParams) formData() (string, string) {
+	builder := strings.Builder{}
+	writer := multipart.NewWriter(&builder)
+
+	for k, v := range tp {
+		writer.WriteField(k, v)
+	}
+	writer.Close()
+	return writer.FormDataContentType(), builder.String()
+}
+
+func (tp testParams) urlValues() url.Values {
+	values := url.Values{}
+
+	for k, v := range tp {
+		values.Add(k, v)
+	}
+	return values
+}
+
+func TestParseFormData(t *testing.T) {
+	params := testParams{"email": "mbland@acm.org", "uid": "0123-456-789"}
+	contentType, body := params.formData()
+	_, mediaParams, err := mime.ParseMediaType(contentType)
+
+	if err != nil {
+		t.Fatalf("Content-Type %q failed to parse: %s", contentType, err)
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		values, err := parseFormData(body, mediaParams)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, params.urlValues(), values)
+	})
+
+	t.Run("ErrorOnNextPart", func(t *testing.T) {
+		badBody := strings.ReplaceAll(body, mediaParams["boundary"], "")
+
+		values, err := parseFormData(badBody, mediaParams)
+
+		assert.ErrorContains(t, err, "multipart: NextPart: EOF")
+		assert.DeepEqual(t, url.Values{}, values)
+	})
+
+	t.Run("ErrorOnReadAll", func(t *testing.T) {
+		badBody := strings.Replace(body, mediaParams["boundary"]+"--", "", 1)
+
+		values, err := parseFormData(badBody, mediaParams)
+
+		assert.Error(t, err, "unexpected EOF")
+		assert.DeepEqual(t, url.Values{}, values)
+	})
+}
+
+func TestParseBody(t *testing.T) {
+	params := testParams{"email": "mbland@acm.org", "uid": "0123-456-789"}
+
+	t.Run("ErrorIfMediaTypeFailsToParse", func(t *testing.T) {
+		_, body := params.urlencoded()
+		values, err := parseBody("foobar/", body)
+
+		expected := `failed to parse "foobar/": ` +
+			"mime: expected token after slash"
+		assert.ErrorContains(t, err, expected)
+		assert.DeepEqual(t, url.Values{}, values)
+	})
+
+	t.Run("ErrorIfUnknownMediaType", func(t *testing.T) {
+		_, body := params.urlencoded()
+		values, err := parseBody("foobar", body)
+
+		assert.ErrorContains(t, err, "unknown media type: foobar")
+		assert.DeepEqual(t, url.Values{}, values)
+	})
+
+	t.Run("ParseUrlencoded", func(t *testing.T) {
+		contentType, body := params.urlencoded()
+		values, err := parseBody(contentType, body)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, params.urlValues(), values)
+	})
+
+	t.Run("ParseFormData", func(t *testing.T) {
+		contentType, body := params.formData()
+		values, err := parseBody(contentType, body)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, params.urlValues(), values)
+	})
+}
+
+func TestParseParams(t *testing.T) {
+	newRequest := func() *apiRequest {
+		return &apiRequest{
+			Method:      http.MethodPost,
+			ContentType: "application/x-www-form-urlencoded",
+			Params:      map[string]string{},
+			Body:        "email=mbland%40acm.org&uid=0123-456-789",
+		}
+	}
+	parsedParams := map[string]string{
+		"email": "mbland@acm.org", "uid": "0123-456-789",
+	}
+
+	t.Run("IgnoreIfNotPostRequest", func(t *testing.T) {
+		req := newRequest()
+		req.Method = http.MethodGet
+
+		err := parseParams(req)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, map[string]string{}, req.Params)
+	})
+
+	t.Run("ParseError", func(t *testing.T) {
+		req := newRequest()
+		req.Body = "email=mbland@acm.org;uid=0123-456-789"
+
+		err := parseParams(req)
+
+		expected := fmt.Sprintf(
+			`failed to parse body params with Content-Type "%s": `,
+			req.ContentType,
+		)
+		assert.ErrorContains(t, err, expected)
+		assert.DeepEqual(t, map[string]string{}, req.Params)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		req := newRequest()
+
+		err := parseParams(req)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, parsedParams, req.Params)
+	})
+
+	t.Run("PreferIncomingParamsOverBodyParams", func(t *testing.T) {
+		req := newRequest()
+		req.Params["email"] = "foo@bar.com"
+
+		err := parseParams(req)
+
+		assert.NilError(t, err)
+		expected := map[string]string{
+			"email": "foo@bar.com", "uid": parsedParams["uid"],
+		}
+		assert.DeepEqual(t, expected, req.Params)
+	})
+
+	t.Run("ErrorIfParamHasMultipleValues", func(t *testing.T) {
+		req := newRequest()
+		req.Body = "email=mbland%40acm.org&email=foo%40bar.com"
+
+		err := parseParams(req)
+
+		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
+		assert.ErrorContains(t, err, expected)
+		assert.DeepEqual(t, map[string]string{}, req.Params)
+	})
+}
+
 func TestParseOperationType(t *testing.T) {
 	t.Run("Subscribe", func(t *testing.T) {
-		result, err := parseOperationType(SubscribePrefix + "/foobar")
+		result, err := parseOperationType(SubscribePrefix)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Subscribe", result.String())
@@ -71,9 +250,7 @@ func TestParseOperationType(t *testing.T) {
 		result, err := parseOperationType("/foobar/baz")
 
 		assert.Equal(t, "Undefined", result.String())
-		assert.DeepEqual(
-			t, err, &ParseError{UndefinedOp, "unknown endpoint: /foobar/baz"},
-		)
+		assert.ErrorContains(t, err, "unknown endpoint: /foobar/baz")
 	})
 }
 
@@ -85,9 +262,7 @@ func TestParseEmail(t *testing.T) {
 		result, err := pi.parseEmail()
 
 		assert.Equal(t, "", result)
-		assert.DeepEqual(
-			t, err, &ParseError{VerifyOp, "missing email parameter"},
-		)
+		assert.ErrorContains(t, err, "missing email parameter")
 	})
 
 	t.Run("ParamInvalid", func(t *testing.T) {
@@ -95,10 +270,9 @@ func TestParseEmail(t *testing.T) {
 		result, err := pi.parseEmail()
 
 		assert.Equal(t, "", result)
-		assert.DeepEqual(t, err, &ParseError{
-			VerifyOp,
-			"invalid email parameter: bazquux: mail: missing '@' or angle-addr",
-		})
+		expected := "invalid email parameter: bazquux: " +
+			"mail: missing '@' or angle-addr"
+		assert.ErrorContains(t, err, expected)
 	})
 
 	t.Run("ParamValid", func(t *testing.T) {
@@ -132,6 +306,7 @@ func TestParseUid(t *testing.T) {
 }
 
 func TestParseApiEvent(t *testing.T) {
+
 	t.Run("Unknown", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
 			RawPath: "/foobar", Params: map[string]string{},
@@ -142,9 +317,26 @@ func TestParseApiEvent(t *testing.T) {
 		assert.ErrorContains(t, err, "unknown endpoint: /foobar")
 	})
 
+	t.Run("ErrorWhileParsingParams", func(t *testing.T) {
+		req := &apiRequest{
+			RawPath:     SubscribePrefix,
+			Params:      map[string]string{},
+			Method:      http.MethodPost,
+			ContentType: "application/x-www-form-urlencoded",
+			Body:        "email=mbland%40acm.org&email=foo%40bar.com",
+		}
+
+		result, err := parseApiRequest(req)
+
+		assert.Assert(t, is.Nil(result))
+		assert.Assert(t, errors.Is(err, &ParseError{Type: SubscribeOp}))
+		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
+		assert.ErrorContains(t, err, expected)
+	})
+
 	t.Run("InvalidEmail", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
-			RawPath: SubscribePrefix + "foobar",
+			RawPath: SubscribePrefix,
 			Params:  map[string]string{"email": "foobar"},
 		})
 
@@ -166,19 +358,45 @@ func TestParseApiEvent(t *testing.T) {
 		assert.ErrorContains(t, err, "invalid uid parameter: 0123456789")
 	})
 
-	t.Run("Success", func(t *testing.T) {
-		uidStr := "00000000-1111-2222-3333-444444444444"
-		result, err := parseApiRequest(&apiRequest{
+	t.Run("SuccessfulSubscribe", func(t *testing.T) {
+		req := &apiRequest{
+			RawPath:     SubscribePrefix,
+			Params:      map[string]string{},
+			Method:      http.MethodPost,
+			ContentType: "application/x-www-form-urlencoded",
+			Body:        "email=mbland%40acm.org",
+		}
+
+		result, err := parseApiRequest(req)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(
+			t, result, &eventOperation{SubscribeOp, "mbland@acm.org", uuid.Nil},
+		)
+	})
+
+	t.Run("SuccessfulOneClickUnsubscribe", func(t *testing.T) {
+		// The "email" and "uid" are path parameters. "List-Unsubscribe" is
+		// parsed from the body.
+		const uidStr = "00000000-1111-2222-3333-444444444444"
+
+		req := &apiRequest{
 			RawPath: UnsubscribePrefix + "/mbland@acm.org/" + uidStr,
 			Params: map[string]string{
 				"email": "mbland@acm.org", "uid": uidStr,
 			},
-		})
+			Method:      http.MethodPost,
+			ContentType: "application/x-www-form-urlencoded",
+			Body:        "List-Unsubscribe=One-Click",
+		}
+
+		result, err := parseApiRequest(req)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, result, &eventOperation{
 			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uidStr),
 		})
+		assert.Equal(t, "One-Click", req.Params["List-Unsubscribe"])
 	})
 }
 
