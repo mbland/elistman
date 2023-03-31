@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -157,24 +158,33 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
 func (h *Handler) handleMailtoEvent(ev *mailtoEvent) error {
-	prefix := "message " + ev.MessageId + ": "
+	prefix := "unsubscribe message " + ev.MessageId + ": "
 
 	if bounced, err := h.bounceIfDmarcFails(ev); err != nil {
-		return fmt.Errorf("%serror while bouncing: %s", prefix, err)
+		return fmt.Errorf("%sDMARC bounce fail: %s: %s", prefix, meta(ev), err)
 	} else if bounced {
-		log.Printf("%sbounced", prefix)
+		log.Printf("%sDMARC bounce: %s", prefix, meta(ev))
 	} else if isSpam(ev) {
-		log.Printf("%sspam, ignoring", prefix)
+		log.Printf("%smarked as spam, ignored: %s", prefix, meta(ev))
 	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
-		log.Printf("%sparse error, ignoring: %s", prefix, err)
+		log.Printf("%sfailed to parse, ignoring: %s: %s", prefix, meta(ev), err)
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
-		return fmt.Errorf("%serror unsubscribing %s: %s", prefix, op.Email, err)
+		return fmt.Errorf("%serror: %s: %s", prefix, op.Email, err)
 	} else if result != ops.Unsubscribed {
-		log.Printf("%snot unsubscribed: %s: %s", prefix, op.Email, result)
+		log.Printf("%sfailed: %s: %s", prefix, op.Email, result)
 	} else {
-		log.Printf("%ssuccessfully unsubscribed: %s", prefix, op.Email)
+		log.Printf("%ssuccess: %s", prefix, op.Email)
 	}
 	return nil
+}
+
+func meta(ev *mailtoEvent) string {
+	return fmt.Sprintf(
+		"[From:\"%s\" To:\"%s\" Subject:\"%s\"]",
+		strings.Join(ev.From, ","),
+		strings.Join(ev.To, ","),
+		ev.Subject,
+	)
 }
 
 func (h *Handler) bounceIfDmarcFails(ev *mailtoEvent) (bool, error) {
