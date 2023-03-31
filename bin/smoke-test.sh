@@ -114,7 +114,7 @@ expect_status_from_endpoint() {
     "$response" "Couldn't determine response status"
 
   if [[ -n "$location" ]]; then
-    check_response_for 'Location' 'Location:\ ([^[:space:]]+)' "$location" \
+    check_response_for 'Location' '[Ll]ocation:\ ([^[:space:]]+)' "$location" \
       "$response" "No 'Location:' in response"
   fi
 
