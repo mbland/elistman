@@ -146,29 +146,42 @@ func newMailtoEvent(e *events.SimpleEmailEvent) (*mailtoEvent, error) {
 		From:         headers.From,
 		To:           headers.To,
 		Subject:      headers.Subject,
+		MessageId:    ses.Mail.MessageID,
 		SpfVerdict:   receipt.SPFVerdict.Status,
 		DkimVerdict:  receipt.DKIMVerdict.Status,
 		SpamVerdict:  receipt.SpamVerdict.Status,
 		VirusVerdict: receipt.VirusVerdict.Status,
 		DmarcVerdict: receipt.DMARCVerdict.Status,
 		DmarcPolicy:  receipt.DMARCPolicy,
-	}, nil
+	}
 }
 
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
 func (h *Handler) handleMailtoEvent(ev *mailtoEvent) error {
-	if isSpam(ev) {
-		log.Printf("received spam, ignoring")
+	prefix := "message " + ev.MessageId + ": "
+
+	if bounced, err := h.bounceIfDmarcFails(ev); err != nil {
+		return fmt.Errorf("%serror while bouncing: %s", prefix, err)
+	} else if bounced {
+		log.Printf("%sbounced", prefix)
+	} else if isSpam(ev) {
+		log.Printf("%sspam, ignoring", prefix)
 	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
-		log.Printf("error parsing mailto event, ignoring: %s", err)
+		log.Printf("%sparse error, ignoring: %s", prefix, err)
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
-		return fmt.Errorf("error while unsubscribing %s: %s", op.Email, err)
-	} else if result == ops.Unsubscribed {
-		log.Printf("unsubscribed: %s", op.Email)
+		return fmt.Errorf("%serror unsubscribing %s: %s", prefix, op.Email, err)
+	} else if result != ops.Unsubscribed {
+		log.Printf("%snot unsubscribed: %s: %s", prefix, op.Email, result)
+	} else {
+		log.Printf("%ssuccessfully unsubscribed: %s", prefix, op.Email)
 	}
 	return nil
+}
+
+func (h *Handler) bounceIfDmarcFails(ev *mailtoEvent) (bool, error) {
+	return false, nil
 }
 
 func isSpam(ev *mailtoEvent) bool {

@@ -155,6 +155,7 @@ type mailtoEvent struct {
 	From         []string
 	To           []string
 	Subject      string
+	MessageId    string
 	SpfVerdict   string
 	DkimVerdict  string
 	SpamVerdict  string
