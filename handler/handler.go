@@ -131,6 +131,9 @@ func (h *Handler) performOperation(
 }
 
 func isOneClickUnsubscribeRequest(op *eventOperation, req *apiRequest) bool {
+	// See the file comments in email/mailer.go for details on the one click
+	// unsubscribe mechanism for references describing the one click unsubscribe
+	// mechanism.
 	return op.Type == UnsubscribeOp &&
 		req.Method == http.MethodPost &&
 		req.Params["List-Unsubscribe"] == "One-Click"
