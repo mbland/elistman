@@ -81,7 +81,7 @@ Resources:
           Properties:
             ApiId: !Ref EListManApi
             Path: /unsubscribe/{email}/{uid}
-            Method: Get
+            Method: GET
         UnsubscribePost:
           Type: HttpApi
           Properties:
