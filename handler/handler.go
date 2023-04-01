@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -44,7 +45,11 @@ func NewHandler(
 func (h *Handler) HandleEvent(event *Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
-		return h.handleApiRequest(newApiRequest(&event.ApiRequest))
+		if req, err := newApiRequest(&event.ApiRequest); err != nil {
+			return nil, err
+		} else {
+			return h.handleApiRequest(req)
+		}
 	case MailtoEvent:
 		// If I understand the contract correctly, there should only ever be one
 		// valid Record per event. However, we have the technology to deal
@@ -59,26 +64,60 @@ func (h *Handler) HandleEvent(event *Event) (any, error) {
 	return nil, nil
 }
 
-func newApiRequest(req *events.APIGatewayV2HTTPRequest) *apiRequest {
-	params := map[string]string{}
+func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
+	contentType, foundContentType := req.Headers["content-type"]
+	body := req.Body
 
-	for k, v := range req.PathParameters {
-		params[k] = v
+	// This accounts for differences in HTTP Header casing between running
+	// bin/smoke-test.sh against a `sam local` server and the prod deployment.
+	//
+	// `curl` will send "Content-Type" to the local, unencrypted, HTTP/1.1
+	// server, which doesn't fully emulate a production API Gateway instance. It
+	// will send "content-type" to the encrypted HTTP/2 prod deployment.
+	//
+	// HTTP headers are supposed to be case insensitive. HTTP/2 headers MUST be
+	// lowercase:
+	//
+	// - Are HTTP headers case-sensitive?: https://stackoverflow.com/a/41169947
+	//   - HTTP/1.1: https://www.rfc-editor.org/rfc/rfc7230#section-3.2
+	//   - HTTP/2:   https://www.rfc-editor.org/rfc/rfc7540#section-8.1.2
+	// - HTTP/2 Header Casing: https://blog.yaakov.online/http-2-header-casing/
+	//
+	// Also, the "Payload format version" of "Working with AWS Lambda proxy
+	// integrations for HTTP APIs" explictly states that "Header names are
+	// lowercased."
+	//
+	// - https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
+	if !foundContentType {
+		contentType = req.Headers["Content-Type"]
 	}
+
+	// For some reason, the prod API Gateway will base64 encode POST body
+	// payloads. The `sam-local` server will not. Either way, it's good to do
+	// the right thing based on the value of this flag.
+	if req.IsBase64Encoded {
+		if decoded, err := base64.StdEncoding.DecodeString(body); err != nil {
+			return nil, fmt.Errorf("failed to base64 decode body: %s", err)
+		} else {
+			body = string(decoded)
+		}
+	}
+
 	return &apiRequest{
+		req.RequestContext.RequestID,
 		req.RawPath,
 		req.RequestContext.HTTP.Method,
-		req.Headers["Content-Type"],
-		params,
-		req.Body,
-	}
+		contentType,
+		req.PathParameters,
+		body,
+	}, nil
 }
 
 func (h *Handler) handleApiRequest(
 	req *apiRequest,
 ) (*events.APIGatewayV2HTTPResponse, error) {
 	res := &events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
-	res.Headers["Content-Type"] = "text/plain; charset=utf-8"
+	res.Headers["content-type"] = "text/plain; charset=utf-8"
 
 	if op, err := parseApiRequest(req); err != nil {
 		return h.respondToParseError(res, err)
@@ -92,7 +131,7 @@ func (h *Handler) handleApiRequest(
 		return res, fmt.Errorf("no redirect for op result: %s", result)
 	} else {
 		res.StatusCode = http.StatusSeeOther
-		res.Headers["Location"] = redirect
+		res.Headers["location"] = redirect
 	}
 	return res, nil
 }
@@ -111,7 +150,7 @@ func (h *Handler) respondToParseError(
 		return response, fmt.Errorf("no redirect for invalid operation")
 	} else {
 		response.StatusCode = http.StatusSeeOther
-		response.Headers["Location"] = redirect
+		response.Headers["location"] = redirect
 	}
 	return response, nil
 }

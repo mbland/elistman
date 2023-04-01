@@ -69,6 +69,7 @@ func (e *ParseError) Is(target error) bool {
 }
 
 type apiRequest struct {
+	RequestId   string
 	RawPath     string
 	Method      string
 	ContentType string
@@ -117,7 +118,7 @@ func parseParams(req *apiRequest) (map[string]string, error) {
 
 	if req.Method == http.MethodPost {
 		if values, err = parseBody(req.ContentType, req.Body); err != nil {
-			errFmt := `failed to parse body params with Content-Type %q: %s`
+			errFmt := `failed to parse body params with content-type %q: %s`
 			return params, fmt.Errorf(errFmt, req.ContentType, err)
 		}
 	} else if req.Body != "" {

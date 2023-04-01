@@ -86,7 +86,7 @@ func TestParseFormData(t *testing.T) {
 	_, mediaParams, err := mime.ParseMediaType(contentType)
 
 	if err != nil {
-		t.Fatalf("Content-Type %q failed to parse: %s", contentType, err)
+		t.Fatalf("content-type %q failed to parse: %s", contentType, err)
 	}
 
 	t.Run("Success", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestParseParams(t *testing.T) {
 		result, err := parseParams(req)
 
 		expected := fmt.Sprintf(
-			`failed to parse body params with Content-Type "%s": `,
+			`failed to parse body params with content-type "%s": `,
 			req.ContentType,
 		)
 		assert.ErrorContains(t, err, expected)
