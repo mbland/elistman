@@ -241,6 +241,7 @@ This software is made available as [Open Source software][oss-def] under the
 
 - [Building Lambda functions with Go][]
 - [Using AWS Lambda with other services][]
+- [Using AWS Lambda with Amazon API Gateway][]
 - [aws/aws-sdk-go][]
 - [aws/aws-lambda-go][]
 - [Blank AWS Lambda function in Go][]
@@ -285,6 +286,8 @@ This software is made available as [Open Source software][oss-def] under the
 - [Email Sender Reputation Made Simple][]
 - [Why Go: Command-line Interfaces (CLIs)][]
 - [spf13/cobra][]
+- [AWS Lambda function logging in Go][]
+- [Working with stages for HTTP APIs][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -308,6 +311,7 @@ This software is made available as [Open Source software][oss-def] under the
 [Mozilla Public License 2.0]: https://www.mozilla.org/en-US/MPL/
 [Building Lambda functions with Go]: https://docs.aws.amazon.com/lambda/latest/dg/lambda-golang.html
 [Using AWS Lambda with other services]: https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
+[Using AWS Lambda with Amazon API Gateway]: https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
 [aws/aws-sdk-go]: https://github.com/aws/aws-sdk-go
 [aws/aws-lambda-go]: https://github.com/aws/aws-lambda-go
 [Blank AWS Lambda function in Go]: https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/blank-go
@@ -352,3 +356,5 @@ This software is made available as [Open Source software][oss-def] under the
 [Email Sender Reputation Made Simple]: https://mailtrap.io/blog/email-sender-reputation/
 [Why Go: Command-line Interfaces (CLIs)]: https://go.dev/solutions/clis
 [spf13/cobra]: https://github.com/spf13/cobra
+[AWS Lambda function logging in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-logging.html
+[Working with stages for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html
