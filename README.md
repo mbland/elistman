@@ -288,6 +288,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [spf13/cobra][]
 - [AWS Lambda function logging in Go][]
 - [Working with stages for HTTP APIs][]
+- [AWS Lambda function errors in Go][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -358,3 +359,4 @@ This software is made available as [Open Source software][oss-def] under the
 [spf13/cobra]: https://github.com/spf13/cobra
 [AWS Lambda function logging in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-logging.html
 [Working with stages for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html
+[AWS Lambda function errors in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-exceptions.html

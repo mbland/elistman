@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -196,17 +197,6 @@ func TestNewMailtoEvent(t *testing.T) {
 	assert.DeepEqual(t, expected, newMailtoEvent(sesEvent))
 }
 
-func TestHandleEvent(t *testing.T) {
-	t.Run("IgnoresUnexpectedEvent", func(t *testing.T) {
-		f := newFixture()
-
-		response, err := f.h.HandleEvent(&f.e)
-
-		assert.NilError(t, err)
-		assert.Equal(t, nil, response)
-	})
-}
-
 func TestSubscribeRequest(t *testing.T) {
 	t.Run("Successful", func(t *testing.T) {
 		t.Skip("not yet implemented")
@@ -254,4 +244,18 @@ func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {
 	})
 
 	assert.NilError(t, err)
+}
+
+func TestHandleEvent(t *testing.T) {
+	t.Run("ReturnsErrorOnUnexpectedEvent", func(t *testing.T) {
+		f := newFixture()
+
+		response, err := f.h.HandleEvent(&f.e)
+
+		assert.Equal(t, nil, response)
+		expected := fmt.Sprintf(
+			"unexpected event type: %s: %+v", NullEvent, &f.e,
+		)
+		assert.Error(t, err, expected)
+	})
 }

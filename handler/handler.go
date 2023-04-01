@@ -61,7 +61,7 @@ func (h *Handler) HandleEvent(event *Event) (any, error) {
 		}
 		return nil, errors.Join(errs...)
 	}
-	return nil, nil
+	return nil, fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 }
 
 func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
