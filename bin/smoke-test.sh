@@ -8,13 +8,8 @@ shift
 if [[ -z "$ENV_FILE" ]]; then
   printf 'Usage: %s [deployment environment variables file]\n' "$0" >&2
   exit 1
-elif [[ ! -r "$ENV_FILE" ]]; then
-  printf 'Deployment environment variable file missing or not readable: %s\n' \
-    "$ENV_FILE" >&2
-  exit 1
 fi
-
-. "$ENV_FILE"
+. "$ENV_FILE" || exit 1
 
 BASE_URL="https://${API_DOMAIN_NAME:?}/${API_MAPPING_KEY:?}"
 

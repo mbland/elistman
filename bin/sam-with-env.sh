@@ -7,17 +7,11 @@ if [[ -z "$ENV_FILE" ]]; then
   printf 'Usage: %s [deployment environment variables file] [sam args...]\n' \
     "$0" >&2
   exit 1
-elif [[ ! -r "$ENV_FILE" ]]; then
-  printf 'Deployment environment variable file missing or not readable: %s\n' \
-    "$ENV_FILE" >&2
-  exit 1
 elif [[ "$#" -eq 0 ]]; then
   printf "No arguments for 'sam' command given.\n" >&2
   exit 1
 fi
-
-. "$ENV_FILE"
-
+. "$ENV_FILE" || exit 1
 
 printf "${SENDER_NAME:?}" >/dev/null
 PARAMETER_OVERRIDES=(
