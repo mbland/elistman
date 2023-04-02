@@ -2,8 +2,11 @@ package handler
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -50,6 +53,8 @@ type fixture struct {
 const testEmailDomain = "mike-bland.com"
 const testUnsubscribeAddress = "unsubscribe@" + testEmailDomain
 
+// const testValidUid = "00000000-1111-2222-3333-444444444444"
+
 var testRedirects = RedirectPaths{
 	Invalid:           "invalid",
 	AlreadySubscribed: "already-subscribed",
@@ -85,6 +90,66 @@ func TestNewHandler(t *testing.T) {
 		}
 
 		assert.DeepEqual(t, expected, f.h.Redirects)
+	})
+}
+
+func captureLogs() (*strings.Builder, func()) {
+	origWriter := log.Writer()
+	builder := &strings.Builder{}
+	log.SetOutput(builder)
+
+	return builder, func() {
+		log.SetOutput(origWriter)
+	}
+}
+
+func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
+	return &events.APIGatewayV2HTTPRequest{
+		RawPath: path,
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "deadbeef",
+			HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+				SourceIP: "192.168.0.1",
+				Method:   method,
+				Path:     path,
+				Protocol: "HTTP/2",
+			},
+		},
+	}
+}
+
+func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
+	return &events.APIGatewayV2HTTPResponse{StatusCode: status}
+}
+
+func TestLogApiResponse(t *testing.T) {
+	req := apiGatewayRequest(
+		http.MethodGet, "/verify/mbland%40acm.org/0123-456-789",
+	)
+
+	t.Run("WithoutError", func(t *testing.T) {
+		logs, teardown := captureLogs()
+		defer teardown()
+		res := apiGatewayResponse(http.StatusOK)
+
+		logApiResponse(req, res, nil)
+
+		expectedMsg := `192.168.0.1 ` +
+			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" 200`
+		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
+	})
+
+	t.Run("WithError", func(t *testing.T) {
+		logs, teardown := captureLogs()
+		defer teardown()
+		res := apiGatewayResponse(http.StatusInternalServerError)
+
+		logApiResponse(req, res, errors.New("unexpected problem"))
+
+		expectedMsg := `192.168.0.1 ` +
+			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" ` +
+			`500: unexpected problem`
+		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
 	})
 }
 
@@ -232,6 +297,60 @@ func TestSubscribeRequest(t *testing.T) {
 		assert.Equal(
 			t, response.Headers["location"], f.h.Redirects[ops.Invalid],
 		)
+	})
+}
+
+func TestHandleApiEvent(t *testing.T) {
+	req := apiGatewayRequest(http.MethodPost, "/subscribe")
+	logs, teardown := captureLogs()
+	defer teardown()
+
+	req.Body = "email=mbland%40acm.org"
+	req.Headers = map[string]string{
+		"content-type": "application/x-www-form-urlencoded",
+	}
+
+	t.Run("SetsInternalServerErrorByDefault", func(t *testing.T) {
+		f := newFixture()
+		badReq := apiGatewayRequest(http.MethodPost, "/subscribe")
+		defer logs.Reset()
+
+		badReq.Body = "Definitely not base64 encoded"
+		badReq.IsBase64Encoded = true
+
+		res := f.h.handleApiEvent(badReq)
+
+		assert.Assert(t, res != nil)
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+		assert.Assert(
+			t, is.Contains(logs.String(), "500: failed to base64 decode body"),
+		)
+	})
+
+	t.Run("SetsStatusFromErrorIfPresent", func(t *testing.T) {
+		f := newFixture()
+		f.ta.Error = &ops.OperationErrorExternal{Message: "db operation failed"}
+		defer logs.Reset()
+
+		res := f.h.handleApiEvent(req)
+
+		assert.Assert(t, res != nil)
+		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
+		assert.Assert(
+			t, is.Contains(logs.String(), "502: db operation failed"),
+		)
+	})
+
+	t.Run("Succeeds", func(t *testing.T) {
+		f := newFixture()
+		f.ta.ReturnValue = ops.VerifyLinkSent
+		defer logs.Reset()
+
+		res := f.h.handleApiEvent(req)
+
+		assert.Assert(t, res != nil)
+		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
+		assert.Assert(t, strings.HasSuffix(logs.String(), " 303\n"))
 	})
 }
 

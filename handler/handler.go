@@ -42,14 +42,19 @@ func NewHandler(
 	}
 }
 
+type errorWithStatus struct {
+	HttpStatus int
+	Message    string
+}
+
+func (err *errorWithStatus) Error() string {
+	return err.Message
+}
+
 func (h *Handler) HandleEvent(event *Event) (any, error) {
 	switch event.Type {
 	case ApiRequest:
-		if req, err := newApiRequest(&event.ApiRequest); err != nil {
-			return nil, err
-		} else {
-			return h.handleApiRequest(req)
-		}
+		return h.handleApiEvent(&event.ApiRequest), nil
 	case MailtoEvent:
 		// If I understand the contract correctly, there should only ever be one
 		// valid Record per event. However, we have the technology to deal
@@ -62,6 +67,47 @@ func (h *Handler) HandleEvent(event *Event) (any, error) {
 		return nil, errors.Join(errs...)
 	}
 	return nil, fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
+}
+
+func (h *Handler) handleApiEvent(
+	origReq *events.APIGatewayV2HTTPRequest,
+) *events.APIGatewayV2HTTPResponse {
+	var res *events.APIGatewayV2HTTPResponse = nil
+	req, err := newApiRequest(origReq)
+
+	if err == nil {
+		res, err = h.handleApiRequest(req)
+	}
+
+	if err != nil {
+		errorStatus := http.StatusInternalServerError
+		if apiErr, ok := err.(*errorWithStatus); ok {
+			errorStatus = apiErr.HttpStatus
+		}
+		res = &events.APIGatewayV2HTTPResponse{StatusCode: errorStatus}
+	}
+	logApiResponse(origReq, res, err)
+	return res
+}
+
+func logApiResponse(
+	req *events.APIGatewayV2HTTPRequest,
+	res *events.APIGatewayV2HTTPResponse,
+	err error,
+) {
+	reqId := req.RequestContext.RequestID
+	desc := req.RequestContext.HTTP
+	errMsg := ""
+
+	if err != nil {
+		errMsg = ": " + err.Error()
+	}
+
+	log.Printf(`%s: %s "%s %s %s" %d%s`,
+		reqId,
+		desc.SourceIP, desc.Method, desc.Path, desc.Protocol, res.StatusCode,
+		errMsg,
+	)
 }
 
 func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
@@ -121,14 +167,12 @@ func (h *Handler) handleApiRequest(
 
 	if op, err := parseApiRequest(req); err != nil {
 		return h.respondToParseError(res, err)
-	} else if result, err := h.performOperation(op, err); err != nil {
-		res.StatusCode = http.StatusInternalServerError
-		return res, err
+	} else if result, err := h.performOperation(op); err != nil {
+		return nil, err
 	} else if op.OneClick {
 		res.StatusCode = http.StatusOK
 	} else if redirect, ok := h.Redirects[result]; !ok {
-		res.StatusCode = http.StatusInternalServerError
-		return res, fmt.Errorf("no redirect for op result: %s", result)
+		return nil, fmt.Errorf("no redirect for op result: %s", result)
 	} else {
 		res.StatusCode = http.StatusSeeOther
 		res.Headers["location"] = redirect
@@ -146,8 +190,7 @@ func (h *Handler) respondToParseError(
 		response.StatusCode = http.StatusBadRequest
 		response.Body = fmt.Sprintf("%s\n", err)
 	} else if redirect, ok := h.Redirects[ops.Invalid]; !ok {
-		response.StatusCode = http.StatusInternalServerError
-		return response, fmt.Errorf("no redirect for invalid operation")
+		return nil, errors.New("no redirect for invalid operation")
 	} else {
 		response.StatusCode = http.StatusSeeOther
 		response.Headers["location"] = redirect
@@ -156,17 +199,26 @@ func (h *Handler) respondToParseError(
 }
 
 func (h *Handler) performOperation(
-	op *eventOperation, err error,
+	op *eventOperation,
 ) (ops.OperationResult, error) {
+	result := ops.Invalid
+	var err error = nil
+
 	switch op.Type {
 	case SubscribeOp:
-		return h.Agent.Subscribe(op.Email)
+		result, err = h.Agent.Subscribe(op.Email)
 	case VerifyOp:
-		return h.Agent.Verify(op.Email, op.Uid)
+		result, err = h.Agent.Verify(op.Email, op.Uid)
 	case UnsubscribeOp:
-		return h.Agent.Unsubscribe(op.Email, op.Uid)
+		result, err = h.Agent.Unsubscribe(op.Email, op.Uid)
+	default:
+		err = fmt.Errorf("can't handle operation type: %s", op.Type)
 	}
-	return ops.Invalid, fmt.Errorf("can't handle operation type: %s", op.Type)
+
+	if opErr, ok := err.(*ops.OperationErrorExternal); ok {
+		err = &errorWithStatus{http.StatusBadGateway, opErr.Error()}
+	}
+	return result, err
 }
 
 func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
