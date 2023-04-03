@@ -17,6 +17,7 @@ type Options struct {
 	ApiDomainName        string
 	ApiMappingKey        string
 	EmailDomainName      string
+	EmailSiteTitle       string
 	SenderName           string
 	SubscribersTableName string
 
@@ -47,6 +48,7 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.ApiDomainName, "API_DOMAIN_NAME")
 	env.assign(&opts.ApiMappingKey, "API_MAPPING_KEY")
 	env.assign(&opts.EmailDomainName, "EMAIL_DOMAIN_NAME")
+	env.assign(&opts.EmailSiteTitle, "EMAIL_SITE_TITLE")
 	env.assign(&opts.SenderName, "SENDER_NAME")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
 

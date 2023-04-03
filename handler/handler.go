@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"text/template"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
@@ -15,21 +16,32 @@ import (
 type RedirectMap map[ops.OperationResult]string
 
 type Handler struct {
-	UnsubscribeAddr string
-	Agent           ops.SubscriptionAgent
-	Redirects       RedirectMap
+	UnsubscribeAddr  string
+	SiteTitle        string
+	Agent            ops.SubscriptionAgent
+	Redirects        RedirectMap
+	responseTemplate *template.Template
 }
 
 func NewHandler(
 	emailDomain string,
+	siteTitle string,
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
-) *Handler {
+	responseTemplate string,
+) (*Handler, error) {
 	fullUrl := func(path string) string {
 		return "https://" + emailDomain + "/" + path
 	}
+	responseTmpl, err := initResponseBodyTemplate(responseTemplate)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &Handler{
 		"unsubscribe@" + emailDomain,
+		siteTitle,
 		agent,
 		RedirectMap{
 			ops.Invalid:           fullUrl(paths.Invalid),
@@ -39,7 +51,42 @@ func NewHandler(
 			ops.NotSubscribed:     fullUrl(paths.NotSubscribed),
 			ops.Unsubscribed:      fullUrl(paths.Unsubscribed),
 		},
+		responseTmpl,
+	}, nil
+}
+
+func initResponseBodyTemplate(bodyTmpl string) (*template.Template, error) {
+	builder := &strings.Builder{}
+	params := &ResponseTemplateParams{}
+
+	if tmpl, err := template.New("responseBody").Parse(bodyTmpl); err != nil {
+		return nil, fmt.Errorf("parsing response body template failed: %s", err)
+	} else if err := tmpl.Execute(builder, params); err != nil {
+		return nil, fmt.Errorf(
+			"executing response body template failed: %s", err,
+		)
+	} else {
+		return tmpl, nil
 	}
+}
+
+const ResponseTemplate = `<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>{{.Title}} - {{.SiteTitle}}</title>
+  </head>
+  <body>
+    <h1>{{.Title}}</h1>
+    {{.Body}}
+  </body>
+</html>`
+
+type ResponseTemplateParams struct {
+	Title     string
+	SiteTitle string
+	Body      string
 }
 
 type errorWithStatus struct {
@@ -80,13 +127,43 @@ func (h *Handler) handleApiEvent(
 	}
 
 	if err != nil {
-		errorStatus := http.StatusInternalServerError
-		if apiErr, ok := err.(*errorWithStatus); ok {
-			errorStatus = apiErr.HttpStatus
-		}
-		res = &events.APIGatewayV2HTTPResponse{StatusCode: errorStatus}
+		res = h.errorResponse(err)
 	}
 	logApiResponse(origReq, res, err)
+	return res
+}
+
+func (h *Handler) addResponseBody(
+	res *events.APIGatewayV2HTTPResponse, body string,
+) {
+	httpStatus := res.StatusCode
+	title := fmt.Sprintf("%d %s", httpStatus, http.StatusText(httpStatus))
+	params := &ResponseTemplateParams{title, h.SiteTitle, body}
+	builder := &strings.Builder{}
+
+	if err := h.responseTemplate.Execute(builder, params); err != nil {
+		// This should never happen, but if it does, fall back to plain text.
+		log.Printf("ERROR adding HTML response body: %s: %+v", err, params)
+		res.Headers["content-type"] = "text/plain; charset=utf-8"
+		res.Body = fmt.Sprintf("%s - %s\n\n%s\n", title, h.SiteTitle, body)
+	} else {
+		res.Headers["content-type"] = "text/html; charset=utf-8"
+		res.Body = builder.String()
+	}
+}
+
+func (h *Handler) errorResponse(err error) *events.APIGatewayV2HTTPResponse {
+	res := &events.APIGatewayV2HTTPResponse{
+		StatusCode: http.StatusInternalServerError,
+		Headers:    map[string]string{},
+	}
+	if apiErr, ok := err.(*errorWithStatus); ok {
+		res.StatusCode = apiErr.HttpStatus
+	}
+
+	body := "<p>There was a problem on our end; " +
+		"please try again in a few minutes.</p>\n"
+	h.addResponseBody(res, body)
 	return res
 }
 
@@ -188,7 +265,10 @@ func (h *Handler) respondToParseError(
 	// it's a bad machine generated request.
 	if !errors.Is(err, &ParseError{Type: SubscribeOp}) {
 		response.StatusCode = http.StatusBadRequest
-		response.Body = fmt.Sprintf("%s\n", err)
+		body := "<p>Parsing the request failed:</p>\n" +
+			"<pre>\n" + template.HTMLEscapeString(err.Error()) + "\n</pre>\n" +
+			"<p>Please correct the request and try again.</p>"
+		h.addResponseBody(response, body)
 	} else if redirect, ok := h.Redirects[ops.Invalid]; !ok {
 		return nil, errors.New("no redirect for invalid operation")
 	} else {

@@ -11,6 +11,8 @@ Parameters:
     Type: String
   EmailDomainName:
     Type: String
+  EmailSiteTitle:
+    Type: String
   SenderName:
     Type: String
   SubscribersTableName:
@@ -55,6 +57,7 @@ Resources:
           API_DOMAIN_NAME: !Ref ApiDomainName
           API_MAPPING_KEY: !Ref ApiMappingKey
           EMAIL_DOMAIN_NAME: !Ref EmailDomainName
+          EMAIL_SITE_TITLE: !Ref EmailSiteTitle
           SENDER_NAME: !Ref SenderName
           SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
           INVALID_REQUEST_PATH: !Ref InvalidRequestPath

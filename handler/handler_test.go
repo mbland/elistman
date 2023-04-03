@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
@@ -51,6 +52,7 @@ type fixture struct {
 }
 
 const testEmailDomain = "mike-bland.com"
+const testSiteTitle = "Mike Bland's blog"
 const testUnsubscribeAddress = "unsubscribe@" + testEmailDomain
 
 // const testValidUid = "00000000-1111-2222-3333-444444444444"
@@ -66,14 +68,50 @@ var testRedirects = RedirectPaths{
 
 func newFixture() *fixture {
 	ta := &testAgent{}
-	return &fixture{ta: ta, h: NewHandler(testEmailDomain, ta, testRedirects)}
+	handler, err := NewHandler(
+		testEmailDomain, testSiteTitle, ta, testRedirects, ResponseTemplate,
+	)
+
+	if err != nil {
+		panic(err.Error())
+	}
+	return &fixture{ta: ta, h: handler}
+}
+
+func TestInitResponseBodyTemplate(t *testing.T) {
+	t.Run("SucceedsWithDefaultResponseTemplate", func(t *testing.T) {
+		tmpl, err := initResponseBodyTemplate(ResponseTemplate)
+
+		assert.NilError(t, err)
+		assert.Assert(t, tmpl != nil)
+	})
+
+	t.Run("ErrorOnMalformedTemplate", func(t *testing.T) {
+		bogusTemplate := "{{}{{bogus}}}"
+
+		tmpl, err := initResponseBodyTemplate(bogusTemplate)
+
+		assert.Assert(t, is.Nil(tmpl))
+		assert.ErrorContains(t, err, "parsing response body template failed")
+	})
+
+	t.Run("ErrorOnTemplateWithUnexpectedParams", func(t *testing.T) {
+		bogusTemplate := "{{.Bogus}}"
+
+		tmpl, err := initResponseBodyTemplate(bogusTemplate)
+
+		assert.Assert(t, is.Nil(tmpl))
+		assert.ErrorContains(t, err, "executing response body template failed")
+	})
 }
 
 func TestNewHandler(t *testing.T) {
 	f := newFixture()
 
-	t.Run("SetsUnsubscribeAddress", func(t *testing.T) {
+	t.Run("SetsBasicFields", func(t *testing.T) {
 		assert.Equal(t, testUnsubscribeAddress, f.h.UnsubscribeAddr)
+		assert.Equal(t, testSiteTitle, f.h.SiteTitle)
+		assert.Assert(t, f.h.responseTemplate != nil)
 	})
 
 	t.Run("SetsRedirectMap", func(t *testing.T) {
@@ -90,6 +128,17 @@ func TestNewHandler(t *testing.T) {
 		}
 
 		assert.DeepEqual(t, expected, f.h.Redirects)
+	})
+
+	t.Run("ReturnsErrorIfTemplateFailsToParse", func(t *testing.T) {
+		tmpl := "{{.Bogus}}"
+
+		handler, err := NewHandler(
+			testEmailDomain, testSiteTitle, &testAgent{}, testRedirects, tmpl,
+		)
+
+		assert.Assert(t, is.Nil(handler))
+		assert.ErrorContains(t, err, "response body template failed")
 	})
 }
 
@@ -119,7 +168,58 @@ func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
 }
 
 func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
-	return &events.APIGatewayV2HTTPResponse{StatusCode: status}
+	return &events.APIGatewayV2HTTPResponse{
+		StatusCode: status, Headers: map[string]string{},
+	}
+}
+
+func TestAddResponseBody(t *testing.T) {
+	const body = "<p>This is only a test</p>"
+	f := newFixture()
+	res := apiGatewayResponse(http.StatusOK)
+
+	t.Run("AddsHtmlBody", func(t *testing.T) {
+		f.h.addResponseBody(res, body)
+
+		assert.Equal(t, res.Headers["content-type"], "text/html; charset=utf-8")
+		assert.Assert(t, is.Contains(res.Body, body))
+		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
+	})
+
+	t.Run("FallsBackToTextBodyOnError", func(t *testing.T) {
+		tmpl := template.Must(template.New("bogus").Parse("{{.Bogus}}"))
+		f.h.responseTemplate = tmpl
+		logs, teardown := captureLogs()
+		defer teardown()
+
+		f.h.addResponseBody(res, body)
+
+		assert.Equal(t, res.Headers["content-type"], "text/plain; charset=utf-8")
+		assert.Assert(t, is.Contains(res.Body, "This is only a test"))
+		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
+		expected := "ERROR adding HTML response body:"
+		assert.Assert(t, is.Contains(logs.String(), expected))
+	})
+}
+
+func TestErrorResponse(t *testing.T) {
+	f := newFixture()
+
+	t.Run("ReturnInternalServerErrorByDefault", func(t *testing.T) {
+		res := f.h.errorResponse(fmt.Errorf("bad news..."))
+
+		assert.Equal(t, res.StatusCode, http.StatusInternalServerError)
+		assert.Assert(t, is.Contains(res.Body, "There was a problem on our end"))
+	})
+
+	t.Run("ReturnStatusFromError", func(t *testing.T) {
+		err := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
+
+		res := f.h.errorResponse(err)
+
+		assert.Equal(t, res.StatusCode, http.StatusBadGateway)
+		assert.Assert(t, is.Contains(res.Body, "There was a problem on our end"))
+	})
 }
 
 func TestLogApiResponse(t *testing.T) {
@@ -310,7 +410,7 @@ func TestHandleApiEvent(t *testing.T) {
 		"content-type": "application/x-www-form-urlencoded",
 	}
 
-	t.Run("SetsInternalServerErrorByDefault", func(t *testing.T) {
+	t.Run("ReturnsErrorIfNewApiRequestFails", func(t *testing.T) {
 		f := newFixture()
 		badReq := apiGatewayRequest(http.MethodPost, "/subscribe")
 		defer logs.Reset()
@@ -327,7 +427,7 @@ func TestHandleApiEvent(t *testing.T) {
 		)
 	})
 
-	t.Run("SetsStatusFromErrorIfPresent", func(t *testing.T) {
+	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
 		f := newFixture()
 		f.ta.Error = &ops.OperationErrorExternal{Message: "db operation failed"}
 		defer logs.Reset()

@@ -21,13 +21,15 @@ func buildHandler() (*handler.Handler, error) {
 	} else {
 		return handler.NewHandler(
 			opts.EmailDomainName,
+			opts.EmailSiteTitle,
 			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    email.NewSesMailer(cfg),
 			},
 			opts.RedirectPaths,
-		), nil
+			handler.ResponseTemplate,
+		)
 	}
 }
 

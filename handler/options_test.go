@@ -25,6 +25,7 @@ func TestReportUndefinedEnviromentVariables(t *testing.T) {
 				"API_DOMAIN_NAME",
 				"API_MAPPING_KEY",
 				"EMAIL_DOMAIN_NAME",
+				"EMAIL_SITE_TITLE",
 				"SENDER_NAME",
 				"SUBSCRIBERS_TABLE_NAME",
 				"INVALID_REQUEST_PATH",
@@ -43,6 +44,7 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 		"API_DOMAIN_NAME":         "api.mike-bland.com",
 		"API_MAPPING_KEY":         "email",
 		"EMAIL_DOMAIN_NAME":       "mike-bland.com",
+		"EMAIL_SITE_TITLE":        "Mike Bland's blog",
 		"SENDER_NAME":             "Mike Bland",
 		"SUBSCRIBERS_TABLE_NAME":  "subscribers",
 		"INVALID_REQUEST_PATH":    "/invalid",
@@ -64,6 +66,7 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 			ApiDomainName:        "api.mike-bland.com",
 			ApiMappingKey:        "email",
 			EmailDomainName:      "mike-bland.com",
+			EmailSiteTitle:       "Mike Bland's blog",
 			SenderName:           "Mike Bland",
 			SubscribersTableName: "subscribers",
 
