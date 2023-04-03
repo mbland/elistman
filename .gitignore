@@ -1,4 +1,13 @@
-*.swp
+# To create a global git ignorefile:
+#
+# Add whatever you like here:
+#   $ $EDITOR ~/.gitignore
+#
+# Configure git to use it for all your repos:
+#  $ git config --global core.excludesfile ~/.gitignore
+#
+# See:
+# https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 coverage.out
 .aws-sam/
 *.env
