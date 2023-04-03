@@ -11,6 +11,10 @@ this notice._
 [![Build status](https://github.com/mbland/elistman/actions/workflows/ci.yml/badge.svg)](https://github.com/mbland/elistman/actions/workflows/ci.yml?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/mbland/elistman/badge.svg?branch=main)](https://coveralls.io/github/mbland/elistman?branch=main)
 
+_(Try force reloading the page to get the latest badges if this is a return
+visit. [The browser cache may hide the latest
+results](https://stackoverflow.com/a/37894321).)_
+
 Only serves one list at a time as defined by deployment parameters. (_I may
 change this in a future version._)
 
@@ -289,6 +293,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [AWS Lambda function logging in Go][]
 - [Working with stages for HTTP APIs][]
 - [AWS Lambda function errors in Go][]
+- [RFC 9110: HTTP Semantics][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -360,3 +365,4 @@ This software is made available as [Open Source software][oss-def] under the
 [AWS Lambda function logging in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-logging.html
 [Working with stages for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html
 [AWS Lambda function errors in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-exceptions.html
+[RFC 9110: HTTP Semantics]: https://www.rfc-editor.org/rfc/rfc9110.html

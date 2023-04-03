@@ -34,10 +34,14 @@ func buildHandler() (*handler.Handler, error) {
 }
 
 func main() {
-	h, err := buildHandler()
-	if err != nil {
-		log.Fatalf("Failed to initialize process: %s", err.Error())
-	}
+	// Disable standard logger flags. The CloudWatch logs show that the Lambda
+	// runtime already adds a timestamp at the beginning of every log line
+	// emitted by the function.
 	log.SetFlags(0)
-	lambda.Start(h.HandleEvent)
+
+	if h, err := buildHandler(); err != nil {
+		log.Fatalf("Failed to initialize process: %s", err.Error())
+	} else {
+		lambda.Start(h.HandleEvent)
+	}
 }
