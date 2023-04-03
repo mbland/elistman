@@ -322,6 +322,56 @@ func TestNewApiRequest(t *testing.T) {
 	})
 }
 
+func TestRespondToParseError(t *testing.T) {
+	f := newFixture()
+
+	t.Run("ReturnsBadRequestIfNotSubscribeOperation", func(t *testing.T) {
+		res, err := f.h.respondToParseError(
+			apiGatewayResponse(http.StatusOK), errors.New("not a subscribe op"),
+		)
+
+		assert.NilError(t, err)
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		assert.Assert(t, is.Contains(res.Body, "not a subscribe op"))
+	})
+
+	t.Run("HtmlEscapesErrorInResponseBody", func(t *testing.T) {
+		res, err := f.h.respondToParseError(
+			apiGatewayResponse(http.StatusOK),
+			errors.New("mbland@<script>alert('pwned')</script>acm.org"),
+		)
+
+		assert.NilError(t, err)
+		expected := "mbland@&lt;script&gt;alert(&#39;pwned&#39;)" +
+			"&lt;/script&gt;acm.org"
+		assert.Assert(t, is.Contains(res.Body, expected))
+	})
+
+	t.Run("ReturnsErrorIfInvalidOpRedirectIsMissing", func(t *testing.T) {
+		f := newFixture()
+		delete(f.h.Redirects, ops.Invalid)
+
+		res, err := f.h.respondToParseError(
+			apiGatewayResponse(http.StatusOK),
+			&ParseError{SubscribeOp, "mbland acm.org"},
+		)
+
+		assert.Assert(t, is.Nil(res))
+		assert.Error(t, err, "no redirect for invalid operation")
+	})
+
+	t.Run("RedirectsToInvalidOpPageIfSubscribeOp", func(t *testing.T) {
+		res, err := f.h.respondToParseError(
+			apiGatewayResponse(http.StatusOK),
+			&ParseError{SubscribeOp, "mbland acm.org"},
+		)
+
+		assert.NilError(t, err)
+		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
+		assert.Equal(t, f.h.Redirects[ops.Invalid], res.Headers["location"])
+	})
+}
+
 func TestSubscribeRequest(t *testing.T) {
 	t.Run("Successful", func(t *testing.T) {
 		t.Skip("not yet implemented")

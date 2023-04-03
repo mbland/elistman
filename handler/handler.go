@@ -239,7 +239,7 @@ func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
 func (h *Handler) handleApiRequest(
 	req *apiRequest,
 ) (*events.APIGatewayV2HTTPResponse, error) {
-	res := &events.APIGatewayV2HTTPResponse{Headers: make(map[string]string)}
+	res := &events.APIGatewayV2HTTPResponse{Headers: map[string]string{}}
 	res.Headers["content-type"] = "text/plain; charset=utf-8"
 
 	if op, err := parseApiRequest(req); err != nil {
