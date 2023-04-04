@@ -210,7 +210,7 @@ func (h *apiHandler) handleApiRequest(
 
 	if op, err := parseApiRequest(req); err != nil {
 		return h.respondToParseError(res, err)
-	} else if result, err := h.performOperation(op); err != nil {
+	} else if result, err := h.performOperation(req.RequestId, op); err != nil {
 		return nil, err
 	} else if op.OneClick {
 		res.StatusCode = http.StatusOK
@@ -245,7 +245,7 @@ func (h *apiHandler) respondToParseError(
 }
 
 func (h *apiHandler) performOperation(
-	op *eventOperation,
+	requestId string, op *eventOperation,
 ) (result ops.OperationResult, err error) {
 	switch op.Type {
 	case SubscribeOp:
@@ -257,9 +257,22 @@ func (h *apiHandler) performOperation(
 	default:
 		err = fmt.Errorf("can't handle operation type: %s", op.Type)
 	}
+	logOperationResult(requestId, op, result, err)
 
 	if opErr, ok := err.(*ops.OperationErrorExternal); ok {
 		err = &errorWithStatus{http.StatusBadGateway, opErr.Error()}
 	}
 	return result, err
+}
+
+func logOperationResult(
+	requestId string, op *eventOperation, result ops.OperationResult, err error,
+) {
+	prefix := "result"
+	errMsg := ""
+	if err != nil {
+		prefix = "ERROR"
+		errMsg = ": " + err.Error()
+	}
+	log.Printf("%s: %s: %s: %s%s", requestId, prefix, op, result, errMsg)
 }

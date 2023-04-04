@@ -296,63 +296,119 @@ func TestRespondToParseError(t *testing.T) {
 	})
 }
 
+func TestLogOperationResult(t *testing.T) {
+	op := &eventOperation{
+		Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+	}
+	logs, teardown := captureLogs()
+	defer teardown()
+
+	t.Run("SuccessfulResult", func(t *testing.T) {
+		defer logs.Reset()
+
+		logOperationResult("deadbeef", op, ops.Subscribed, nil)
+
+		expected := "deadbeef: result: Verify: mbland@acm.org " +
+			testValidUidStr + ": Subscribed"
+		assert.Assert(t, is.Contains(logs.String(), expected))
+	})
+
+	t.Run("SuccessfulResult", func(t *testing.T) {
+		defer logs.Reset()
+
+		logOperationResult(
+			"deadbeef", op, ops.Subscribed, errors.New("whoops..."),
+		)
+
+		expected := "deadbeef: ERROR: Verify: mbland@acm.org " +
+			testValidUidStr + ": Subscribed: whoops..."
+		assert.Assert(t, is.Contains(logs.String(), expected))
+	})
+}
+
 func TestPerformOperation(t *testing.T) {
+	logs, teardown := captureLogs()
+	defer teardown()
+
 	t.Run("SubscribeSucceeds", func(t *testing.T) {
+		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
 		result, err := f.handler.performOperation(
+			"deadbeef",
 			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
 		)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
+		expectedLog := "deadbeef: result: Subscribe"
+		assert.Assert(t, is.Contains(logs.String(), expectedLog))
 	})
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
+		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.Subscribed
 
-		result, err := f.handler.performOperation(&eventOperation{
-			Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
-		})
+		result, err := f.handler.performOperation(
+			"deadbeef",
+			&eventOperation{
+				Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+			},
+		)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Subscribed, result)
+		assert.Assert(t, is.Contains(logs.String(), "deadbeef: result: Verify"))
 	})
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
+		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.Unsubscribed
 
-		result, err := f.handler.performOperation(&eventOperation{
-			Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
-		})
+		result, err := f.handler.performOperation(
+			"deadbeef",
+			&eventOperation{
+				Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
+			},
+		)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Unsubscribed, result)
+		expectedLog := "deadbeef: result: Unsubscribe"
+		assert.Assert(t, is.Contains(logs.String(), expectedLog))
 	})
 
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
+		defer logs.Reset()
 		f := newApiHandlerFixture()
 
-		result, err := f.handler.performOperation(&eventOperation{})
+		result, err := f.handler.performOperation("deadbeef", &eventOperation{})
 
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
+		expectedLog := "deadbeef: ERROR: Undefined: Invalid: can't handle"
+		assert.Assert(t, is.Contains(logs.String(), expectedLog))
 	})
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
+		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
 
 		result, err := f.handler.performOperation(
+			"deadbeef",
 			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
 		)
 
 		assert.Equal(t, ops.Invalid, result)
 		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
 		assert.DeepEqual(t, err, expected)
+		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
+			"Invalid: not our fault..."
+		assert.Assert(t, is.Contains(logs.String(), expectedLog))
 	})
 }
 
