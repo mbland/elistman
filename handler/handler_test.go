@@ -43,8 +43,9 @@ func (a *testAgent) Unsubscribe(
 const testEmailDomain = "mike-bland.com"
 const testSiteTitle = "Mike Bland's blog"
 const testUnsubscribeAddress = "unsubscribe@" + testEmailDomain
+const testValidUidStr = "00000000-1111-2222-3333-444444444444"
 
-// const testValidUid = "00000000-1111-2222-3333-444444444444"
+var testValidUid uuid.UUID = uuid.MustParse(testValidUidStr)
 
 var testRedirects = RedirectPaths{
 	Invalid:           "invalid",

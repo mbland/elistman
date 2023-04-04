@@ -49,6 +49,7 @@ func (h *Handler) HandleEvent(event *Event) (any, error) {
 		return h.api.HandleEvent(&event.ApiRequest), nil
 	case MailtoEvent:
 		h.mailto.HandleEvent(&event.MailtoEvent)
+		return nil, nil
 	}
 	return nil, fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 }

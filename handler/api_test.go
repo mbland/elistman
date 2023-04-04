@@ -296,6 +296,66 @@ func TestRespondToParseError(t *testing.T) {
 	})
 }
 
+func TestPerformOperation(t *testing.T) {
+	t.Run("SubscribeSucceeds", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.VerifyLinkSent
+
+		result, err := f.handler.performOperation(
+			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
+		)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.VerifyLinkSent, result)
+	})
+
+	t.Run("VerifySucceeds", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.Subscribed
+
+		result, err := f.handler.performOperation(&eventOperation{
+			Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+		})
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.Subscribed, result)
+	})
+
+	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.Unsubscribed
+
+		result, err := f.handler.performOperation(&eventOperation{
+			Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
+		})
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.Unsubscribed, result)
+	})
+
+	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
+		f := newApiHandlerFixture()
+
+		result, err := f.handler.performOperation(&eventOperation{})
+
+		assert.Equal(t, ops.Invalid, result)
+		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
+	})
+
+	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
+
+		result, err := f.handler.performOperation(
+			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
+		)
+
+		assert.Equal(t, ops.Invalid, result)
+		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
+		assert.DeepEqual(t, err, expected)
+	})
+}
+
 func TestSubscribeRequest(t *testing.T) {
 	t.Run("Successful", func(t *testing.T) {
 		t.Skip("not yet implemented")
