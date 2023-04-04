@@ -29,8 +29,8 @@ func (event EventType) String() string {
 
 type Event struct {
 	Type        EventType
-	ApiRequest  events.APIGatewayV2HTTPRequest
-	MailtoEvent events.SimpleEmailEvent
+	ApiRequest  *events.APIGatewayV2HTTPRequest
+	MailtoEvent *events.SimpleEmailEvent
 }
 
 // Inspired by:
@@ -42,10 +42,12 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		return nil
 	} else if bytes.Contains(data, []byte(`"rawPath":`)) {
 		event.Type = ApiRequest
-		return json.Unmarshal(data, &event.ApiRequest)
+		event.ApiRequest = &events.APIGatewayV2HTTPRequest{}
+		return json.Unmarshal(data, event.ApiRequest)
 	} else if bytes.Contains(data, []byte(`"commonHeaders":`)) {
 		event.Type = MailtoEvent
-		return json.Unmarshal(data, &event.MailtoEvent)
+		event.MailtoEvent = &events.SimpleEmailEvent{}
+		return json.Unmarshal(data, event.MailtoEvent)
 	}
 	return nil
 }

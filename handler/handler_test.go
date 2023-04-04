@@ -156,14 +156,12 @@ func TestHandleEvent(t *testing.T) {
 		f.event.Type = ApiRequest
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
-		req := &f.event.ApiRequest
-		req.RequestContext.RequestID = "deadbeef"
-		req.RequestContext.HTTP.Method = http.MethodPost
-		req.RawPath = SubscribePrefix
+		req := apiGatewayRequest(http.MethodPost, SubscribePrefix)
 		req.Headers = map[string]string{
 			"content-type": "application/x-www-form-urlencoded",
 		}
 		req.Body = "email=mbland%40acm.org"
+		f.event.ApiRequest = req
 
 		response, err := f.handler.HandleEvent(f.event)
 

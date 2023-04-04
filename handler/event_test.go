@@ -47,7 +47,7 @@ func TestApiRequest(t *testing.T) {
 	assert.Equal(t, "API Request", e.Type.String())
 	assert.DeepEqual(t, e, Event{
 		Type: ApiRequest,
-		ApiRequest: events.APIGatewayV2HTTPRequest{
+		ApiRequest: &events.APIGatewayV2HTTPRequest{
 			Version:  "2.0",
 			RouteKey: "POST /subscribe",
 			RawPath:  "/subscribe",
@@ -81,7 +81,7 @@ func TestMailtoEvent(t *testing.T) {
 	assert.Equal(t, "Mailto", e.Type.String())
 	assert.DeepEqual(t, e, Event{
 		Type: MailtoEvent,
-		MailtoEvent: events.SimpleEmailEvent{
+		MailtoEvent: &events.SimpleEmailEvent{
 			Records: []events.SimpleEmailRecord{
 				{
 					EventVersion: "1.0",
