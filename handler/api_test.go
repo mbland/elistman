@@ -67,7 +67,7 @@ func newApiHandlerFixture() *apiHandlerFixture {
 	return &apiHandlerFixture{agent, logs, handler}
 }
 
-func TestNewHandler(t *testing.T) {
+func TestNewApiHandler(t *testing.T) {
 	f := newApiHandlerFixture()
 
 	t.Run("SetsBasicFields", func(t *testing.T) {
@@ -161,7 +161,7 @@ func TestErrorResponse(t *testing.T) {
 
 func TestLogApiResponse(t *testing.T) {
 	req := apiGatewayRequest(
-		http.MethodGet, "/verify/mbland%40acm.org/0123-456-789",
+		http.MethodGet, VerifyPrefix+"mbland%40acm.org/0123-456-789",
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
@@ -170,8 +170,8 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logger, req, res, nil)
 
-		expectedMsg := `192.168.0.1 ` +
-			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" 200`
+		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
+			`mbland%40acm.org/0123-456-789 HTTP/2" 200`
 		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
 	})
 
@@ -181,9 +181,8 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
-		expectedMsg := `192.168.0.1 ` +
-			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" ` +
-			`500: unexpected problem`
+		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
+			`mbland%40acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
 		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
 	})
 }
@@ -419,8 +418,9 @@ func TestHandleApiRequest(t *testing.T) {
 	// Use an unsubscribe request since it will allow us to hit every branch.
 	newUnsubscribeRequest := func() *apiRequest {
 		return &apiRequest{
-			RequestId:   "deadbeef",
-			RawPath:     "/unsubscribe/mbland%40acm.org/" + testValidUidStr,
+			RequestId: "deadbeef",
+			RawPath: UnsubscribePrefix + "mbland%40acm.org/" +
+				testValidUidStr,
 			Method:      http.MethodGet,
 			ContentType: "text/plain",
 			Params: map[string]string{
@@ -493,7 +493,7 @@ func TestHandleApiRequest(t *testing.T) {
 }
 
 func TestApiHandleEvent(t *testing.T) {
-	req := apiGatewayRequest(http.MethodPost, "/subscribe")
+	req := apiGatewayRequest(http.MethodPost, SubscribePrefix)
 	req.Body = "email=mbland%40acm.org"
 	req.Headers = map[string]string{
 		"content-type": "application/x-www-form-urlencoded",
@@ -501,7 +501,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfNewApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		badReq := apiGatewayRequest(http.MethodPost, "/subscribe")
+		badReq := apiGatewayRequest(http.MethodPost, SubscribePrefix)
 
 		badReq.Body = "Definitely not base64 encoded"
 		badReq.IsBase64Encoded = true
