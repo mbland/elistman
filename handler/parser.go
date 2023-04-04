@@ -53,7 +53,9 @@ func (op *eventOperation) String() string {
 	builder := strings.Builder{}
 	builder.WriteString(op.Type.String())
 
-	if op.OneClick {
+	if op.Type == UndefinedOp {
+		return builder.String()
+	} else if op.OneClick {
 		builder.WriteString(" (One-Click)")
 	}
 

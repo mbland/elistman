@@ -21,6 +21,11 @@ func TestUnknownEventOperationType(t *testing.T) {
 }
 
 func TestEventOperationString(t *testing.T) {
+	t.Run("Undefined", func(t *testing.T) {
+		op := &eventOperation{}
+		assert.Equal(t, "Undefined", op.String())
+	})
+
 	t.Run("Subscribe", func(t *testing.T) {
 		op := &eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"}
 		assert.Equal(t, "Subscribe: mbland@acm.org", op.String())
