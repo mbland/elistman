@@ -85,7 +85,7 @@ func newHandlerFixture() *handlerFixture {
 
 func testLogger() (*strings.Builder, *log.Logger) {
 	builder := &strings.Builder{}
-	logger := log.New(builder, "test logger", 0)
+	logger := log.New(builder, "test logger: ", 0)
 	return builder, logger
 }
 
@@ -107,6 +107,27 @@ func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
 func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
 	return &events.APIGatewayV2HTTPResponse{
 		StatusCode: status, Headers: map[string]string{},
+	}
+}
+
+func simpleEmailServiceEvent() *events.SimpleEmailService {
+	return &events.SimpleEmailService{
+		Mail: events.SimpleEmailMessage{
+			MessageID: "deadbeef",
+			CommonHeaders: events.SimpleEmailCommonHeaders{
+				From:    []string{"mbland@acm.org"},
+				To:      []string{testUnsubscribeAddress},
+				Subject: "mbland@acm.org " + testValidUidStr,
+			},
+		},
+		Receipt: events.SimpleEmailReceipt{
+			SPFVerdict:   events.SimpleEmailVerdict{Status: "PASS"},
+			DKIMVerdict:  events.SimpleEmailVerdict{Status: "PASS"},
+			SpamVerdict:  events.SimpleEmailVerdict{Status: "PASS"},
+			VirusVerdict: events.SimpleEmailVerdict{Status: "PASS"},
+			DMARCVerdict: events.SimpleEmailVerdict{Status: "PASS"},
+			DMARCPolicy:  "REJECT",
+		},
 	}
 }
 

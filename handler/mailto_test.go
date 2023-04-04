@@ -4,45 +4,25 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestNewMailtoEvent(t *testing.T) {
-	from := []string{"mbland@acm.org"}
-	to := []string{testUnsubscribeAddress}
-	subject := from[0] + " 0123-456-789"
-	const messageId = "deadbeef"
-	const spfVerdict = "PASS"
-	const dkimVerdict = "PASS"
-	const spamVerdict = "PASS"
-	const virusVerdict = "PASS"
-	const dmarcVerdict = "PASS"
-	const dmarcPolicy = "REJECT"
-
-	sesEvent := &events.SimpleEmailService{
-		Mail: events.SimpleEmailMessage{
-			MessageID: messageId,
-			CommonHeaders: events.SimpleEmailCommonHeaders{
-				From:    from,
-				To:      to,
-				Subject: subject,
-			},
-		},
-		Receipt: events.SimpleEmailReceipt{
-			SPFVerdict:   events.SimpleEmailVerdict{Status: spfVerdict},
-			DKIMVerdict:  events.SimpleEmailVerdict{Status: dkimVerdict},
-			SpamVerdict:  events.SimpleEmailVerdict{Status: spamVerdict},
-			VirusVerdict: events.SimpleEmailVerdict{Status: virusVerdict},
-			DMARCVerdict: events.SimpleEmailVerdict{Status: dmarcVerdict},
-			DMARCPolicy:  dmarcPolicy,
-		},
-	}
+	sesEvent := simpleEmailServiceEvent()
 
 	expected := &mailtoEvent{
-		from, to, subject, messageId,
-		spfVerdict, dkimVerdict, spamVerdict, virusVerdict,
-		dmarcVerdict, dmarcPolicy,
+		From:         []string{"mbland@acm.org"},
+		To:           []string{testUnsubscribeAddress},
+		Subject:      "mbland@acm.org " + testValidUidStr,
+		MessageId:    "deadbeef",
+		SpfVerdict:   "PASS",
+		DkimVerdict:  "PASS",
+		SpamVerdict:  "PASS",
+		VirusVerdict: "PASS",
+		DmarcVerdict: "PASS",
+		DmarcPolicy:  "REJECT",
 	}
 
 	assert.DeepEqual(t, expected, newMailtoEvent(sesEvent))
@@ -52,6 +32,7 @@ type mailtoHandlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
 	handler *mailtoHandler
+	event   *mailtoEvent
 }
 
 func newMailtoHandlerFixture() *mailtoHandlerFixture {
@@ -61,16 +42,33 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 		agent,
 		logs,
 		&mailtoHandler{"unsubscribe@mike-bland.com", agent, logger},
+		newMailtoEvent(simpleEmailServiceEvent()),
 	}
 }
 
-func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {
-	f := newMailtoHandlerFixture()
+func TestHandleMailtoEvent(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+		f.agent.ReturnValue = ops.Unsubscribed
 
-	err := f.handler.handleMailtoEvent(&mailtoEvent{
-		To:      []string{"unsubscribe@mike-bland.com"},
-		Subject: "foo@bar.com UID",
+		err := f.handler.handleMailtoEvent(f.event)
+
+		assert.NilError(t, err)
+		expectedLog := "unsubscribe message deadbeef: success: mbland@acm.org"
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 
-	assert.NilError(t, err)
+	t.Run("LogsParseErrors", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+		f.event.Subject = "foo@bar.com UID"
+
+		err := f.handler.handleMailtoEvent(f.event)
+
+		assert.NilError(t, err)
+		expectedLog := "unsubscribe message deadbeef: " +
+			"failed to parse, ignoring: " +
+			`[From:"mbland@acm.org" To:"unsubscribe@mike-bland.com" ` +
+			`Subject:"foo@bar.com UID"]: `
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+	})
 }
