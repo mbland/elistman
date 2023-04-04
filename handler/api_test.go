@@ -356,47 +356,84 @@ func TestPerformOperation(t *testing.T) {
 	})
 }
 
-func TestSubscribeRequest(t *testing.T) {
-	t.Run("Successful", func(t *testing.T) {
-		t.Skip("not yet implemented")
-		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Subscribed
+func TestHandleApiRequest(t *testing.T) {
+	// Use an unsubscribe request since it will allow us to hit every branch.
+	newUnsubscribeRequest := func() *apiRequest {
+		return &apiRequest{
+			RequestId:   "deadbeef",
+			RawPath:     "/unsubscribe/mbland%40acm.org/" + testValidUidStr,
+			Method:      http.MethodGet,
+			ContentType: "text/plain",
+			Params: map[string]string{
+				"email": "mbland@acm.org",
+				"uid":   testValidUidStr,
+			},
+		}
+	}
 
-		response, err := f.handler.handleApiRequest(&apiRequest{
-			RawPath:     "/subscribe",
-			ContentType: "application/x-www-form-urlencoded",
-			Body:        "email=mbland%40acm.org",
-		})
+	t.Run("Successful", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.Unsubscribed
+
+		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
 
 		assert.NilError(t, err)
-		assert.Equal(t, f.agent.Email, "mbland@acm.org")
-		assert.Equal(t, response.StatusCode, http.StatusSeeOther)
-		assert.Equal(
-			t,
-			response.Headers["Location"],
-			f.handler.Redirects[ops.Subscribed],
-		)
+		assert.Equal(t, "mbland@acm.org", f.agent.Email)
+		assert.Equal(t, http.StatusSeeOther, response.StatusCode)
+		expected := f.handler.Redirects[ops.Unsubscribed]
+		assert.Equal(t, expected, response.Headers["location"])
 	})
 
-	t.Run("ReturnsInvalidRequestIfParsingFails", func(t *testing.T) {
+	t.Run("ReturnsBadRequestIfParsingFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
+		req := newUnsubscribeRequest()
+		req.Params["email"] = "mbland acm.org"
 
-		response, err := f.handler.handleApiRequest(&apiRequest{
-			RawPath:     "/subscribe",
-			ContentType: "application/x-www-form-urlencoded",
-			Body:        "email=mbland%20acm.org",
-		})
+		response, err := f.handler.handleApiRequest(req)
 
 		assert.NilError(t, err)
-		assert.Equal(t, f.agent.Email, "")
-		assert.Equal(t, response.StatusCode, http.StatusSeeOther)
-		assert.Equal(
-			t, response.Headers["location"], f.handler.Redirects[ops.Invalid],
-		)
+		assert.Equal(t, "", f.agent.Email)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+
+	t.Run("ReturnsErrorIfOperationFails", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
+
+		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
+
+		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
+		assert.DeepEqual(t, expected, err)
+		assert.Assert(t, is.Nil(response))
+	})
+
+	t.Run("ReturnsHttp200IfOneClickUnsubscribe", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.Unsubscribed
+		req := newUnsubscribeRequest()
+		req.Method = http.MethodPost
+		req.ContentType = "application/x-www-form-urlencoded"
+		req.Body = "List-Unsubscribe=One-Click"
+
+		response, err := f.handler.handleApiRequest(req)
+
+		assert.NilError(t, err)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+	})
+
+	t.Run("ReturnsErrorIfNoRedirectForOpResult", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		f.agent.ReturnValue = ops.Unsubscribed
+		delete(f.handler.Redirects, ops.Unsubscribed)
+
+		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
+
+		assert.ErrorContains(t, err, "no redirect for op result: Unsubscribed")
+		assert.Assert(t, is.Nil(response))
 	})
 }
 
-func TestHandleApiEvent(t *testing.T) {
+func TestApiHandleEvent(t *testing.T) {
 	req := apiGatewayRequest(http.MethodPost, "/subscribe")
 	logs, teardown := captureLogs()
 	defer teardown()
