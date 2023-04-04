@@ -20,6 +20,42 @@ func TestUnknownEventOperationType(t *testing.T) {
 	assert.Equal(t, "Unknown", unknownOp.String())
 }
 
+func TestEventOperationString(t *testing.T) {
+	t.Run("Subscribe", func(t *testing.T) {
+		op := &eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"}
+		assert.Equal(t, "Subscribe: mbland@acm.org", op.String())
+	})
+
+	t.Run("Verify", func(t *testing.T) {
+		op := &eventOperation{
+			Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+		}
+
+		assert.Equal(t, "Verify: mbland@acm.org "+testValidUidStr, op.String())
+	})
+
+	t.Run("Unsubscribe", func(t *testing.T) {
+		op := &eventOperation{
+			Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
+		}
+
+		expected := "Unsubscribe: mbland@acm.org " + testValidUidStr
+		assert.Equal(t, expected, op.String())
+	})
+
+	t.Run("OneClickUnsubscribe", func(t *testing.T) {
+		op := &eventOperation{
+			Type:     UnsubscribeOp,
+			Email:    "mbland@acm.org",
+			Uid:      testValidUid,
+			OneClick: true,
+		}
+
+		expected := "Unsubscribe (One-Click): mbland@acm.org " + testValidUidStr
+		assert.Equal(t, expected, op.String())
+	})
+}
+
 func TestParseError(t *testing.T) {
 	err := &ParseError{
 		Type:    SubscribeOp,

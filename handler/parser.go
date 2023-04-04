@@ -49,6 +49,22 @@ type eventOperation struct {
 	OneClick bool
 }
 
+func (op *eventOperation) String() string {
+	builder := strings.Builder{}
+	builder.WriteString(op.Type.String())
+
+	if op.OneClick {
+		builder.WriteString(" (One-Click)")
+	}
+
+	builder.WriteString(": " + op.Email)
+
+	if op.Type != SubscribeOp {
+		builder.WriteString(" " + op.Uid.String())
+	}
+	return builder.String()
+}
+
 type ParseError struct {
 	Type    eventOperationType
 	Message string
