@@ -18,6 +18,7 @@ PARAMETER_OVERRIDES=(
   "ApiDomainName=${API_DOMAIN_NAME:?}"
   "ApiMappingKey=${API_MAPPING_KEY:?}"
   "EmailDomainName=${EMAIL_DOMAIN_NAME:?}"
+  "EmailSiteTitle=${EMAIL_SITE_TITLE:?}"
   "SenderName=${SENDER_NAME// /\ }"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME:?}"
   "InvalidRequestPath=${INVALID_REQUEST_PATH:?}"
