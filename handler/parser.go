@@ -192,7 +192,7 @@ func parseUid(
 	return parseParam(params, "uid", uuid.Nil, uuid.Parse)
 }
 
-func parseEmailAddress(emailParam string) (string, error) {
+func parseEmailAddress(emailParam string) (email string, err error) {
 	if email, err := mail.ParseAddress(emailParam); err != nil {
 		return "", err
 	} else {
@@ -271,27 +271,27 @@ func checkMailAddresses(froms, tos []string, unsubscribeAddr string) error {
 	return nil
 }
 
-func checkForOnlyOneAddress(headerName string, addrs []string) error {
+func checkForOnlyOneAddress(headerName string, addrs []string) (err error) {
 	if len(addrs) == 0 {
-		return fmt.Errorf("missing %s address", headerName)
+		err = fmt.Errorf("missing %s address", headerName)
 	} else if len(addrs) != 1 {
 		errFormat := "more than one %s address: %s"
-		return fmt.Errorf(errFormat, headerName, strings.Join(addrs, ","))
+		err = fmt.Errorf(errFormat, headerName, strings.Join(addrs, ","))
 	}
-	return nil
+	return
 }
 
-func parseEmailSubject(subject string) (*parsedSubject, error) {
+func parseEmailSubject(subject string) (result *parsedSubject, err error) {
+	result = &parsedSubject{}
 	params := strings.Split(subject, " ")
 	if len(params) != 2 || params[0] == "" || params[1] == "" {
-		const errFormat = "subject not in `<email> <uid>` format: \"%s\""
-		return nilSubject, fmt.Errorf(errFormat, subject)
-	} else if email, err := parseEmailAddress(params[0]); err != nil {
-		const errFormat = "invalid email address: %s: %s"
-		return nilSubject, fmt.Errorf(errFormat, params[0], err)
-	} else if uid, err := uuid.Parse(params[1]); err != nil {
-		return nilSubject, fmt.Errorf("invalid uid: %s: %s", params[1], err)
+		err = fmt.Errorf(`subject not in "<email> <uid>" format: "%s"`, subject)
+	} else if email, emailErr := parseEmailAddress(params[0]); emailErr != nil {
+		err = fmt.Errorf("invalid email address: %s: %s", params[0], emailErr)
+	} else if uid, uidErr := uuid.Parse(params[1]); uidErr != nil {
+		err = fmt.Errorf("invalid uid: %s: %s", params[1], uidErr)
 	} else {
-		return &parsedSubject{email, uid}, nil
+		result = &parsedSubject{email, uid}
 	}
+	return
 }

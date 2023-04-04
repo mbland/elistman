@@ -43,13 +43,14 @@ const ResponseTemplate = `<!DOCTYPE html>
   </body>
 </html>`
 
-func (h *Handler) HandleEvent(event *Event) (any, error) {
+func (h *Handler) HandleEvent(event *Event) (result any, err error) {
 	switch event.Type {
 	case ApiRequest:
-		return h.api.HandleEvent(&event.ApiRequest), nil
+		result = h.api.HandleEvent(&event.ApiRequest)
 	case MailtoEvent:
 		h.mailto.HandleEvent(&event.MailtoEvent)
-		return nil, nil
+	default:
+		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 	}
-	return nil, fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
+	return
 }

@@ -28,14 +28,14 @@ func newApiHandler(
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
-) (*apiHandler, error) {
+) (handler *apiHandler, err error) {
+	var resTmpl *template.Template
+	if resTmpl, err = initResponseBodyTemplate(responseTemplate); err != nil {
+		return
+	}
+
 	fullUrl := func(path string) string {
 		return "https://" + emailDomain + "/" + path
-	}
-	responseTmpl, err := initResponseBodyTemplate(responseTemplate)
-
-	if err != nil {
-		return nil, err
 	}
 
 	return &apiHandler{
@@ -49,7 +49,7 @@ func newApiHandler(
 			ops.NotSubscribed:     fullUrl(paths.NotSubscribed),
 			ops.Unsubscribed:      fullUrl(paths.Unsubscribed),
 		},
-		responseTmpl,
+		resTmpl,
 	}, nil
 }
 
@@ -68,25 +68,24 @@ func (err *errorWithStatus) Error() string {
 	return err.Message
 }
 
-func initResponseBodyTemplate(bodyTmpl string) (*template.Template, error) {
+func initResponseBodyTemplate(
+	bodyTmpl string,
+) (tmpl *template.Template, err error) {
 	builder := &strings.Builder{}
 	params := &responseTemplateParams{}
 
-	if tmpl, err := template.New("responseBody").Parse(bodyTmpl); err != nil {
-		return nil, fmt.Errorf("parsing response body template failed: %s", err)
-	} else if err := tmpl.Execute(builder, params); err != nil {
-		return nil, fmt.Errorf(
-			"executing response body template failed: %s", err,
-		)
-	} else {
-		return tmpl, nil
+	if tmpl, err = template.New("responseBody").Parse(bodyTmpl); err != nil {
+		err = fmt.Errorf("parsing response body template failed: %s", err)
+	} else if err = tmpl.Execute(builder, params); err != nil {
+		tmpl = nil
+		err = fmt.Errorf("executing response body template failed: %s", err)
 	}
+	return
 }
 
 func (h *apiHandler) HandleEvent(
 	origReq *events.APIGatewayV2HTTPRequest,
-) *events.APIGatewayV2HTTPResponse {
-	var res *events.APIGatewayV2HTTPResponse = nil
+) (res *events.APIGatewayV2HTTPResponse) {
 	req, err := newApiRequest(origReq)
 
 	if err == nil {
@@ -97,7 +96,7 @@ func (h *apiHandler) HandleEvent(
 		res = h.errorResponse(err)
 	}
 	logApiResponse(origReq, res, err)
-	return res
+	return
 }
 
 func (h *apiHandler) addResponseBody(
@@ -247,10 +246,7 @@ func (h *apiHandler) respondToParseError(
 
 func (h *apiHandler) performOperation(
 	op *eventOperation,
-) (ops.OperationResult, error) {
-	result := ops.Invalid
-	var err error = nil
-
+) (result ops.OperationResult, err error) {
 	switch op.Type {
 	case SubscribeOp:
 		result, err = h.Agent.Subscribe(op.Email)

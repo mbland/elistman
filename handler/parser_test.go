@@ -489,14 +489,14 @@ func TestParseEmailSubject(t *testing.T) {
 		result, err := parseEmailSubject("")
 
 		assert.DeepEqual(t, nilSubject, result)
-		assert.Error(t, err, "subject not in `<email> <uid>` format: \"\"")
+		assert.Error(t, err, `subject not in "<email> <uid>" format: ""`)
 	})
 
 	t.Run("WhitespaceOnly", func(t *testing.T) {
 		result, err := parseEmailSubject(" ")
 
 		assert.DeepEqual(t, nilSubject, result)
-		assert.Error(t, err, "subject not in `<email> <uid>` format: \" \"")
+		assert.Error(t, err, `subject not in "<email> <uid>" format: " "`)
 	})
 
 	t.Run("BlankEmail", func(t *testing.T) {
@@ -505,7 +505,7 @@ func TestParseEmailSubject(t *testing.T) {
 
 		assert.DeepEqual(t, nilSubject, result)
 		assert.Error(
-			t, err, "subject not in `<email> <uid>` format: \""+subject+"\"",
+			t, err, `subject not in "<email> <uid>" format: "`+subject+`"`,
 		)
 	})
 
@@ -515,7 +515,7 @@ func TestParseEmailSubject(t *testing.T) {
 
 		assert.DeepEqual(t, nilSubject, result)
 		assert.Error(
-			t, err, "subject not in `<email> <uid>` format: \""+subject+"\"",
+			t, err, `subject not in "<email> <uid>" format: "`+subject+`"`,
 		)
 	})
 
@@ -566,7 +566,7 @@ func TestParseMailtoEvent(t *testing.T) {
 			&mailtoEvent{From: froms, To: tos}, unsubscribeAddr,
 		)
 		assert.Assert(t, is.Nil(result))
-		assert.Error(t, err, "subject not in `<email> <uid>` format: \"\"")
+		assert.Error(t, err, `subject not in "<email> <uid>" format: ""`)
 	})
 
 	t.Run("Success", func(t *testing.T) {
