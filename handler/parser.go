@@ -249,8 +249,6 @@ type parsedSubject struct {
 	Uid   uuid.UUID
 }
 
-var nilSubject *parsedSubject = &parsedSubject{}
-
 type mailtoEvent struct {
 	From         []string
 	To           []string

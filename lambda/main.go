@@ -29,6 +29,7 @@ func buildHandler() (*handler.Handler, error) {
 			},
 			opts.RedirectPaths,
 			handler.ResponseTemplate,
+			log.Default(),
 		)
 	}
 }

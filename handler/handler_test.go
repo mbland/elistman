@@ -58,29 +58,32 @@ var testRedirects = RedirectPaths{
 
 type handlerFixture struct {
 	agent   *testAgent
+	logs    *strings.Builder
 	handler *Handler
 }
 
 func newFixture() *handlerFixture {
-	ta := &testAgent{}
+	logs, logger := testLogger()
+	agent := &testAgent{}
 	handler, err := NewHandler(
-		testEmailDomain, testSiteTitle, ta, testRedirects, ResponseTemplate,
+		testEmailDomain,
+		testSiteTitle,
+		agent,
+		testRedirects,
+		ResponseTemplate,
+		logger,
 	)
 
 	if err != nil {
 		panic(err.Error())
 	}
-	return &handlerFixture{agent: ta, handler: handler}
+	return &handlerFixture{agent, logs, handler}
 }
 
-func captureLogs() (*strings.Builder, func()) {
-	origWriter := log.Writer()
+func testLogger() (*strings.Builder, *log.Logger) {
 	builder := &strings.Builder{}
-	log.SetOutput(builder)
-
-	return builder, func() {
-		log.SetOutput(origWriter)
-	}
+	logger := log.New(builder, "test logger", 0)
+	return builder, logger
 }
 
 func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {

@@ -20,6 +20,7 @@ type apiHandler struct {
 	Agent            ops.SubscriptionAgent
 	Redirects        RedirectMap
 	responseTemplate *template.Template
+	log              *log.Logger
 }
 
 func newApiHandler(
@@ -28,6 +29,7 @@ func newApiHandler(
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
+	logger *log.Logger,
 ) (handler *apiHandler, err error) {
 	var resTmpl *template.Template
 	if resTmpl, err = initResponseBodyTemplate(responseTemplate); err != nil {
@@ -50,6 +52,7 @@ func newApiHandler(
 			ops.Unsubscribed:      fullUrl(paths.Unsubscribed),
 		},
 		resTmpl,
+		logger,
 	}, nil
 }
 
@@ -95,7 +98,7 @@ func (h *apiHandler) HandleEvent(
 	if err != nil {
 		res = h.errorResponse(err)
 	}
-	logApiResponse(origReq, res, err)
+	logApiResponse(h.log, origReq, res, err)
 	return
 }
 
@@ -109,7 +112,7 @@ func (h *apiHandler) addResponseBody(
 
 	if err := h.responseTemplate.Execute(builder, params); err != nil {
 		// This should never happen, but if it does, fall back to plain text.
-		log.Printf("ERROR adding HTML response body: %s: %+v", err, params)
+		h.log.Printf("ERROR adding HTML response body: %s: %+v", err, params)
 		res.Headers["content-type"] = "text/plain; charset=utf-8"
 		res.Body = fmt.Sprintf("%s - %s\n\n%s\n", title, h.SiteTitle, body)
 	} else {
@@ -134,6 +137,7 @@ func (h *apiHandler) errorResponse(err error) *events.APIGatewayV2HTTPResponse {
 }
 
 func logApiResponse(
+	log *log.Logger,
 	req *events.APIGatewayV2HTTPRequest,
 	res *events.APIGatewayV2HTTPResponse,
 	err error,
@@ -257,7 +261,7 @@ func (h *apiHandler) performOperation(
 	default:
 		err = fmt.Errorf("can't handle operation type: %s", op.Type)
 	}
-	logOperationResult(requestId, op, result, err)
+	logOperationResult(h.log, requestId, op, result, err)
 
 	if opErr, ok := err.(*ops.OperationErrorExternal); ok {
 		err = &errorWithStatus{http.StatusBadGateway, opErr.Error()}
@@ -266,7 +270,11 @@ func (h *apiHandler) performOperation(
 }
 
 func logOperationResult(
-	requestId string, op *eventOperation, result ops.OperationResult, err error,
+	log *log.Logger,
+	requestId string,
+	op *eventOperation,
+	result ops.OperationResult,
+	err error,
 ) {
 	prefix := "result"
 	errMsg := ""

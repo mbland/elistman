@@ -13,6 +13,7 @@ import (
 type mailtoHandler struct {
 	UnsubscribeAddr string
 	Agent           ops.SubscriptionAgent
+	Log             *log.Logger
 }
 
 func (h *mailtoHandler) HandleEvent(e *events.SimpleEmailEvent) {
@@ -24,7 +25,7 @@ func (h *mailtoHandler) HandleEvent(e *events.SimpleEmailEvent) {
 	for i, record := range e.Records {
 		errs[i] = h.handleMailtoEvent(newMailtoEvent(&record.SES))
 	}
-	log.Printf("ERROR from mailto requests: %s", errors.Join(errs...))
+	h.Log.Printf("ERROR from mailto requests: %s", errors.Join(errs...))
 }
 
 func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
@@ -54,17 +55,18 @@ func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) error {
 	if bounced, err := h.bounceIfDmarcFails(ev); err != nil {
 		return fmt.Errorf("%sDMARC bounce fail: %s: %s", prefix, meta(ev), err)
 	} else if bounced {
-		log.Printf("%sDMARC bounce: %s", prefix, meta(ev))
+		h.Log.Printf("%sDMARC bounce: %s", prefix, meta(ev))
 	} else if isSpam(ev) {
-		log.Printf("%smarked as spam, ignored: %s", prefix, meta(ev))
+		h.Log.Printf("%smarked as spam, ignored: %s", prefix, meta(ev))
 	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
-		log.Printf("%sfailed to parse, ignoring: %s: %s", prefix, meta(ev), err)
+		const errFmt = "%sfailed to parse, ignoring: %s: %s"
+		h.Log.Printf(errFmt, prefix, meta(ev), err)
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
 		return fmt.Errorf("%serror: %s: %s", prefix, op.Email, err)
 	} else if result != ops.Unsubscribed {
-		log.Printf("%sfailed: %s: %s", prefix, op.Email, result)
+		h.Log.Printf("%sfailed: %s: %s", prefix, op.Email, result)
 	} else {
-		log.Printf("%ssuccess: %s", prefix, op.Email)
+		h.Log.Printf("%ssuccess: %s", prefix, op.Email)
 	}
 	return nil
 }

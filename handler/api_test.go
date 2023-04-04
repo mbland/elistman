@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -44,19 +45,26 @@ func TestInitResponseBodyTemplate(t *testing.T) {
 
 type apiHandlerFixture struct {
 	agent   *testAgent
+	logs    *strings.Builder
 	handler *apiHandler
 }
 
 func newApiHandlerFixture() *apiHandlerFixture {
-	ta := &testAgent{}
+	logs, logger := testLogger()
+	agent := &testAgent{}
 	handler, err := newApiHandler(
-		testEmailDomain, testSiteTitle, ta, testRedirects, ResponseTemplate,
+		testEmailDomain,
+		testSiteTitle,
+		agent,
+		testRedirects,
+		ResponseTemplate,
+		logger,
 	)
 
 	if err != nil {
 		panic(err.Error())
 	}
-	return &apiHandlerFixture{ta, handler}
+	return &apiHandlerFixture{agent, logs, handler}
 }
 
 func TestNewHandler(t *testing.T) {
@@ -87,7 +95,12 @@ func TestNewHandler(t *testing.T) {
 		tmpl := "{{.Bogus}}"
 
 		handler, err := newApiHandler(
-			testEmailDomain, testSiteTitle, &testAgent{}, testRedirects, tmpl,
+			testEmailDomain,
+			testSiteTitle,
+			&testAgent{},
+			testRedirects,
+			tmpl,
+			&log.Logger{},
 		)
 
 		assert.Assert(t, is.Nil(handler))
@@ -97,10 +110,11 @@ func TestNewHandler(t *testing.T) {
 
 func TestAddResponseBody(t *testing.T) {
 	const body = "<p>This is only a test</p>"
-	f := newApiHandlerFixture()
-	res := apiGatewayResponse(http.StatusOK)
 
 	t.Run("AddsHtmlBody", func(t *testing.T) {
+		f := newApiHandlerFixture()
+		res := apiGatewayResponse(http.StatusOK)
+
 		f.handler.addResponseBody(res, body)
 
 		assert.Equal(t, res.Headers["content-type"], "text/html; charset=utf-8")
@@ -109,10 +123,11 @@ func TestAddResponseBody(t *testing.T) {
 	})
 
 	t.Run("FallsBackToTextBodyOnError", func(t *testing.T) {
-		tmpl := template.Must(template.New("bogus").Parse("{{.Bogus}}"))
-		f.handler.responseTemplate = tmpl
-		logs, teardown := captureLogs()
-		defer teardown()
+		f := newApiHandlerFixture()
+		f.handler.responseTemplate = template.Must(
+			template.New("bogus").Parse("{{.Bogus}}"),
+		)
+		res := apiGatewayResponse(http.StatusOK)
 
 		f.handler.addResponseBody(res, body)
 
@@ -120,7 +135,7 @@ func TestAddResponseBody(t *testing.T) {
 		assert.Assert(t, is.Contains(res.Body, "This is only a test"))
 		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
 		expected := "ERROR adding HTML response body:"
-		assert.Assert(t, is.Contains(logs.String(), expected))
+		assert.Assert(t, is.Contains(f.logs.String(), expected))
 	})
 }
 
@@ -150,11 +165,10 @@ func TestLogApiResponse(t *testing.T) {
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
-		logs, teardown := captureLogs()
-		defer teardown()
+		logs, logger := testLogger()
 		res := apiGatewayResponse(http.StatusOK)
 
-		logApiResponse(req, res, nil)
+		logApiResponse(logger, req, res, nil)
 
 		expectedMsg := `192.168.0.1 ` +
 			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" 200`
@@ -162,11 +176,10 @@ func TestLogApiResponse(t *testing.T) {
 	})
 
 	t.Run("WithError", func(t *testing.T) {
-		logs, teardown := captureLogs()
-		defer teardown()
+		logs, logger := testLogger()
 		res := apiGatewayResponse(http.StatusInternalServerError)
 
-		logApiResponse(req, res, errors.New("unexpected problem"))
+		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
 		expectedMsg := `192.168.0.1 ` +
 			`"GET /verify/mbland%40acm.org/0123-456-789 HTTP/2" ` +
@@ -300,13 +313,11 @@ func TestLogOperationResult(t *testing.T) {
 	op := &eventOperation{
 		Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
 	}
-	logs, teardown := captureLogs()
-	defer teardown()
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		defer logs.Reset()
+		logs, logger := testLogger()
 
-		logOperationResult("deadbeef", op, ops.Subscribed, nil)
+		logOperationResult(logger, "deadbeef", op, ops.Subscribed, nil)
 
 		expected := "deadbeef: result: Verify: mbland@acm.org " +
 			testValidUidStr + ": Subscribed"
@@ -314,10 +325,10 @@ func TestLogOperationResult(t *testing.T) {
 	})
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		defer logs.Reset()
+		logs, logger := testLogger()
 
 		logOperationResult(
-			"deadbeef", op, ops.Subscribed, errors.New("whoops..."),
+			logger, "deadbeef", op, ops.Subscribed, errors.New("whoops..."),
 		)
 
 		expected := "deadbeef: ERROR: Verify: mbland@acm.org " +
@@ -327,11 +338,7 @@ func TestLogOperationResult(t *testing.T) {
 }
 
 func TestPerformOperation(t *testing.T) {
-	logs, teardown := captureLogs()
-	defer teardown()
-
 	t.Run("SubscribeSucceeds", func(t *testing.T) {
-		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
@@ -343,11 +350,10 @@ func TestPerformOperation(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
 		expectedLog := "deadbeef: result: Subscribe"
-		assert.Assert(t, is.Contains(logs.String(), expectedLog))
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
-		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.Subscribed
 
@@ -360,11 +366,10 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Subscribed, result)
-		assert.Assert(t, is.Contains(logs.String(), "deadbeef: result: Verify"))
+		assert.Assert(t, is.Contains(f.logs.String(), "deadbeef: result: Verify"))
 	})
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
-		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.Unsubscribed
 
@@ -378,11 +383,10 @@ func TestPerformOperation(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Unsubscribed, result)
 		expectedLog := "deadbeef: result: Unsubscribe"
-		assert.Assert(t, is.Contains(logs.String(), expectedLog))
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
-		defer logs.Reset()
 		f := newApiHandlerFixture()
 
 		result, err := f.handler.performOperation("deadbeef", &eventOperation{})
@@ -390,11 +394,10 @@ func TestPerformOperation(t *testing.T) {
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
 		expectedLog := "deadbeef: ERROR: Undefined: Invalid: can't handle"
-		assert.Assert(t, is.Contains(logs.String(), expectedLog))
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
-		defer logs.Reset()
 		f := newApiHandlerFixture()
 		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
 
@@ -408,7 +411,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.DeepEqual(t, err, expected)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
 			"Invalid: not our fault..."
-		assert.Assert(t, is.Contains(logs.String(), expectedLog))
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 }
 
@@ -491,9 +494,6 @@ func TestHandleApiRequest(t *testing.T) {
 
 func TestApiHandleEvent(t *testing.T) {
 	req := apiGatewayRequest(http.MethodPost, "/subscribe")
-	logs, teardown := captureLogs()
-	defer teardown()
-
 	req.Body = "email=mbland%40acm.org"
 	req.Headers = map[string]string{
 		"content-type": "application/x-www-form-urlencoded",
@@ -502,7 +502,6 @@ func TestApiHandleEvent(t *testing.T) {
 	t.Run("ReturnsErrorIfNewApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
 		badReq := apiGatewayRequest(http.MethodPost, "/subscribe")
-		defer logs.Reset()
 
 		badReq.Body = "Definitely not base64 encoded"
 		badReq.IsBase64Encoded = true
@@ -511,34 +510,33 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
-		assert.Assert(
-			t, is.Contains(logs.String(), "500: failed to base64 decode body"),
-		)
+		expectedLog := "500: failed to base64 decode body"
+		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
 	})
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = &ops.OperationErrorExternal{Message: "db operation failed"}
-		defer logs.Reset()
+		f.agent.Error = &ops.OperationErrorExternal{
+			Message: "db operation failed",
+		}
 
 		res := f.handler.HandleEvent(req)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
 		assert.Assert(
-			t, is.Contains(logs.String(), "502: db operation failed"),
+			t, is.Contains(f.logs.String(), "502: db operation failed"),
 		)
 	})
 
 	t.Run("Succeeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.VerifyLinkSent
-		defer logs.Reset()
 
 		res := f.handler.HandleEvent(req)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
-		assert.Assert(t, strings.HasSuffix(logs.String(), " 303\n"))
+		assert.Assert(t, strings.HasSuffix(f.logs.String(), " 303\n"))
 	})
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -47,16 +48,26 @@ func TestNewMailtoEvent(t *testing.T) {
 	assert.DeepEqual(t, expected, newMailtoEvent(sesEvent))
 }
 
-func newTestMailtoHandler() *mailtoHandler {
-	return &mailtoHandler{"unsubscribe@mike-bland.com", &testAgent{}}
+type mailtoHandlerFixture struct {
+	agent   *testAgent
+	logs    *strings.Builder
+	handler *mailtoHandler
+}
+
+func newMailtoHandlerFixture() *mailtoHandlerFixture {
+	logs, logger := testLogger()
+	agent := &testAgent{}
+	return &mailtoHandlerFixture{
+		agent,
+		logs,
+		&mailtoHandler{"unsubscribe@mike-bland.com", agent, logger},
+	}
 }
 
 func TestMailtoEventDoesNothingUntilImplemented(t *testing.T) {
-	handler := newTestMailtoHandler()
-	_, teardown := captureLogs()
-	defer teardown()
+	f := newMailtoHandlerFixture()
 
-	err := handler.handleMailtoEvent(&mailtoEvent{
+	err := f.handler.handleMailtoEvent(&mailtoEvent{
 		To:      []string{"unsubscribe@mike-bland.com"},
 		Subject: "foo@bar.com UID",
 	})

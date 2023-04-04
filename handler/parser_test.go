@@ -15,6 +15,8 @@ import (
 	is "gotest.tools/assert/cmp"
 )
 
+var nilSubject *parsedSubject = &parsedSubject{}
+
 func TestUnknownEventOperationType(t *testing.T) {
 	unknownOp := UndefinedOp - 1
 	assert.Equal(t, "Unknown", unknownOp.String())

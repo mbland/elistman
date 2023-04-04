@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/mbland/elistman/ops"
 )
@@ -17,16 +18,17 @@ func NewHandler(
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
+	logger *log.Logger,
 ) (*Handler, error) {
 	api, err := newApiHandler(
-		emailDomain, siteTitle, agent, paths, responseTemplate,
+		emailDomain, siteTitle, agent, paths, responseTemplate, logger,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 	return &Handler{
-		api, &mailtoHandler{"unsubscribe@" + emailDomain, agent},
+		api, &mailtoHandler{"unsubscribe@" + emailDomain, agent, logger},
 	}, nil
 }
 
