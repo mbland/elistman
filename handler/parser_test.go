@@ -63,32 +63,35 @@ func TestEventOperationString(t *testing.T) {
 	})
 }
 
-func TestParseError(t *testing.T) {
+func TestParseErrorIncludesOptypeAndMessage(t *testing.T) {
 	err := &ParseError{
 		Type:    SubscribeOp,
 		Message: "invalid email parameter: mbland acm.org",
 	}
 
-	t.Run("StringIncludesOptypeAndMessage", func(t *testing.T) {
-		assert.Equal(
-			t,
-			"Subscribe: invalid email parameter: mbland acm.org",
-			err.Error(),
+	assert.Equal(
+		t, "Subscribe: invalid email parameter: mbland acm.org", err.Error(),
+	)
+}
+
+func TestParamError(t *testing.T) {
+	t.Run("IsAParseError", func(t *testing.T) {
+		op, err := paramError(VerifyOp, errors.New("proper parse error"))
+		var parseErr *ParseError
+
+		assert.Assert(t, is.Nil(op))
+		assert.Assert(t, errors.As(err, &parseErr))
+		assert.DeepEqual(
+			t, &ParseError{VerifyOp, "proper parse error"}, parseErr,
 		)
 	})
 
-	t.Run("IsTrue", func(t *testing.T) {
-		assert.Assert(t, err.Is(&ParseError{}), "empty ParseError")
-		assert.Assert(t, err.Is(&ParseError{Type: SubscribeOp}), "Type match")
-	})
-
-	t.Run("IsFalse", func(t *testing.T) {
-		stringErr := fmt.Errorf(
-			"Subscribe: invalid email parameter: mbland acm.org",
-		)
-
-		assert.Assert(t, !err.Is(stringErr), "string")
-		assert.Assert(t, !err.Is(&ParseError{Type: VerifyOp}), "Type mismatch")
+	t.Run("IsAUSerInputError", func(t *testing.T) {
+		op, err := paramError(SubscribeOp, errors.New("user input error"))
+		var parseErr *ParseError
+		assert.Assert(t, is.Nil(op))
+		assert.Assert(t, !errors.As(err, &parseErr))
+		assert.Assert(t, errors.Is(err, ErrUserInput))
 	})
 }
 
@@ -381,18 +384,23 @@ func TestIsOneClickSubscribeRequest(t *testing.T) {
 	})
 }
 
-func TestParseApiEvent(t *testing.T) {
+func TestParseApiRequest(t *testing.T) {
 	t.Run("Unknown", func(t *testing.T) {
+		var parseError *ParseError
+
 		result, err := parseApiRequest(&apiRequest{
 			RawPath: "/foobar", Params: map[string]string{},
 		})
 
 		assert.Assert(t, is.Nil(result))
-		assert.Assert(t, errors.Is(err, &ParseError{Type: UndefinedOp}))
+		assert.Assert(t, errors.As(err, &parseError))
+		assert.Equal(t, UndefinedOp, parseError.Type)
 		assert.ErrorContains(t, err, "unknown endpoint: /foobar")
 	})
 
 	t.Run("ErrorWhileParsingParams", func(t *testing.T) {
+		var parseError *ParseError
+
 		req := &apiRequest{
 			RawPath:     SubscribePrefix,
 			Params:      map[string]string{},
@@ -404,23 +412,27 @@ func TestParseApiEvent(t *testing.T) {
 		result, err := parseApiRequest(req)
 
 		assert.Assert(t, is.Nil(result))
-		assert.Assert(t, errors.Is(err, &ParseError{Type: SubscribeOp}))
-		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
-		assert.ErrorContains(t, err, expected)
+		assert.Assert(t, errors.As(err, &parseError))
+		assert.Equal(t, SubscribeOp, parseError.Type)
+		assert.ErrorContains(
+			t, err, `multiple values for "email": mbland@acm.org, foo@bar.com`,
+		)
 	})
 
-	t.Run("InvalidEmail", func(t *testing.T) {
+	t.Run("UserInputForEmailInvalid", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
 			RawPath: SubscribePrefix,
 			Params:  map[string]string{"email": "foobar"},
 		})
 
 		assert.Assert(t, is.Nil(result))
-		assert.Assert(t, errors.Is(err, &ParseError{Type: SubscribeOp}))
+		assert.Assert(t, errors.Is(err, ErrUserInput))
 		assert.ErrorContains(t, err, "invalid email parameter: foobar")
 	})
 
-	t.Run("InvalidUid", func(t *testing.T) {
+	t.Run("PathParameterForUidInvalid", func(t *testing.T) {
+		var parseError *ParseError
+
 		result, err := parseApiRequest(&apiRequest{
 			RawPath: VerifyPrefix + "mbland@acm.org/0123456789",
 			Params: map[string]string{
@@ -429,7 +441,8 @@ func TestParseApiEvent(t *testing.T) {
 		})
 
 		assert.Assert(t, is.Nil(result))
-		assert.Assert(t, errors.Is(err, &ParseError{Type: VerifyOp}))
+		assert.Assert(t, errors.As(err, &parseError))
+		assert.Equal(t, VerifyOp, parseError.Type)
 		assert.ErrorContains(t, err, "invalid uid parameter: 0123456789")
 	})
 

@@ -258,15 +258,16 @@ func TestNewApiRequest(t *testing.T) {
 
 func TestRespondToParseError(t *testing.T) {
 	f := newApiHandlerFixture()
+	userInputError := fmt.Errorf("%w: PEBKAC", ErrUserInput)
 
-	t.Run("ReturnsBadRequestIfNotSubscribeOperation", func(t *testing.T) {
+	t.Run("ReturnsBadRequestIfNotErrUserInput", func(t *testing.T) {
 		res, err := f.handler.respondToParseError(
-			apiGatewayResponse(http.StatusOK), errors.New("not a subscribe op"),
+			apiGatewayResponse(http.StatusOK), errors.New("not a PEBKAC"),
 		)
 
 		assert.NilError(t, err)
 		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
-		assert.Assert(t, is.Contains(res.Body, "not a subscribe op"))
+		assert.Assert(t, is.Contains(res.Body, "not a PEBKAC"))
 	})
 
 	t.Run("HtmlEscapesErrorInResponseBody", func(t *testing.T) {
@@ -286,18 +287,16 @@ func TestRespondToParseError(t *testing.T) {
 		delete(f.handler.Redirects, ops.Invalid)
 
 		res, err := f.handler.respondToParseError(
-			apiGatewayResponse(http.StatusOK),
-			&ParseError{SubscribeOp, "mbland acm.org"},
+			apiGatewayResponse(http.StatusOK), userInputError,
 		)
 
 		assert.Assert(t, is.Nil(res))
 		assert.Error(t, err, "no redirect for invalid operation")
 	})
 
-	t.Run("RedirectsToInvalidOpPageIfSubscribeOp", func(t *testing.T) {
+	t.Run("RedirectsToInvalidOpPageIfBadSubscribeInput", func(t *testing.T) {
 		res, err := f.handler.respondToParseError(
-			apiGatewayResponse(http.StatusOK),
-			&ParseError{SubscribeOp, "mbland acm.org"},
+			apiGatewayResponse(http.StatusOK), userInputError,
 		)
 
 		assert.NilError(t, err)

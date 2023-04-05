@@ -230,10 +230,7 @@ func (h *apiHandler) handleApiRequest(
 func (h *apiHandler) respondToParseError(
 	response *events.APIGatewayV2HTTPResponse, err error,
 ) (*events.APIGatewayV2HTTPResponse, error) {
-	// Treat email parse errors differently for the Subscribe operation, since
-	// it may be due to a user typo. In all other cases, the assumption is that
-	// it's a bad machine generated request.
-	if !errors.Is(err, &ParseError{Type: SubscribeOp}) {
+	if !errors.Is(err, ErrUserInput) {
 		response.StatusCode = http.StatusBadRequest
 		body := "<p>Parsing the request failed:</p>\n" +
 			"<pre>\n" + template.HTMLEscapeString(err.Error()) + "\n</pre>\n" +

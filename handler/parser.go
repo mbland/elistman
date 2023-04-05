@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -72,18 +73,12 @@ type ParseError struct {
 	Message string
 }
 
+// Inspired by the example from the "Customizing error tests with Is and As
+// methods" section of https://go.dev/blog/go1.13-errors.
+var ErrUserInput = errors.New("invalid user input")
+
 func (e *ParseError) Error() string {
 	return e.Type.String() + ": " + e.Message
-}
-
-func (e *ParseError) Is(target error) bool {
-	// Inspired by the example from the "Customizing error tests with Is and As
-	// methods" section of https://go.dev/blog/go1.13-errors.
-	if t, ok := target.(*ParseError); !ok {
-		return false
-	} else {
-		return e.Type == t.Type || t.Type == UndefinedOp
-	}
 }
 
 type apiRequest struct {
@@ -95,15 +90,15 @@ type apiRequest struct {
 	Body        string
 }
 
-func parseApiRequest(req *apiRequest) (*eventOperation, error) {
+func parseApiRequest(req *apiRequest) (op *eventOperation, err error) {
 	if optype, err := parseOperationType(req.RawPath); err != nil {
-		return parseError(optype, err)
+		return requestError(optype, err)
 	} else if params, err := parseParams(req); err != nil {
-		return parseError(optype, err)
+		return requestError(optype, err)
 	} else if email, err := parseEmail(params); err != nil {
-		return parseError(optype, err)
+		return paramError(optype, err)
 	} else if uid, err := parseUid(optype, params); err != nil {
-		return parseError(optype, err)
+		return paramError(optype, err)
 	} else {
 		return &eventOperation{
 			optype,
@@ -114,8 +109,20 @@ func parseApiRequest(req *apiRequest) (*eventOperation, error) {
 	}
 }
 
-func parseError(optype eventOperationType, err error) (*eventOperation, error) {
+func requestError(
+	optype eventOperationType, err error,
+) (*eventOperation, error) {
 	return nil, &ParseError{optype, err.Error()}
+}
+
+func paramError(optype eventOperationType, err error) (*eventOperation, error) {
+	// Treat email parse errors differently for the Subscribe operation, since
+	// it may be due to a user typo. In all other cases, the assumption is that
+	// it's a bad machine generated request.
+	if optype == SubscribeOp {
+		return nil, fmt.Errorf("%w: %s", ErrUserInput, err)
+	}
+	return requestError(optype, err)
 }
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
