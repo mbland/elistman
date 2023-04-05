@@ -9,25 +9,6 @@ import (
 	is "gotest.tools/assert/cmp"
 )
 
-func TestNewMailtoEvent(t *testing.T) {
-	sesEvent := simpleEmailServiceEvent()
-
-	expected := &mailtoEvent{
-		From:         []string{"mbland@acm.org"},
-		To:           []string{testUnsubscribeAddress},
-		Subject:      "mbland@acm.org " + testValidUidStr,
-		MessageId:    "deadbeef",
-		SpfVerdict:   "PASS",
-		DkimVerdict:  "PASS",
-		SpamVerdict:  "PASS",
-		VirusVerdict: "PASS",
-		DmarcVerdict: "PASS",
-		DmarcPolicy:  "REJECT",
-	}
-
-	assert.DeepEqual(t, expected, newMailtoEvent(sesEvent))
-}
-
 type mailtoHandlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
@@ -42,8 +23,25 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 		agent,
 		logs,
 		&mailtoHandler{"unsubscribe@mike-bland.com", agent, logger},
-		newMailtoEvent(simpleEmailServiceEvent()),
+		&mailtoEvent{
+			From:         []string{"mbland@acm.org"},
+			To:           []string{testUnsubscribeAddress},
+			Subject:      "mbland@acm.org " + testValidUidStr,
+			MessageId:    "deadbeef",
+			SpfVerdict:   "PASS",
+			DkimVerdict:  "PASS",
+			SpamVerdict:  "PASS",
+			VirusVerdict: "PASS",
+			DmarcVerdict: "PASS",
+			DmarcPolicy:  "REJECT",
+		},
 	}
+}
+
+func TestNewMailtoEvent(t *testing.T) {
+	f := newMailtoHandlerFixture()
+
+	assert.DeepEqual(t, f.event, newMailtoEvent(simpleEmailServiceEvent()))
 }
 
 func TestHandleMailtoEvent(t *testing.T) {
