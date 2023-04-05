@@ -41,7 +41,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 func TestNewMailtoEvent(t *testing.T) {
 	f := newMailtoHandlerFixture()
 
-	assert.DeepEqual(t, f.event, newMailtoEvent(simpleEmailServiceEvent()))
+	assert.DeepEqual(t, f.event, newMailtoEvent(simpleEmailService()))
 }
 
 func TestHandleMailtoEvent(t *testing.T) {

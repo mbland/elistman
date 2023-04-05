@@ -110,7 +110,7 @@ func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
 	}
 }
 
-func simpleEmailServiceEvent() *events.SimpleEmailService {
+func simpleEmailService() *events.SimpleEmailService {
 	return &events.SimpleEmailService{
 		Mail: events.SimpleEmailMessage{
 			MessageID: "deadbeef",
@@ -129,6 +129,13 @@ func simpleEmailServiceEvent() *events.SimpleEmailService {
 			DMARCPolicy:  "REJECT",
 		},
 	}
+}
+
+func simpleEmailEvent() *events.SimpleEmailEvent {
+	event := &events.SimpleEmailEvent{
+		Records: []events.SimpleEmailRecord{{SES: *simpleEmailService()}},
+	}
+	return event
 }
 
 func TestNewHandler(t *testing.T) {
@@ -193,5 +200,21 @@ func TestHandleEvent(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, apiResponse.StatusCode)
 		expectedRedirect := f.handler.api.Redirects[ops.VerifyLinkSent]
 		assert.Equal(t, expectedRedirect, apiResponse.Headers["location"])
+	})
+
+	t.Run("HandlesSuccessfulMailtoEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		f.event.Type = MailtoEvent
+		f.event.MailtoEvent = simpleEmailEvent()
+		f.agent.ReturnValue = ops.Unsubscribed
+
+		response, err := f.handler.HandleEvent(f.event)
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(response))
+		assert.Equal(t, "mbland@acm.org", f.agent.Email)
+		assert.Equal(t, testValidUid, f.agent.Uid)
+		assert.Assert(
+			t, is.Contains(f.logs.String(), "success: mbland@acm.org"),
+		)
 	})
 }
