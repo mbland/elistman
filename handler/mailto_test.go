@@ -22,7 +22,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 	return &mailtoHandlerFixture{
 		agent,
 		logs,
-		&mailtoHandler{"unsubscribe@mike-bland.com", agent, logger},
+		newMailtoHandler(testEmailDomain, agent, logger),
 		&mailtoEvent{
 			From:         []string{"mbland@acm.org"},
 			To:           []string{testUnsubscribeAddress},

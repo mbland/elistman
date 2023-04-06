@@ -27,9 +27,7 @@ func NewHandler(
 	if err != nil {
 		return nil, err
 	}
-	return &Handler{
-		api, &mailtoHandler{"unsubscribe@" + emailDomain, agent, logger},
-	}, nil
+	return &Handler{api, newMailtoHandler(emailDomain, agent, logger)}, nil
 }
 
 const ResponseTemplate = `<!DOCTYPE html>

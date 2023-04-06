@@ -158,7 +158,7 @@ func TestNewHandler(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, testSiteTitle, handler.api.SiteTitle)
-		assert.Equal(t, testUnsubscribeAddress, handler.mailto.UnsubscribeAddr)
+		assert.Equal(t, testUnsubscribeAddress, handler.mailto.unsubscribeAddr)
 	})
 
 	t.Run("ReturnsErrorIfBadResponseTemplate", func(t *testing.T) {
