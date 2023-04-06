@@ -73,7 +73,10 @@ func (b *testBouncer) Bounce(
 	b.EmailDomain = emailDomain
 	b.Recipients = recipients
 	b.Timestamp = timestamp
-	return b.ReturnMessageId, b.Error
+	if b.Error != nil {
+		return "", b.Error
+	}
+	return b.ReturnMessageId, nil
 }
 
 type handlerFixture struct {

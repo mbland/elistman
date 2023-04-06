@@ -78,10 +78,11 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) error {
 	prefix := "unsubscribe message " + ev.MessageId + ": "
 
-	if bounced, err := h.bounceIfDmarcFails(ev); err != nil {
-		return fmt.Errorf("%sDMARC bounce fail: %s: %s", prefix, meta(ev), err)
-	} else if bounced {
-		h.Log.Printf("%sDMARC bounce: %s", prefix, meta(ev))
+	if bounceMessageId, err := h.bounceIfDmarcFails(ev); err != nil {
+		return fmt.Errorf("%sDMARC bounce fail %s: %s", prefix, meta(ev), err)
+	} else if bounceMessageId != "" {
+		const errFmt = "%sDMARC bounced %s with bounce message ID: %s"
+		h.Log.Printf(errFmt, prefix, meta(ev), bounceMessageId)
 	} else if isSpam(ev) {
 		h.Log.Printf("%smarked as spam, ignored: %s", prefix, meta(ev))
 	} else if op, err := parseMailtoEvent(ev, h.unsubscribeAddr); err != nil {
@@ -106,8 +107,15 @@ func meta(ev *mailtoEvent) string {
 	)
 }
 
-func (h *mailtoHandler) bounceIfDmarcFails(ev *mailtoEvent) (bool, error) {
-	return false, nil
+func (h *mailtoHandler) bounceIfDmarcFails(
+	ev *mailtoEvent,
+) (bounceMessageId string, err error) {
+	if ev.DmarcVerdict == "FAIL" && ev.DmarcPolicy == "REJECT" {
+		bounceMessageId, err = h.Bouncer.Bounce(
+			h.EmailDomain, ev.Recipients, ev.Timestamp,
+		)
+	}
+	return
 }
 
 func isSpam(ev *mailtoEvent) bool {

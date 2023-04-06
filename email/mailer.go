@@ -69,12 +69,13 @@ func (mailer *SesMailer) Send(
 
 func (mailer *SesMailer) Bounce(
 	emailDomain string, recipients []string, timestamp time.Time,
-) (string, error) {
+) (bounceMessageId string, err error) {
 	// https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#SES.SendBounce
 	// https://docs.aws.amazon.com/ses/latest/APIReference/API_SendBounce.html
 	// https://docs.aws.amazon.com/ses/latest/APIReference/API_MessageDsn.html
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#MessageDsn
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/sesiface/
-	return "fake bounce message ID", nil
+	bounceMessageId = "fake bounce message ID"
+	return
 }

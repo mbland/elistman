@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 type mailtoHandlerFixture struct {
 	agent   *testAgent
+	bouncer *testBouncer
 	logs    *strings.Builder
 	handler *mailtoHandler
 	event   *mailtoEvent
@@ -21,6 +23,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
 	bouncer := &testBouncer{}
+	bouncer.ReturnMessageId = "0x123456789"
 	timestamp, err := time.Parse(time.DateOnly, "1970-09-18")
 
 	if err != nil {
@@ -29,6 +32,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 
 	return &mailtoHandlerFixture{
 		agent,
+		bouncer,
 		logs,
 		newMailtoHandler(testEmailDomain, agent, bouncer, logger),
 		&mailtoEvent{
@@ -52,6 +56,51 @@ func TestNewMailtoEvent(t *testing.T) {
 	f := newMailtoHandlerFixture()
 
 	assert.DeepEqual(t, f.event, newMailtoEvent(simpleEmailService()))
+}
+
+func TestBounceIfDmarcFails(t *testing.T) {
+	t.Run("DoesNothingIfDoesNotFail", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+
+		assert.NilError(t, err)
+		assert.Equal(t, "", bounceMessageId)
+	})
+
+	t.Run("DoesNothingIfPolicyIsNotREJECT", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+		f.event.DmarcVerdict = "FAIL"
+		f.event.DmarcPolicy = "NONE"
+
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+
+		assert.NilError(t, err)
+		assert.Equal(t, "", bounceMessageId)
+	})
+
+	t.Run("BouncesIfStatusIsFAILAndPolicyIsREJECT", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+		f.event.DmarcVerdict = "FAIL"
+		f.event.DmarcPolicy = "REJECT"
+
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+
+		assert.NilError(t, err)
+		assert.Equal(t, "0x123456789", bounceMessageId)
+	})
+
+	t.Run("ReturnsErrorIfBounceFails", func(t *testing.T) {
+		f := newMailtoHandlerFixture()
+		f.event.DmarcVerdict = "FAIL"
+		f.event.DmarcPolicy = "REJECT"
+		f.bouncer.Error = errors.New("couldn't bounce")
+
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+
+		assert.Equal(t, "", bounceMessageId)
+		assert.ErrorContains(t, err, "couldn't bounce")
+	})
 }
 
 func TestHandleMailtoEvent(t *testing.T) {
