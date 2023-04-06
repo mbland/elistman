@@ -3,6 +3,7 @@ package handler
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
@@ -19,6 +20,12 @@ type mailtoHandlerFixture struct {
 func newMailtoHandlerFixture() *mailtoHandlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
+	timestamp, err := time.Parse(time.DateOnly, "1970-09-18")
+
+	if err != nil {
+		panic("failed to parse mailtoHandlerFixture timestamp: " + err.Error())
+	}
+
 	return &mailtoHandlerFixture{
 		agent,
 		logs,
@@ -27,6 +34,8 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 			From:         []string{"mbland@acm.org"},
 			To:           []string{testUnsubscribeAddress},
 			Subject:      "mbland@acm.org " + testValidUidStr,
+			Recipients:   []string{testUnsubscribeAddress},
+			Timestamp:    timestamp,
 			MessageId:    "deadbeef",
 			SpfVerdict:   "PASS",
 			DkimVerdict:  "PASS",

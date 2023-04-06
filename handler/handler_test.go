@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
@@ -110,7 +111,14 @@ func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
 	}
 }
 
+// This example matches the fields constructed by newMailtoHandlerFixture().
 func simpleEmailService() *events.SimpleEmailService {
+	timestamp, err := time.Parse(time.DateOnly, "1970-09-18")
+
+	if err != nil {
+		panic("failed to parse simpleEmailService timestamp: " + err.Error())
+	}
+
 	return &events.SimpleEmailService{
 		Mail: events.SimpleEmailMessage{
 			MessageID: "deadbeef",
@@ -124,6 +132,8 @@ func simpleEmailService() *events.SimpleEmailService {
 		// TestNewMailtoEvent validates that newMailtoHandler() uppercases them
 		// all.
 		Receipt: events.SimpleEmailReceipt{
+			Recipients:   []string{testUnsubscribeAddress},
+			Timestamp:    timestamp,
 			SPFVerdict:   events.SimpleEmailVerdict{Status: "pass"},
 			DKIMVerdict:  events.SimpleEmailVerdict{Status: "pass"},
 			SpamVerdict:  events.SimpleEmailVerdict{Status: "pass"},

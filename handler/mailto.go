@@ -56,6 +56,8 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 		To:           headers.To,
 		Subject:      headers.Subject,
 		MessageId:    ses.Mail.MessageID,
+		Timestamp:    receipt.Timestamp,
+		Recipients:   receipt.Recipients,
 		SpfVerdict:   strings.ToUpper(receipt.SPFVerdict.Status),
 		DkimVerdict:  strings.ToUpper(receipt.DKIMVerdict.Status),
 		SpamVerdict:  strings.ToUpper(receipt.SpamVerdict.Status),

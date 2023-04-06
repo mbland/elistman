@@ -10,6 +10,7 @@ import (
 	"net/mail"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -261,6 +262,8 @@ type mailtoEvent struct {
 	To           []string
 	Subject      string
 	MessageId    string
+	Timestamp    time.Time
+	Recipients   []string
 	SpfVerdict   string
 	DkimVerdict  string
 	SpamVerdict  string
