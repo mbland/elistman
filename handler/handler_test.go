@@ -120,13 +120,16 @@ func simpleEmailService() *events.SimpleEmailService {
 				Subject: "mbland@acm.org " + testValidUidStr,
 			},
 		},
+		// Set all verdicts and DMARCPolicy to lowercase here to make sure that
+		// TestNewMailtoEvent validates that newMailtoHandler() uppercases them
+		// all.
 		Receipt: events.SimpleEmailReceipt{
-			SPFVerdict:   events.SimpleEmailVerdict{Status: "PASS"},
-			DKIMVerdict:  events.SimpleEmailVerdict{Status: "PASS"},
-			SpamVerdict:  events.SimpleEmailVerdict{Status: "PASS"},
-			VirusVerdict: events.SimpleEmailVerdict{Status: "PASS"},
-			DMARCVerdict: events.SimpleEmailVerdict{Status: "PASS"},
-			DMARCPolicy:  "REJECT",
+			SPFVerdict:   events.SimpleEmailVerdict{Status: "pass"},
+			DKIMVerdict:  events.SimpleEmailVerdict{Status: "pass"},
+			SpamVerdict:  events.SimpleEmailVerdict{Status: "pass"},
+			VirusVerdict: events.SimpleEmailVerdict{Status: "pass"},
+			DMARCVerdict: events.SimpleEmailVerdict{Status: "pass"},
+			DMARCPolicy:  "reject",
 		},
 	}
 }

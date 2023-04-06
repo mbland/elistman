@@ -32,17 +32,27 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 	headers := ses.Mail.CommonHeaders
 	receipt := &ses.Receipt
 
+	// Notice that according to:
+	// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
+	//
+	// all of the below verdicts and the DMARCPolicy should be all uppercase.
+	//
+	// However, according to:
+	// - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
+	//
+	// The DMARCPolicy should be all lowercase. As a defensive measure, we
+	// explicitly uppercase them all.
 	return &mailtoEvent{
 		From:         headers.From,
 		To:           headers.To,
 		Subject:      headers.Subject,
 		MessageId:    ses.Mail.MessageID,
-		SpfVerdict:   receipt.SPFVerdict.Status,
-		DkimVerdict:  receipt.DKIMVerdict.Status,
-		SpamVerdict:  receipt.SpamVerdict.Status,
-		VirusVerdict: receipt.VirusVerdict.Status,
-		DmarcVerdict: receipt.DMARCVerdict.Status,
-		DmarcPolicy:  receipt.DMARCPolicy,
+		SpfVerdict:   strings.ToUpper(receipt.SPFVerdict.Status),
+		DkimVerdict:  strings.ToUpper(receipt.DKIMVerdict.Status),
+		SpamVerdict:  strings.ToUpper(receipt.SpamVerdict.Status),
+		VirusVerdict: strings.ToUpper(receipt.VirusVerdict.Status),
+		DmarcVerdict: strings.ToUpper(receipt.DMARCVerdict.Status),
+		DmarcPolicy:  strings.ToUpper(receipt.DMARCPolicy),
 	}
 }
 
