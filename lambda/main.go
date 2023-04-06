@@ -19,16 +19,18 @@ func buildHandler() (*handler.Handler, error) {
 	} else if opts, err := handler.GetOptions(os.Getenv); err != nil {
 		return nil, err
 	} else {
+		sesMailer := email.NewSesMailer(cfg)
 		return handler.NewHandler(
 			opts.EmailDomainName,
 			opts.EmailSiteTitle,
 			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
-				Mailer:    email.NewSesMailer(cfg),
+				Mailer:    sesMailer,
 			},
 			opts.RedirectPaths,
 			handler.ResponseTemplate,
+			sesMailer,
 			log.Default(),
 		)
 	}

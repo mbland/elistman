@@ -59,9 +59,27 @@ var testRedirects = RedirectPaths{
 	Unsubscribed:      "unsubscribed",
 }
 
+type testBouncer struct {
+	EmailDomain     string
+	Recipients      []string
+	Timestamp       time.Time
+	ReturnMessageId string
+	Error           error
+}
+
+func (b *testBouncer) Bounce(
+	emailDomain string, recipients []string, timestamp time.Time,
+) (string, error) {
+	b.EmailDomain = emailDomain
+	b.Recipients = recipients
+	b.Timestamp = timestamp
+	return b.ReturnMessageId, b.Error
+}
+
 type handlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
+	bouncer *testBouncer
 	handler *Handler
 	event   *Event
 }
@@ -69,19 +87,21 @@ type handlerFixture struct {
 func newHandlerFixture() *handlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
+	bouncer := &testBouncer{}
 	handler, err := NewHandler(
 		testEmailDomain,
 		testSiteTitle,
 		agent,
 		testRedirects,
 		ResponseTemplate,
+		bouncer,
 		logger,
 	)
 
 	if err != nil {
 		panic(err.Error())
 	}
-	return &handlerFixture{agent, logs, handler, &Event{}}
+	return &handlerFixture{agent, logs, bouncer, handler, &Event{}}
 }
 
 func testLogger() (*strings.Builder, *log.Logger) {
@@ -159,6 +179,7 @@ func TestNewHandler(t *testing.T) {
 			&testAgent{},
 			testRedirects,
 			responseTemplate,
+			&testBouncer{},
 			&log.Logger{},
 		)
 	}

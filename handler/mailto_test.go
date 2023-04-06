@@ -20,6 +20,7 @@ type mailtoHandlerFixture struct {
 func newMailtoHandlerFixture() *mailtoHandlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
+	bouncer := &testBouncer{}
 	timestamp, err := time.Parse(time.DateOnly, "1970-09-18")
 
 	if err != nil {
@@ -29,7 +30,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 	return &mailtoHandlerFixture{
 		agent,
 		logs,
-		newMailtoHandler(testEmailDomain, agent, logger),
+		newMailtoHandler(testEmailDomain, agent, bouncer, logger),
 		&mailtoEvent{
 			From:         []string{"mbland@acm.org"},
 			To:           []string{testUnsubscribeAddress},

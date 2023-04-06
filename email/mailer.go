@@ -27,6 +27,8 @@ package email
 // - https://en.wikipedia.org/wiki/MIME
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 )
@@ -41,6 +43,12 @@ type Mailer interface {
 	) error
 }
 
+type Bouncer interface {
+	Bounce(
+		emailDomain string, recipients []string, timestamp time.Time,
+	) (string, error)
+}
+
 type SesMailer struct {
 	Client *ses.Client
 }
@@ -49,7 +57,7 @@ func NewSesMailer(awsConfig aws.Config) *SesMailer {
 	return &SesMailer{Client: ses.NewFromConfig(awsConfig)}
 }
 
-func (mailer SesMailer) Send(
+func (mailer *SesMailer) Send(
 	toAddr string,
 	fromAddr string,
 	subject string,
@@ -57,4 +65,16 @@ func (mailer SesMailer) Send(
 	htmlMsg string,
 ) error {
 	return nil
+}
+
+func (mailer *SesMailer) Bounce(
+	emailDomain string, recipients []string, timestamp time.Time,
+) (string, error) {
+	// https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#SES.SendBounce
+	// https://docs.aws.amazon.com/ses/latest/APIReference/API_SendBounce.html
+	// https://docs.aws.amazon.com/ses/latest/APIReference/API_MessageDsn.html
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#MessageDsn
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/sesiface/
+	return "fake bounce message ID", nil
 }

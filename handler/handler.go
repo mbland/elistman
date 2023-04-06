@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 )
 
@@ -18,6 +19,7 @@ func NewHandler(
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
+	bouncer email.Bouncer,
 	logger *log.Logger,
 ) (*Handler, error) {
 	api, err := newApiHandler(
@@ -27,7 +29,9 @@ func NewHandler(
 	if err != nil {
 		return nil, err
 	}
-	return &Handler{api, newMailtoHandler(emailDomain, agent, logger)}, nil
+	return &Handler{
+		api, newMailtoHandler(emailDomain, agent, bouncer, logger),
+	}, nil
 }
 
 const ResponseTemplate = `<!DOCTYPE html>

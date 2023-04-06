@@ -7,21 +7,26 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 )
 
 type mailtoHandler struct {
 	EmailDomain     string
 	Agent           ops.SubscriptionAgent
+	Bouncer         email.Bouncer
 	Log             *log.Logger
 	unsubscribeAddr string
 }
 
 func newMailtoHandler(
-	emailDomain string, agent ops.SubscriptionAgent, log *log.Logger,
+	emailDomain string,
+	agent ops.SubscriptionAgent,
+	bouncer email.Bouncer,
+	log *log.Logger,
 ) *mailtoHandler {
 	return &mailtoHandler{
-		emailDomain, agent, log, "unsubscribe@" + emailDomain,
+		emailDomain, agent, bouncer, log, "unsubscribe@" + emailDomain,
 	}
 }
 
