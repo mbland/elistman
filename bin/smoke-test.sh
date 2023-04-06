@@ -195,7 +195,8 @@ printf_info '%s\n' \
 
 expect_status_from_endpoint 'missing email address' \
   POST 'subscribe' \
-  303 "$INVALID_REQUEST_PATH"
+  303 "$INVALID_REQUEST_PATH" \
+  'application/x-www-form-urlencoded' ''
 
 expect_status_from_endpoint 'invalid email address' \
   POST 'subscribe' \
