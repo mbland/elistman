@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.2
 	github.com/aws/aws-sdk-go-v2/service/ses v1.15.5
 	github.com/google/uuid v1.3.0
+	golang.org/x/tools v0.8.0
 	gotest.tools v2.2.0+incompatible
 	honnef.co/go/tools v0.4.3
 )
@@ -33,6 +34,5 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20230321023759-10a507213a29 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/tools v0.7.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

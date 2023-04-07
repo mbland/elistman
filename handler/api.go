@@ -249,11 +249,11 @@ func (h *apiHandler) performOperation(
 	requestId string, op *eventOperation,
 ) (result ops.OperationResult, err error) {
 	switch op.Type {
-	case SubscribeOp:
+	case Subscribe:
 		result, err = h.Agent.Subscribe(op.Email)
-	case VerifyOp:
+	case Verify:
 		result, err = h.Agent.Verify(op.Email, op.Uid)
-	case UnsubscribeOp:
+	case Unsubscribe:
 		result, err = h.Agent.Unsubscribe(op.Email, op.Uid)
 	default:
 		err = fmt.Errorf("can't handle operation type: %s", op.Type)

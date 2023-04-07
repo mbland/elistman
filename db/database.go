@@ -8,22 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate go run golang.org/x/tools/cmd/stringer -type=SubscriberStatus
 type SubscriberStatus int
 
 const (
 	Unverified SubscriberStatus = iota
 	Verified
 )
-
-func (us SubscriberStatus) String() string {
-	switch {
-	case us == Unverified:
-		return "Unverified"
-	case us == Verified:
-		return "Verified"
-	}
-	return "Unknown"
-}
 
 type Subscriber struct {
 	Email     string

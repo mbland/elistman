@@ -21,28 +21,15 @@ const (
 	UnsubscribePrefix = "/unsubscribe/"
 )
 
+//go:generate go run golang.org/x/tools/cmd/stringer -type=eventOperationType
 type eventOperationType int
 
 const (
-	UndefinedOp eventOperationType = iota
-	SubscribeOp
-	VerifyOp
-	UnsubscribeOp
+	Undefined eventOperationType = iota
+	Subscribe
+	Verify
+	Unsubscribe
 )
-
-func (t eventOperationType) String() string {
-	switch t {
-	case UndefinedOp:
-		return "Undefined"
-	case SubscribeOp:
-		return "Subscribe"
-	case VerifyOp:
-		return "Verify"
-	case UnsubscribeOp:
-		return "Unsubscribe"
-	}
-	return "Unknown"
-}
 
 type eventOperation struct {
 	Type     eventOperationType
@@ -55,7 +42,7 @@ func (op *eventOperation) String() string {
 	builder := strings.Builder{}
 	builder.WriteString(op.Type.String())
 
-	if op.Type == UndefinedOp {
+	if op.Type == Undefined {
 		return builder.String()
 	} else if op.OneClick {
 		builder.WriteString(" (One-Click)")
@@ -63,7 +50,7 @@ func (op *eventOperation) String() string {
 
 	builder.WriteString(": " + op.Email)
 
-	if op.Type != SubscribeOp {
+	if op.Type != Subscribe {
 		builder.WriteString(" " + op.Uid.String())
 	}
 	return builder.String()
@@ -120,7 +107,7 @@ func paramError(optype eventOperationType, err error) (*eventOperation, error) {
 	// Treat email parse errors differently for the Subscribe operation, since
 	// it may be due to a user typo. In all other cases, the assumption is that
 	// it's a bad machine generated request.
-	if optype == SubscribeOp {
+	if optype == Subscribe {
 		return nil, fmt.Errorf("%w: %s", ErrUserInput, err)
 	}
 	return requestError(optype, err)
@@ -128,13 +115,13 @@ func paramError(optype eventOperationType, err error) (*eventOperation, error) {
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
 	if strings.HasPrefix(endpoint, SubscribePrefix) {
-		return SubscribeOp, nil
+		return Subscribe, nil
 	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
-		return VerifyOp, nil
+		return Verify, nil
 	} else if strings.HasPrefix(endpoint, UnsubscribePrefix) {
-		return UnsubscribeOp, nil
+		return Unsubscribe, nil
 	}
-	return UndefinedOp, fmt.Errorf("unknown endpoint: %s", endpoint)
+	return Undefined, fmt.Errorf("unknown endpoint: %s", endpoint)
 }
 
 func parseParams(req *apiRequest) (map[string]string, error) {
@@ -212,7 +199,7 @@ func parseEmail(params map[string]string) (string, error) {
 func parseUid(
 	optype eventOperationType, params map[string]string,
 ) (uuid.UUID, error) {
-	if optype == SubscribeOp {
+	if optype == Subscribe {
 		return uuid.Nil, nil
 	}
 	return parseParam(params, "uid", uuid.Nil, uuid.Parse)
@@ -247,7 +234,7 @@ func isOneClickUnsubscribeRequest(
 ) bool {
 	// See the file comments in email/mailer.go for references describing the
 	// one click unsubscribe mechanism.
-	return optype == UnsubscribeOp &&
+	return optype == Unsubscribe &&
 		req.Method == http.MethodPost &&
 		params["List-Unsubscribe"] == "One-Click"
 }
@@ -281,7 +268,7 @@ func parseMailtoEvent(
 		return nil, err
 	} else {
 		return &eventOperation{
-			UnsubscribeOp, subject.Email, subject.Uid, true,
+			Unsubscribe, subject.Email, subject.Uid, true,
 		}, nil
 	}
 }

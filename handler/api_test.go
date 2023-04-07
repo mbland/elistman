@@ -309,7 +309,7 @@ func TestRespondToParseError(t *testing.T) {
 
 func TestLogOperationResult(t *testing.T) {
 	op := &eventOperation{
-		Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+		Type: Verify, Email: "mbland@acm.org", Uid: testValidUid,
 	}
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
@@ -342,7 +342,7 @@ func TestPerformOperation(t *testing.T) {
 
 		result, err := f.handler.performOperation(
 			"deadbeef",
-			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
+			&eventOperation{Type: Subscribe, Email: "mbland@acm.org"},
 		)
 
 		assert.NilError(t, err)
@@ -358,7 +358,7 @@ func TestPerformOperation(t *testing.T) {
 		result, err := f.handler.performOperation(
 			"deadbeef",
 			&eventOperation{
-				Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+				Type: Verify, Email: "mbland@acm.org", Uid: testValidUid,
 			},
 		)
 
@@ -374,7 +374,7 @@ func TestPerformOperation(t *testing.T) {
 		result, err := f.handler.performOperation(
 			"deadbeef",
 			&eventOperation{
-				Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
+				Type: Unsubscribe, Email: "mbland@acm.org", Uid: testValidUid,
 			},
 		)
 
@@ -401,7 +401,7 @@ func TestPerformOperation(t *testing.T) {
 
 		result, err := f.handler.performOperation(
 			"deadbeef",
-			&eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"},
+			&eventOperation{Type: Subscribe, Email: "mbland@acm.org"},
 		)
 
 		assert.Equal(t, ops.Invalid, result)

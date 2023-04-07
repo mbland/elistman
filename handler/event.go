@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
+//go:generate go run golang.org/x/tools/cmd/stringer -type=EventType
 type EventType int
 
 const (
@@ -14,18 +15,6 @@ const (
 	ApiRequest
 	MailtoEvent
 )
-
-func (event EventType) String() string {
-	switch event {
-	case NullEvent:
-		return "Null"
-	case ApiRequest:
-		return "API Request"
-	case MailtoEvent:
-		return "Mailto"
-	}
-	return "Unknown"
-}
 
 type Event struct {
 	Type        EventType

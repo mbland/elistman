@@ -9,7 +9,7 @@ import (
 
 func TestUnknownEvent(t *testing.T) {
 	unknownEvent := NullEvent - 1
-	assert.Equal(t, "Unknown", unknownEvent.String())
+	assert.Equal(t, "EventType(-1)", unknownEvent.String())
 }
 
 func TestUnmarshalNullEventIsNop(t *testing.T) {
@@ -18,7 +18,6 @@ func TestUnmarshalNullEventIsNop(t *testing.T) {
 	err := e.UnmarshalJSON([]byte("null"))
 
 	assert.NilError(t, err)
-	assert.Equal(t, "Null", e.Type.String())
 	assert.DeepEqual(t, Event{}, e)
 }
 
@@ -28,7 +27,6 @@ func TestUnmarshalUnknownEventIsNop(t *testing.T) {
 	err := e.UnmarshalJSON([]byte(`{ "foo": "bar" }`))
 
 	assert.NilError(t, err)
-	assert.Equal(t, "Null", e.Type.String())
 	assert.DeepEqual(t, Event{}, e)
 }
 
@@ -44,7 +42,6 @@ func TestApiRequest(t *testing.T) {
 	err := e.UnmarshalJSON([]byte(apiRequestJson))
 
 	assert.NilError(t, err)
-	assert.Equal(t, "API Request", e.Type.String())
 	assert.DeepEqual(t, e, Event{
 		Type: ApiRequest,
 		ApiRequest: &events.APIGatewayV2HTTPRequest{
@@ -78,7 +75,6 @@ func TestMailtoEvent(t *testing.T) {
 	err := e.UnmarshalJSON([]byte(mailtoEventJson))
 
 	assert.NilError(t, err)
-	assert.Equal(t, "Mailto", e.Type.String())
 	assert.DeepEqual(t, e, Event{
 		Type: MailtoEvent,
 		MailtoEvent: &events.SimpleEmailEvent{

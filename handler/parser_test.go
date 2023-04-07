@@ -18,8 +18,8 @@ import (
 var nilSubject *parsedSubject = &parsedSubject{}
 
 func TestUnknownEventOperationType(t *testing.T) {
-	unknownOp := UndefinedOp - 1
-	assert.Equal(t, "Unknown", unknownOp.String())
+	unknownOp := Undefined - 1
+	assert.Equal(t, "eventOperationType(-1)", unknownOp.String())
 }
 
 func TestEventOperationString(t *testing.T) {
@@ -29,13 +29,13 @@ func TestEventOperationString(t *testing.T) {
 	})
 
 	t.Run("Subscribe", func(t *testing.T) {
-		op := &eventOperation{Type: SubscribeOp, Email: "mbland@acm.org"}
+		op := &eventOperation{Type: Subscribe, Email: "mbland@acm.org"}
 		assert.Equal(t, "Subscribe: mbland@acm.org", op.String())
 	})
 
 	t.Run("Verify", func(t *testing.T) {
 		op := &eventOperation{
-			Type: VerifyOp, Email: "mbland@acm.org", Uid: testValidUid,
+			Type: Verify, Email: "mbland@acm.org", Uid: testValidUid,
 		}
 
 		assert.Equal(t, "Verify: mbland@acm.org "+testValidUidStr, op.String())
@@ -43,7 +43,7 @@ func TestEventOperationString(t *testing.T) {
 
 	t.Run("Unsubscribe", func(t *testing.T) {
 		op := &eventOperation{
-			Type: UnsubscribeOp, Email: "mbland@acm.org", Uid: testValidUid,
+			Type: Unsubscribe, Email: "mbland@acm.org", Uid: testValidUid,
 		}
 
 		expected := "Unsubscribe: mbland@acm.org " + testValidUidStr
@@ -52,7 +52,7 @@ func TestEventOperationString(t *testing.T) {
 
 	t.Run("OneClickUnsubscribe", func(t *testing.T) {
 		op := &eventOperation{
-			Type:     UnsubscribeOp,
+			Type:     Unsubscribe,
 			Email:    "mbland@acm.org",
 			Uid:      testValidUid,
 			OneClick: true,
@@ -65,7 +65,7 @@ func TestEventOperationString(t *testing.T) {
 
 func TestParseErrorIncludesOptypeAndMessage(t *testing.T) {
 	err := &ParseError{
-		Type:    SubscribeOp,
+		Type:    Subscribe,
 		Message: "invalid email parameter: mbland acm.org",
 	}
 
@@ -76,18 +76,18 @@ func TestParseErrorIncludesOptypeAndMessage(t *testing.T) {
 
 func TestParamError(t *testing.T) {
 	t.Run("IsAParseError", func(t *testing.T) {
-		op, err := paramError(VerifyOp, errors.New("proper parse error"))
+		op, err := paramError(Verify, errors.New("proper parse error"))
 		var parseErr *ParseError
 
 		assert.Assert(t, is.Nil(op))
 		assert.Assert(t, errors.As(err, &parseErr))
 		assert.DeepEqual(
-			t, &ParseError{VerifyOp, "proper parse error"}, parseErr,
+			t, &ParseError{Verify, "proper parse error"}, parseErr,
 		)
 	})
 
 	t.Run("IsAUSerInputError", func(t *testing.T) {
-		op, err := paramError(SubscribeOp, errors.New("user input error"))
+		op, err := paramError(Subscribe, errors.New("user input error"))
 		var parseErr *ParseError
 		assert.Assert(t, is.Nil(op))
 		assert.Assert(t, !errors.As(err, &parseErr))
@@ -328,7 +328,7 @@ func TestParseEmail(t *testing.T) {
 
 func TestParseUid(t *testing.T) {
 	t.Run("IgnoreSubscribeOp", func(t *testing.T) {
-		result, err := parseUid(SubscribeOp, map[string]string{})
+		result, err := parseUid(Subscribe, map[string]string{})
 
 		assert.NilError(t, err)
 		assert.Equal(t, uuid.Nil, result)
@@ -339,7 +339,7 @@ func TestParseUid(t *testing.T) {
 		assert.NilError(t, err)
 
 		result, err := parseUid(
-			VerifyOp, map[string]string{"uid": expected.String()},
+			Verify, map[string]string{"uid": expected.String()},
 		)
 
 		assert.NilError(t, err)
@@ -353,7 +353,7 @@ func TestIsOneClickSubscribeRequest(t *testing.T) {
 
 	t.Run("FalseIfNotAnUnsubscribeOp", func(t *testing.T) {
 		result := isOneClickUnsubscribeRequest(
-			SubscribeOp, postReq, oneClickParams,
+			Subscribe, postReq, oneClickParams,
 		)
 
 		assert.Assert(t, result == false)
@@ -361,7 +361,7 @@ func TestIsOneClickSubscribeRequest(t *testing.T) {
 
 	t.Run("FalseIfNotAPostRequest", func(t *testing.T) {
 		result := isOneClickUnsubscribeRequest(
-			UnsubscribeOp, &apiRequest{Method: http.MethodGet}, oneClickParams,
+			Unsubscribe, &apiRequest{Method: http.MethodGet}, oneClickParams,
 		)
 
 		assert.Assert(t, result == false)
@@ -369,7 +369,7 @@ func TestIsOneClickSubscribeRequest(t *testing.T) {
 
 	t.Run("FalseIfNoOneClickParameter", func(t *testing.T) {
 		result := isOneClickUnsubscribeRequest(
-			UnsubscribeOp, postReq, map[string]string{},
+			Unsubscribe, postReq, map[string]string{},
 		)
 
 		assert.Assert(t, result == false)
@@ -377,7 +377,7 @@ func TestIsOneClickSubscribeRequest(t *testing.T) {
 
 	t.Run("True", func(t *testing.T) {
 		result := isOneClickUnsubscribeRequest(
-			UnsubscribeOp, postReq, oneClickParams,
+			Unsubscribe, postReq, oneClickParams,
 		)
 
 		assert.Assert(t, result == true)
@@ -394,7 +394,7 @@ func TestParseApiRequest(t *testing.T) {
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.As(err, &parseError))
-		assert.Equal(t, UndefinedOp, parseError.Type)
+		assert.Equal(t, Undefined, parseError.Type)
 		assert.ErrorContains(t, err, "unknown endpoint: /foobar")
 	})
 
@@ -413,7 +413,7 @@ func TestParseApiRequest(t *testing.T) {
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.As(err, &parseError))
-		assert.Equal(t, SubscribeOp, parseError.Type)
+		assert.Equal(t, Subscribe, parseError.Type)
 		assert.ErrorContains(
 			t, err, `multiple values for "email": mbland@acm.org, foo@bar.com`,
 		)
@@ -442,7 +442,7 @@ func TestParseApiRequest(t *testing.T) {
 
 		assert.Assert(t, is.Nil(result))
 		assert.Assert(t, errors.As(err, &parseError))
-		assert.Equal(t, VerifyOp, parseError.Type)
+		assert.Equal(t, Verify, parseError.Type)
 		assert.ErrorContains(t, err, "invalid uid parameter: 0123456789")
 	})
 
@@ -460,7 +460,7 @@ func TestParseApiRequest(t *testing.T) {
 		assert.NilError(t, err)
 		assert.DeepEqual(
 			t, result, &eventOperation{
-				SubscribeOp, "mbland@acm.org", uuid.Nil, false,
+				Subscribe, "mbland@acm.org", uuid.Nil, false,
 			},
 		)
 	})
@@ -484,7 +484,7 @@ func TestParseApiRequest(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, result, &eventOperation{
-			UnsubscribeOp, "mbland@acm.org", uuid.MustParse(uidStr), true,
+			Unsubscribe, "mbland@acm.org", uuid.MustParse(uidStr), true,
 		})
 	})
 }
@@ -633,7 +633,7 @@ func TestParseMailtoEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.DeepEqual(
-			t, &eventOperation{UnsubscribeOp, email, uid, true}, result,
+			t, &eventOperation{Unsubscribe, email, uid, true}, result,
 		)
 	})
 }
