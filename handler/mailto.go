@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"strings"
 
@@ -30,16 +28,18 @@ func newMailtoHandler(
 	}
 }
 
-func (h *mailtoHandler) HandleEvent(e *events.SimpleEmailEvent) {
+func (h *mailtoHandler) HandleEvent(
+	e *events.SimpleEmailEvent,
+) *events.SimpleEmailDisposition {
 	// If I understand the contract correctly, there should only ever be one
 	// valid Record per event. However, we have the technology to deal
 	// gracefully with the unexpected.
-	errs := make([]error, len(e.Records))
-
-	for i, record := range e.Records {
-		errs[i] = h.handleMailtoEvent(newMailtoEvent(&record.SES))
+	for _, record := range e.Records {
+		h.handleMailtoEvent(newMailtoEvent(&record.SES))
 	}
-	h.Log.Printf("ERROR from mailto requests: %s", errors.Join(errs...))
+	return &events.SimpleEmailDisposition{
+		Disposition: events.SimpleEmailStopRuleSet,
+	}
 }
 
 func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
@@ -75,35 +75,33 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
-func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) error {
-	prefix := "unsubscribe message " + ev.MessageId + ": "
+func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) {
+	outcome := "success"
 
 	if bounceMessageId, err := h.bounceIfDmarcFails(ev); err != nil {
-		return fmt.Errorf("%sDMARC bounce fail %s: %s", prefix, meta(ev), err)
+		outcome = "DMARC bounce failed: " + err.Error()
 	} else if bounceMessageId != "" {
-		const errFmt = "%sDMARC bounced %s with bounce message ID: %s"
-		h.Log.Printf(errFmt, prefix, meta(ev), bounceMessageId)
+		outcome = "DMARC bounced with message ID: " + bounceMessageId
 	} else if isSpam(ev) {
-		h.Log.Printf("%smarked as spam, ignored: %s", prefix, meta(ev))
+		outcome = "marked as spam, ignored"
 	} else if op, err := parseMailtoEvent(ev, h.unsubscribeAddr); err != nil {
-		const errFmt = "%sfailed to parse, ignoring: %s: %s"
-		h.Log.Printf(errFmt, prefix, meta(ev), err)
+		outcome = "failed to parse, ignoring: " + err.Error()
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
-		return fmt.Errorf("%serror: %s: %s", prefix, op.Email, err)
+		outcome = "error: " + err.Error()
 	} else if result != ops.Unsubscribed {
-		h.Log.Printf("%sfailed: %s: %s", prefix, op.Email, result)
-	} else {
-		h.Log.Printf("%ssuccess: %s", prefix, op.Email)
+		outcome = "failed: " + result.String()
 	}
-	return nil
+	h.logOutcome(ev, outcome)
 }
 
-func meta(ev *mailtoEvent) string {
-	return fmt.Sprintf(
-		"[From:\"%s\" To:\"%s\" Subject:\"%s\"]",
+func (h *mailtoHandler) logOutcome(ev *mailtoEvent, outcome string) {
+	h.Log.Printf(
+		`unsubscribe [Id:"%s" From:"%s" To:"%s" Subject:"%s"]: %s`,
+		ev.MessageId,
 		strings.Join(ev.From, ","),
 		strings.Join(ev.To, ","),
 		ev.Subject,
+		outcome,
 	)
 }
 
@@ -119,5 +117,8 @@ func (h *mailtoHandler) bounceIfDmarcFails(
 }
 
 func isSpam(ev *mailtoEvent) bool {
-	return false
+	return ev.SpfVerdict == "FAIL" ||
+		ev.DkimVerdict == "FAIL" ||
+		ev.SpamVerdict == "FAIL" ||
+		ev.VirusVerdict == "FAIL"
 }

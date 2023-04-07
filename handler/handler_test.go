@@ -246,12 +246,14 @@ func TestHandleEvent(t *testing.T) {
 		f.agent.ReturnValue = ops.Unsubscribed
 
 		response, err := f.handler.HandleEvent(f.event)
+
 		assert.NilError(t, err)
-		assert.Assert(t, is.Nil(response))
+		expected := &events.SimpleEmailDisposition{
+			Disposition: events.SimpleEmailStopRuleSet,
+		}
+		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
 		assert.Equal(t, testValidUid, f.agent.Uid)
-		assert.Assert(
-			t, is.Contains(f.logs.String(), "success: mbland@acm.org"),
-		)
+		assert.Assert(t, is.Contains(f.logs.String(), "success"))
 	})
 }

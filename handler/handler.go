@@ -52,7 +52,7 @@ func (h *Handler) HandleEvent(event *Event) (result any, err error) {
 	case ApiRequest:
 		result = h.api.HandleEvent(event.ApiRequest)
 	case MailtoEvent:
-		h.mailto.HandleEvent(event.MailtoEvent)
+		result = h.mailto.HandleEvent(event.MailtoEvent)
 	default:
 		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 	}
