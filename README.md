@@ -294,6 +294,12 @@ This software is made available as [Open Source software][oss-def] under the
 - [Working with stages for HTTP APIs][]
 - [AWS Lambda function errors in Go][]
 - [RFC 9110: HTTP Semantics][]
+- [Golang Auto Build Versioning][]
+- [jasonmf/go-embed-version][]
+- [Using ldflags to Set Version Information for Go Applications][]
+- [go tool link][] (also `go tool link -help`)
+- [A better way than “ldflags” to add a build version to your Go binaries][]
+- [AWS Lambda function versions][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -366,3 +372,9 @@ This software is made available as [Open Source software][oss-def] under the
 [Working with stages for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html
 [AWS Lambda function errors in Go]: https://docs.aws.amazon.com/lambda/latest/dg/golang-exceptions.html
 [RFC 9110: HTTP Semantics]: https://www.rfc-editor.org/rfc/rfc9110.html
+[Golang Auto Build Versioning]: https://www.atatus.com/blog/golang-auto-build-versioning/
+[jasonmf/go-embed-version]: https://github.com/jasonmf/go-embed-version
+[Using ldflags to Set Version Information for Go Applications]: https://www.digitalocean.com/community/tutorials/using-ldflags-to-set-version-information-for-go-applications
+[go tool link]: https://pkg.go.dev/cmd/link
+[A better way than “ldflags” to add a build version to your Go binaries]: https://levelup.gitconnected.com/a-better-way-than-ldflags-to-add-a-build-version-to-your-go-binaries-2258ce419d2d
+[AWS Lambda function versions]: https://docs.aws.amazon.com/lambda/latest/dg/configuration-versions.html
