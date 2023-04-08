@@ -33,9 +33,7 @@ env:
 jobs:
   test:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: mbland/elistman/.github/workflows/run-tests.yaml@main
+    uses: mbland/elistman/.github/workflows/run-tests.yaml@main
 
   delete-feature:
     if: startsWith(github.event.ref, 'feature') && github.event_name == 'delete'
