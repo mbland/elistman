@@ -96,7 +96,9 @@ jobs:
       - name: Deploy to feature stack in the testing account
         shell: bash
         run: |
-          echo "${{ vars.TEST_ENV_FILE }}" > .env
+          cat > .env <<EOF
+          ${{ vars.TEST_ENV_FILE }}
+          EOF
           ./bin/sam-with-env.sh .env deploy \
             --stack-name $(echo ${GITHUB_REF##*/} | tr -cd '[a-zA-Z0-9-]') \
             --capabilities CAPABILITY_IAM \
@@ -192,7 +194,9 @@ jobs:
 
       - name: Deploy to testing account
         run: |
-          echo "${{ vars.TEST_ENV_FILE }}" > .env
+          cat > .env <<EOF
+          ${{ vars.TEST_ENV_FILE }}
+          EOF
           ./bin/sam-with-env .env deploy --stack-name ${TESTING_STACK_NAME} \
             --template packaged-testing.yaml \
             --capabilities CAPABILITY_IAM \
@@ -208,7 +212,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: |
-          echo "${{ vars.TEST_ENV_FILE }}" > .env
+          cat > .env <<EOF
+          ${{ vars.TEST_ENV_FILE }}
+          EOF
           ./bin/smoke-test.sh .env
 
   deploy-prod:
@@ -240,7 +246,9 @@ jobs:
 
       - name: Deploy to production account
         run: |
-          echo "${{ vars.PROD_ENV_FILE }}" > .env
+          cat > .env <<EOF
+          ${{ vars.PROD_ENV_FILE }}
+          EOF
           ./bin/sam-with-env .env deploy --stack-name ${PROD_STACK_NAME} \
             --template packaged-prod.yaml \
             --capabilities CAPABILITY_IAM \
