@@ -217,7 +217,7 @@ jobs:
           tr -d '\r' > .env <<EOF
           ${{ vars.TEST_ENV_FILE }}
           EOF
-          ./bin/smoke-test.sh .env
+          SMOKE_TEST_USE_COLOR=1 ./bin/smoke-test.sh .env
 
   deploy-prod:
     if: github.ref == 'refs/heads/main'

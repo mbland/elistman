@@ -44,7 +44,7 @@ printf_with_highlight() {
   local prefix="$2"
   shift 2
 
-  if [[ -t 1 ]]; then
+  if [[ -t 1 || -n "$SMOKE_TEST_USE_COLOR" ]]; then
     printf '%b%s' "${style_code}" "${prefix}"
     printf "$@"
     printf '%b' '\033[0m'
