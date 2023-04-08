@@ -29,7 +29,7 @@ run-local: sam-build deploy.env
 deploy: sam-build deploy.env
 	bin/sam-with-env.sh deploy.env deploy
 
-delete: template.yml deploy.env
+delete: template.yml
 	sam delete
 
 clean:
