@@ -29,4 +29,5 @@ PARAMETER_OVERRIDES=(
   "UnsubscribedPath=${UNSUBSCRIBED_PATH:?}"
 )
 
+export SAM_CLI_TELEMETRY=0
 exec sam "${@}" --parameter-overrides "${PARAMETER_OVERRIDES[*]}"

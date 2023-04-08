@@ -59,7 +59,7 @@ jobs:
         env:
           FEATURE_BRANCH_NAME: ${{ github.event.ref }}
         run: |
-          sam delete \
+          SAM_CLI_TELEMETRY=0 sam delete \
             --stack-name $(echo ${FEATURE_BRANCH_NAME##*/} | tr -cd '[a-zA-Z0-9-]') \
             --region ${TESTING_REGION} \
             --no-prompts
@@ -77,7 +77,9 @@ jobs:
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
-      - run: sam build --template ${SAM_TEMPLATE} --use-container
+      - run: |
+          SAM_CLI_TELEMETRY=0 sam build \
+            --template ${SAM_TEMPLATE} --use-container
 
       - name: Assume the testing pipeline user role
         uses: aws-actions/configure-aws-credentials@v1-node16
@@ -113,7 +115,9 @@ jobs:
           use-installer: true
 
       - name: Build resources
-        run: sam build --template ${SAM_TEMPLATE} --use-container
+        run: |
+          SAM_CLI_TELEMETRY=0 sam build \
+            --template ${SAM_TEMPLATE} --use-container
 
       - name: Assume the testing pipeline user role
         uses: aws-actions/configure-aws-credentials@v1-node16
@@ -128,7 +132,7 @@ jobs:
 
       - name: Upload artifacts to testing artifact buckets
         run: |
-          sam package \
+          SAM_CLI_TELEMETRY=0 sam package \
             --s3-bucket ${TESTING_ARTIFACTS_BUCKET} \
             --region ${TESTING_REGION} \
             --output-template-file packaged-testing.yaml
@@ -151,7 +155,7 @@ jobs:
 
       - name: Upload artifacts to production artifact buckets
         run: |
-          sam package \
+          SAM_CLI_TELEMETRY=0 sam package \
             --s3-bucket ${PROD_ARTIFACTS_BUCKET} \
             --region ${PROD_REGION} \
             --output-template-file packaged-prod.yaml
