@@ -8,7 +8,7 @@ _**NOTE:** This project is just beginning. When it's operational, I'll remove
 this notice._
 
 [![License](https://img.shields.io/github/license/mbland/elistman.svg)](https://github.com/mbland/elistman/blob/main/LICENSE.txt)
-[![Build status](https://github.com/mbland/elistman/actions/workflows/ci.yml/badge.svg)](https://github.com/mbland/elistman/actions/workflows/ci.yml?branch=main)
+[![CI/CD pipeline status](https://github.com/mbland/elistman/actions/workflows/pipeline.yaml/badge.svg)](https://github.com/mbland/elistman/actions/workflows/pipeline.yaml?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/mbland/elistman/badge.svg?branch=main)](https://coveralls.io/github/mbland/elistman?branch=main)
 
 _(Try force reloading the page to get the latest badges if this is a return
