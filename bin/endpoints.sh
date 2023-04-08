@@ -15,6 +15,3 @@ export PROD_ENDPOINT="$(get_endpoint elistman-prod)"
 
 echo "Dev endpoint: $DEV_ENDPOINT"
 echo "Prod endpoint: $PROD_ENDPOINT"
-
-curl -s $DEV_ENDPOINT
-curl -s $PROD_ENDPOINT
