@@ -1,10 +1,10 @@
-name: Continuous Integration
+name: Run Tests
 
-on: [push, pull_request]
+on: [workflow_call, pull_request]
 
 jobs:
   ci:
-    name: "Run Continuous Integration"
+    name: "Run Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
