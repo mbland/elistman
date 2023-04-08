@@ -13,12 +13,15 @@ elif [[ "$#" -eq 0 ]]; then
 fi
 . "$ENV_FILE" || exit 1
 
+# Check these parameters first, since we escape spaces in them later.
+printf "${EMAIL_SITE_TITLE:?}" >/dev/null
 printf "${SENDER_NAME:?}" >/dev/null
+
 PARAMETER_OVERRIDES=(
   "ApiDomainName=${API_DOMAIN_NAME:?}"
   "ApiMappingKey=${API_MAPPING_KEY:?}"
   "EmailDomainName=${EMAIL_DOMAIN_NAME:?}"
-  "EmailSiteTitle=${EMAIL_SITE_TITLE:?}"
+  "EmailSiteTitle=${EMAIL_SITE_TITLE// /\ }"
   "SenderName=${SENDER_NAME// /\ }"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME:?}"
   "InvalidRequestPath=${INVALID_REQUEST_PATH:?}"
