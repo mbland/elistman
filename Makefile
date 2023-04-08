@@ -6,7 +6,7 @@ SHELL := /bin/bash
 # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
 build-EListMan:
-	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" \
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" \
 			 -o $(ARTIFACTS_DIR)/main lambda/main.go
 
 test:
