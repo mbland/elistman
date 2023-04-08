@@ -213,7 +213,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: Run smoke tests
+        run: |
           tr -d '\r' > .env <<EOF
           ${{ vars.TEST_ENV_FILE }}
           EOF
