@@ -175,7 +175,17 @@ Resources:
       Topics:
         - !Ref DeliveryNotificationsTopic
       PolicyDocument:
-          # https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html#configure-feedback-notifications-prerequisites
+          # Note that this is for an event destination for event publishing:
+          # - https://docs.aws.amazon.com/ses/latest/dg/event-publishing-add-event-destination-sns.html
+          #
+          # as opposed to notifications for a verified identity:
+          # - https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html
+          #
+          # It's subtle. It's possible to have one topic for multiple
+          # deployments using the verified identity notifications. For this
+          # application, however, we set up different topics and destinations
+          # for each deployment. This keeps each deployment's notifications
+          # encapsulated from one another.
           Version: "2012-10-17"
           Id: !Sub "${AWS::StackName}-notification-policy"
           Statement:
@@ -187,7 +197,7 @@ Resources:
               Condition:
                 StringEquals:
                   "AWS:SourceAccount": !Sub "${AWS::AccountId}"
-                  "AWS:SourceArn": !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
+                  "AWS:SourceArn": !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SendingConfigurationSet}"
 
   SendingConfigurationSet:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
@@ -203,22 +213,22 @@ Resources:
           - COMPLAINT
           - BOUNCE
 
-  #SendingConfigurationSetDestination:
-  #  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
-  #  Type: AWS::SES::ConfigurationSetEventDestination
-  #  Properties:
-  #    ConfigurationSetName: !Ref SendingConfigurationSet
-  #    EventDestination:
-  #      Name: !Sub "${AWS::StackName}-delivery-notifications"
-  #      Enabled: true
-  #      MatchingEventTypes:
-  #        - send
-  #        - delivery
-  #        - reject
-  #        - bounce
-  #        - complaint
-  #      SnsDestination:
-  #        TopicARN: !Ref DeliveryNotificationsTopic
+  SendingConfigurationSetDestination:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SendingConfigurationSet
+      EventDestination:
+        Name: !Sub "${AWS::StackName}-delivery-notifications"
+        Enabled: true
+        MatchingEventTypes:
+          - send
+          - delivery
+          - reject
+          - bounce
+          - complaint
+        SnsDestination:
+          TopicARN: !Ref DeliveryNotificationsTopic
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
