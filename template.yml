@@ -114,7 +114,7 @@ Resources:
         # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigatewayv2-stage-accesslogsettings.html
         # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html?icmpid=apigateway_console_help
         DestinationArn: !GetAtt ApiAccessLogs.Arn
-        Format: '"$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.routeKey $context.protocol" $context.status $context.responseLength $context.requestId"'
+        Format: '"$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.path $context.protocol" $context.status $context.responseLength $context.requestId"'
       DefaultRouteSettings:
         # https://stackoverflow.com/a/70423772
         # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
@@ -160,7 +160,7 @@ Resources:
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   Api:
-    Description: "API Gateway root URL for the EListMan function"
+    Description: "API Gateway root URL for the ListMan function"
     Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
   Function:
     Description: "EListMan Lambda function ARN"
