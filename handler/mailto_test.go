@@ -40,7 +40,9 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 		agent,
 		bouncer,
 		logs,
-		newMailtoHandler(testEmailDomain, agent, bouncer, logger),
+		&mailtoHandler{
+			testEmailDomain, testUnsubscribeAddress, agent, bouncer, logger,
+		},
 		&mailtoEvent{
 			From:         []string{"mbland@acm.org"},
 			To:           []string{testUnsubscribeAddress},
@@ -75,7 +77,7 @@ func TestLogOutcome(t *testing.T) {
 
 	f.assertLogContains(t, `unsubscribe [Id:"deadbeef" `+
 		`From:"mbland@acm.org,foo@bar.com" `+
-		`To:"unsubscribe@mike-bland.com,baz@quux.com" `+
+		`To:"`+testUnsubscribeAddress+`,baz@quux.com" `+
 		`Subject:"mbland@acm.org `+testValidUidStr+`"]: success`)
 }
 
@@ -149,7 +151,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.assertLogContains(t, `unsubscribe [Id:"deadbeef" `+
 			`From:"mbland@acm.org" `+
-			`To:"unsubscribe@mike-bland.com" `+
+			`To:"`+testUnsubscribeAddress+`" `+
 			`Subject:"mbland@acm.org `+testValidUidStr+`"]: success`)
 	})
 

@@ -27,6 +27,8 @@ func TestReportUndefinedEnviromentVariables(t *testing.T) {
 				"EMAIL_DOMAIN_NAME",
 				"EMAIL_SITE_TITLE",
 				"SENDER_NAME",
+				"SENDER_USER_NAME",
+				"UNSUBSCRIBE_USER_NAME",
 				"SUBSCRIBERS_TABLE_NAME",
 				"INVALID_REQUEST_PATH",
 				"ALREADY_SUBSCRIBED_PATH",
@@ -46,6 +48,8 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 		"EMAIL_DOMAIN_NAME":       "mike-bland.com",
 		"EMAIL_SITE_TITLE":        "Mike Bland's blog",
 		"SENDER_NAME":             "Mike Bland",
+		"SENDER_USER_NAME":        "no-reply",
+		"UNSUBSCRIBE_USER_NAME":   "unsubscribe",
 		"SUBSCRIBERS_TABLE_NAME":  "subscribers",
 		"INVALID_REQUEST_PATH":    "/invalid",
 		"ALREADY_SUBSCRIBED_PATH": "/already-subscribed",
@@ -68,6 +72,8 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 			EmailDomainName:      "mike-bland.com",
 			EmailSiteTitle:       "Mike Bland's blog",
 			SenderName:           "Mike Bland",
+			SenderUserName:       "no-reply",
+			UnsubscribeUserName:  "unsubscribe",
 			SubscribersTableName: "subscribers",
 
 			// Note that GetOptions will remove a leading '/' character from the

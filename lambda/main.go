@@ -30,6 +30,7 @@ func buildHandler() (*handler.Handler, error) {
 			},
 			opts.RedirectPaths,
 			handler.ResponseTemplate,
+			opts.UnsubscribeUserName,
 			sesMailer,
 			log.Default(),
 		)

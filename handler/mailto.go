@@ -11,21 +11,10 @@ import (
 
 type mailtoHandler struct {
 	EmailDomain     string
+	UnsubscribeAddr string
 	Agent           ops.SubscriptionAgent
 	Bouncer         email.Bouncer
 	Log             *log.Logger
-	unsubscribeAddr string
-}
-
-func newMailtoHandler(
-	emailDomain string,
-	agent ops.SubscriptionAgent,
-	bouncer email.Bouncer,
-	log *log.Logger,
-) *mailtoHandler {
-	return &mailtoHandler{
-		emailDomain, agent, bouncer, log, "unsubscribe@" + emailDomain,
-	}
 }
 
 func (h *mailtoHandler) HandleEvent(
@@ -84,7 +73,7 @@ func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) {
 		outcome = "DMARC bounced with message ID: " + bounceMessageId
 	} else if isSpam(ev) {
 		outcome = "marked as spam, ignored"
-	} else if op, err := parseMailtoEvent(ev, h.unsubscribeAddr); err != nil {
+	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
 		outcome = "failed to parse, ignoring: " + err.Error()
 	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
 		outcome = "error: " + err.Error()

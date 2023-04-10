@@ -155,19 +155,21 @@ Then run `make deploy`.
 ## URI Schema
 
 - `https://<api_hostname>/<route_key>/<operation>`
-- `mailto:unsubscribe@<email_hostname>?subject=<email>%20<uid>`
+- `mailto:<unsubscribe_user>@<email_hostname>?subject=<email>%20<uid>`
 
 Where:
 
 - `<api_hostname>`: Hostname for the API Gateway instance
 - `<route_key>`: Route key for the API Gateway
 - `<operation>`: Endpoint for the list management operation:
-  - `/subscribe/<email>`
+  - `/subscribe`
   - `/verify/<email>/<uid>`
   - `/unsubscribe/<email>/<uid>`
 - `<email>`: Subscriber's URI encoded (for `https`) or query encoded (for
   `mailto`) email address
 - `<uid>`: Identifier assigned to the subscriber by the system
+- `<unsubscribe_user>`: The username receiving unsubscribe emails, typically
+  `unsubscribe`.
 - `<email_hostname>`: Hostname serving as an SES verified identity for receiving email
 
 ## Development

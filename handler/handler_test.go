@@ -45,7 +45,8 @@ func (a *testAgent) Unsubscribe(
 
 const testEmailDomain = "mike-bland.com"
 const testSiteTitle = "Mike Bland's blog"
-const testUnsubscribeAddress = "unsubscribe@" + testEmailDomain
+const testUnsubscribeUser = "unsubscribe"
+const testUnsubscribeAddress = testUnsubscribeUser + "@" + testEmailDomain
 const testValidUidStr = "00000000-1111-2222-3333-444444444444"
 
 var testValidUid uuid.UUID = uuid.MustParse(testValidUidStr)
@@ -97,6 +98,7 @@ func newHandlerFixture() *handlerFixture {
 		agent,
 		testRedirects,
 		ResponseTemplate,
+		testUnsubscribeUser,
 		bouncer,
 		logger,
 	)
@@ -182,6 +184,7 @@ func TestNewHandler(t *testing.T) {
 			&testAgent{},
 			testRedirects,
 			responseTemplate,
+			testUnsubscribeUser,
 			&testBouncer{},
 			&log.Logger{},
 		)
@@ -192,7 +195,7 @@ func TestNewHandler(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, testSiteTitle, handler.api.SiteTitle)
-		assert.Equal(t, testUnsubscribeAddress, handler.mailto.unsubscribeAddr)
+		assert.Equal(t, testUnsubscribeAddress, handler.mailto.UnsubscribeAddr)
 	})
 
 	t.Run("ReturnsErrorIfBadResponseTemplate", func(t *testing.T) {

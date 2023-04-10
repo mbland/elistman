@@ -19,6 +19,8 @@ type Options struct {
 	EmailDomainName      string
 	EmailSiteTitle       string
 	SenderName           string
+	SenderUserName       string
+	UnsubscribeUserName  string
 	SubscribersTableName string
 
 	RedirectPaths RedirectPaths
@@ -50,6 +52,8 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.EmailDomainName, "EMAIL_DOMAIN_NAME")
 	env.assign(&opts.EmailSiteTitle, "EMAIL_SITE_TITLE")
 	env.assign(&opts.SenderName, "SENDER_NAME")
+	env.assign(&opts.SenderUserName, "SENDER_USER_NAME")
+	env.assign(&opts.UnsubscribeUserName, "UNSUBSCRIBE_USER_NAME")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
 
 	redirects := &opts.RedirectPaths

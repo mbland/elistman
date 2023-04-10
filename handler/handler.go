@@ -19,6 +19,7 @@ func NewHandler(
 	agent ops.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
+	unsubscribeUserName string,
 	bouncer email.Bouncer,
 	logger *log.Logger,
 ) (*Handler, error) {
@@ -29,8 +30,10 @@ func NewHandler(
 	if err != nil {
 		return nil, err
 	}
+
+	unsubAddr := unsubscribeUserName + "@" + emailDomain
 	return &Handler{
-		api, newMailtoHandler(emailDomain, agent, bouncer, logger),
+		api, &mailtoHandler{emailDomain, unsubAddr, agent, bouncer, logger},
 	}, nil
 }
 
