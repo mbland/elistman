@@ -1,13 +1,13 @@
 SHELL := /bin/bash
 .POSIX:
-.PHONY: all clean delete deploy run-local sam-build coverage test build-EListMan
+.PHONY: all clean delete deploy run-local sam-build coverage test build-Function
 
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
 # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
-build-EListMan:
+build-Function:
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" \
-			 -o $(ARTIFACTS_DIR)/main lambda/main.go
+		-o $(ARTIFACTS_DIR)/main lambda/main.go
 
 test:
 	go vet ./...
