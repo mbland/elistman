@@ -177,12 +177,13 @@ Resources:
       PolicyDocument:
           # https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html#configure-feedback-notifications-prerequisites
           Version: 2012-10-17
-          Id: notification-policy
+          Id: !Sub "${AWS::StackName}-notification-policy"
           Statement:
             - Effect: Allow
               Principal:
                 Service: ses.amazonaws.com
-              Action: "sns:Publish"
+              Action:
+                - "sns:Publish"
               Resource: !Ref DeliveryNotificationsTopic
               Condition:
                 StringEquals:
