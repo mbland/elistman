@@ -168,6 +168,27 @@ Resources:
     Properties:
       TopicName: !Sub "${AWS::StackName}"
 
+  DeliveryNotificationsTopicPolicy:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sns-policy.html
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref DeliveryNotificationsTopic
+      PolicyDocument:
+          # https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html#configure-feedback-notifications-prerequisites
+          Version: 2012-10-17
+          Id: notification-policy
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: ses.amazonaws.com
+              Action: "sns:Publish"
+              Resource: !Ref DeliveryNotificationsTopic
+              Condition:
+                StringEquals:
+                  "AWS:SourceAccount": !Sub "${AWS::AccountId}"
+                  "AWS:SourceArn": !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
+
   SendingConfigurationSet:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
     Type: AWS::SES::ConfigurationSet
@@ -188,7 +209,7 @@ Resources:
     Properties:
       ConfigurationSetName: !Ref SendingConfigurationSet
       EventDestination:
-        Name: "SNS"
+        Name: !Sub "${AWS::StackName}-delivery-notifications"
         Enabled: true
         MatchingEventTypes:
           - send
