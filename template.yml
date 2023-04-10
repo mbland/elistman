@@ -35,7 +35,7 @@ Parameters:
     Type: String
 
 Resources:
-  EListMan:
+  Function:
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Type: AWS::Serverless::Function
     # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
@@ -76,38 +76,38 @@ Resources:
         Subscribe:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EListManApi
+            ApiId: !Ref HttpApi
             Path: /subscribe
             Method: POST
         Verify:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EListManApi
+            ApiId: !Ref HttpApi
             Path: /verify/{email}/{uid}
             Method: GET
         UnsubscribeGet:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EListManApi
+            ApiId: !Ref HttpApi
             Path: /unsubscribe/{email}/{uid}
             Method: GET
         UnsubscribePost:
           Type: HttpApi
           Properties:
-            ApiId: !Ref EListManApi
+            ApiId: !Ref HttpApi
             Path: /unsubscribe/{email}/{uid}
             Method: POST
 
-  EListManApiMapping:
+  ApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
     Properties:
-      ApiId: !Ref EListManApi
+      ApiId: !Ref HttpApi
       DomainName: !Ref ApiDomainName
       ApiMappingKey: !Ref ApiMappingKey
       # https://github.com/aws/serverless-application-model/issues/192#issuecomment-520893111
-      Stage: !Ref EListManApi.Stage
+      Stage: !Ref HttpApi.Stage
 
-  EListManApi:
+  HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       DefaultRouteSettings:
@@ -116,25 +116,25 @@ Resources:
         ThrottlingRateLimit: 10
         ThrottlingBurstLimit: 100
 
-  EListManReceiptRuleSet:
+  ReceiptRuleSet:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
     Type: AWS::SES::ReceiptRuleSet
 
-  EListManReceiptRuleSetPermission:
+  ReceiptRuleSetPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName: !GetAtt EListMan.Arn
+      FunctionName: !GetAtt Function.Arn
       Principal: "ses.amazonaws.com"
-      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${EListManReceiptRuleSet}:receipt-rule/*"
+      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ReceiptRuleSet}:receipt-rule/*"
 
-  EListManUnsubscribeReceiptRule:
+  UnsubscribeReceiptRule:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
     Type: AWS::SES::ReceiptRule
     Properties:
-      RuleSetName: !Ref EListManReceiptRuleSet
+      RuleSetName: !Ref ReceiptRuleSet
       Rule:
-        Name: EListManUnsubscribe
+        Name: Unsubscribe
         Enabled: true
         TlsPolicy: Require
         ScanEnabled: true
@@ -142,20 +142,20 @@ Resources:
           - !Sub "${UnsubscribeUserName}@${EmailDomainName}"
         Actions:
           - LambdaAction:
-              FunctionArn: !GetAtt EListMan.Arn
-    DependsOn: EListManReceiptRuleSetPermission
+              FunctionArn: !GetAtt Function.Arn
+    DependsOn: ReceiptRuleSetPermission
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  EListManApi:
+  Api:
     Description: "API Gateway root URL for the EListMan function"
     Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
-  EListManFunction:
+  Function:
     Description: "EListMan Lambda function ARN"
-    Value: !GetAtt EListMan.Arn
-  EListManFunctionIamRole:
+    Value: !GetAtt Function.Arn
+  IamRole:
     Description: "Implicit IAM Role created for EListMan function"
-    Value: !GetAtt EListManRole.Arn
+    Value: !GetAtt FunctionRole.Arn
   SenderEmailAddress:
     Description: "Sender email address"
     Value: !Sub "${SenderName} <${SenderUserName}@${EmailDomainName}>"
