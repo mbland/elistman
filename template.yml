@@ -176,14 +176,13 @@ Resources:
         - !Ref DeliveryNotificationsTopic
       PolicyDocument:
           # https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html#configure-feedback-notifications-prerequisites
-          Version: 2012-10-17
+          Version: "2012-10-17"
           Id: !Sub "${AWS::StackName}-notification-policy"
           Statement:
             - Effect: Allow
               Principal:
                 Service: ses.amazonaws.com
-              Action:
-                - "sns:Publish"
+              Action: "sns:Publish"
               Resource: !Ref DeliveryNotificationsTopic
               Condition:
                 StringEquals:
@@ -204,22 +203,22 @@ Resources:
           - COMPLAINT
           - BOUNCE
 
-  SendingConfigurationSetDestination:
-    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
-    Type: AWS::SES::ConfigurationSetEventDestination
-    Properties:
-      ConfigurationSetName: !Ref SendingConfigurationSet
-      EventDestination:
-        Name: !Sub "${AWS::StackName}-delivery-notifications"
-        Enabled: true
-        MatchingEventTypes:
-          - send
-          - delivery
-          - reject
-          - bounce
-          - complaint
-        SnsDestination:
-          TopicARN: !Ref DeliveryNotificationsTopic
+  #SendingConfigurationSetDestination:
+  #  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
+  #  Type: AWS::SES::ConfigurationSetEventDestination
+  #  Properties:
+  #    ConfigurationSetName: !Ref SendingConfigurationSet
+  #    EventDestination:
+  #      Name: !Sub "${AWS::StackName}-delivery-notifications"
+  #      Enabled: true
+  #      MatchingEventTypes:
+  #        - send
+  #        - delivery
+  #        - reject
+  #        - bounce
+  #        - complaint
+  #      SnsDestination:
+  #        TopicARN: !Ref DeliveryNotificationsTopic
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
