@@ -306,6 +306,7 @@ This software is made available as [Open Source software][oss-def] under the
 - [Setting up event notification for Amazon SES][]
 - [Receiving Amazon SES notifications using Amazon SNS][]
 - [Contents of event data that Amazon SES publishes to Amazon SNS][]
+- [How email sending works in Amazon SES][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -388,3 +389,4 @@ This software is made available as [Open Source software][oss-def] under the
 [Setting up event notification for Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/monitor-sending-activity-using-notifications.html
 [Receiving Amazon SES notifications using Amazon SNS]: https://docs.aws.amazon.com/ses/latest/dg/monitor-sending-activity-using-notifications-sns.html
 [Contents of event data that Amazon SES publishes to Amazon SNS]: https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html
+[How email sending works in Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/send-email-concepts-process.html

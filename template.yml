@@ -97,6 +97,10 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /unsubscribe/{email}/{uid}
             Method: POST
+        DeliveryNotification:
+          Type: SNS
+          Properties:
+            Topic: !Ref DeliveryNotificationsTopic
 
   ApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
@@ -112,7 +116,8 @@ Resources:
     Properties:
       AccessLogSettings:
         # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigatewayv2-stage-accesslogsettings.html
-        # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html?icmpid=apigateway_console_help
+        # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html
+        # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging-variables.html
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         Format: '"$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.path $context.protocol" $context.status $context.responseLength $context.requestId"'
       DefaultRouteSettings:
@@ -156,6 +161,43 @@ Resources:
           - LambdaAction:
               FunctionArn: !GetAtt Function.Arn
     DependsOn: ReceiptRuleSetPermission
+
+  DeliveryNotificationsTopic:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sns-topic.html
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}"
+
+  SendingConfigurationSet:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: !Sub "${AWS::StackName}"
+      DeliveryOptions:
+        TlsPolicy: REQUIRE
+      SendingOptions:
+        SendingEnabled: true
+      SuppressionOptions:
+        SuppressedReasons:
+          - COMPLAINT
+          - BOUNCE
+
+  SendingConfigurationSetDestination:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SendingConfigurationSet
+      EventDestination:
+        Name: "SNS"
+        Enabled: true
+        MatchingEventTypes:
+          - send
+          - delivery
+          - reject
+          - bounce
+          - complaint
+        SnsDestination:
+          TopicARN: !Ref DeliveryNotificationsTopic
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
