@@ -11,15 +11,15 @@ on:
 
 env:
   SAM_TEMPLATE: template.yml
-  TESTING_STACK_NAME: elistman-dev
-  TESTING_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-pipe-PipelineExecutionRole-J2LGXGU6FKGQ
-  TESTING_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-p-CloudFormationExecutionR-11UYGVKBD8Y55
-  TESTING_ARTIFACTS_BUCKET: aws-sam-cli-managed-dev-pipeline-artifactsbucket-1vfto7gbbtkx4
+  DEV_STACK_NAME: elistman-dev
+  DEV_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-pipe-PipelineExecutionRole-J2LGXGU6FKGQ
+  DEV_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-p-CloudFormationExecutionR-11UYGVKBD8Y55
+  DEV_ARTIFACTS_BUCKET: aws-sam-cli-managed-dev-pipeline-artifactsbucket-1vfto7gbbtkx4
   # If there are functions with "Image" PackageType in your template,
-  # uncomment the line below and add "--image-repository ${TESTING_IMAGE_REPOSITORY}" to
+  # uncomment the line below and add "--image-repository ${DEV_IMAGE_REPOSITORY}" to
   # testing "sam package" and "sam deploy" commands.
-  # TESTING_IMAGE_REPOSITORY = '0123456789.dkr.ecr.region.amazonaws.com/repository-name'
-  TESTING_REGION: us-east-1
+  # DEV_IMAGE_REPOSITORY = '0123456789.dkr.ecr.region.amazonaws.com/repository-name'
+  DEV_REGION: us-east-1
   PROD_STACK_NAME: elistman-prod
   PROD_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-prod-pip-PipelineExecutionRole-XHO6D5U48XQ5
   PROD_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-prod-CloudFormationExecutionR-1038CJYRMPFSZ
@@ -49,8 +49,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.aws_access_key_id }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.TESTING_REGION }}
-          role-to-assume: ${{ env.TESTING_PIPELINE_EXECUTION_ROLE }}
+          aws-region: ${{ env.DEV_REGION }}
+          role-to-assume: ${{ env.DEV_PIPELINE_EXECUTION_ROLE }}
           role-session-name: testing-packaging
           role-duration-seconds: 3600
           role-skip-session-tagging: true
@@ -61,7 +61,7 @@ jobs:
         run: |
           SAM_CLI_TELEMETRY=0 sam delete \
             --stack-name $(echo ${FEATURE_BRANCH_NAME##*/} | tr -cd '[a-zA-Z0-9-]') \
-            --region ${TESTING_REGION} \
+            --region ${DEV_REGION} \
             --no-prompts
 
   build-and-deploy-feature:
@@ -87,8 +87,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.aws_access_key_id }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.TESTING_REGION }}
-          role-to-assume: ${{ env.TESTING_PIPELINE_EXECUTION_ROLE }}
+          aws-region: ${{ env.DEV_REGION }}
+          role-to-assume: ${{ env.DEV_PIPELINE_EXECUTION_ROLE }}
           role-session-name: feature-deployment
           role-duration-seconds: 3600
           role-skip-session-tagging: true
@@ -97,16 +97,16 @@ jobs:
         shell: bash
         run: |
           tr -d '\r' > .env <<EOF
-          ${{ vars.TEST_ENV_FILE }}
+          ${{ vars.DEV_ENV_FILE }}
           EOF
           ./bin/sam-with-env.sh .env deploy \
             --stack-name $(echo ${GITHUB_REF##*/} | tr -cd '[a-zA-Z0-9-]') \
             --capabilities CAPABILITY_IAM \
-            --region ${TESTING_REGION} \
-            --s3-bucket ${TESTING_ARTIFACTS_BUCKET} \
+            --region ${DEV_REGION} \
+            --s3-bucket ${DEV_ARTIFACTS_BUCKET} \
             --no-fail-on-empty-changeset \
             --no-confirm-changeset \
-            --role-arn ${TESTING_CLOUDFORMATION_EXECUTION_ROLE}
+            --role-arn ${DEV_CLOUDFORMATION_EXECUTION_ROLE}
 
   build-and-package:
     if: github.ref == 'refs/heads/main'
@@ -128,8 +128,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.aws_access_key_id }}
           aws-secret-access-key: ${{ secrets.aws_secret_access_key }}
-          aws-region: ${{ env.TESTING_REGION }}
-          role-to-assume: ${{ env.TESTING_PIPELINE_EXECUTION_ROLE }}
+          aws-region: ${{ env.DEV_REGION }}
+          role-to-assume: ${{ env.DEV_PIPELINE_EXECUTION_ROLE }}
           role-session-name: testing-packaging
           role-duration-seconds: 3600
           role-skip-session-tagging: true
@@ -137,8 +137,8 @@ jobs:
       - name: Upload artifacts to testing artifact buckets
         run: |
           SAM_CLI_TELEMETRY=0 sam package \
-            --s3-bucket ${TESTING_ARTIFACTS_BUCKET} \
-            --region ${TESTING_REGION} \
+            --s3-bucket ${DEV_ARTIFACTS_BUCKET} \
+            --region ${DEV_REGION} \
             --output-template-file packaged-testing.yaml
 
       - uses: actions/upload-artifact@v3
@@ -187,8 +187,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.aws_access_key_id }}
           aws-secret-access-key: ${{ secrets.aws_secret_access_key }}
-          aws-region: ${{ env.TESTING_REGION }}
-          role-to-assume: ${{ env.TESTING_PIPELINE_EXECUTION_ROLE }}
+          aws-region: ${{ env.DEV_REGION }}
+          role-to-assume: ${{ env.DEV_PIPELINE_EXECUTION_ROLE }}
           role-session-name: testing-deployment
           role-duration-seconds: 3600
           role-skip-session-tagging: true
@@ -196,16 +196,16 @@ jobs:
       - name: Deploy to testing account
         run: |
           tr -d '\r' > .env <<EOF
-          ${{ vars.TEST_ENV_FILE }}
+          ${{ vars.DEV_ENV_FILE }}
           EOF
-          ./bin/sam-with-env.sh .env deploy --stack-name ${TESTING_STACK_NAME} \
+          ./bin/sam-with-env.sh .env deploy --stack-name ${DEV_STACK_NAME} \
             --template packaged-testing.yaml \
             --capabilities CAPABILITY_IAM \
-            --region ${TESTING_REGION} \
-            --s3-bucket ${TESTING_ARTIFACTS_BUCKET} \
+            --region ${DEV_REGION} \
+            --s3-bucket ${DEV_ARTIFACTS_BUCKET} \
             --no-fail-on-empty-changeset \
             --no-confirm-changeset \
-            --role-arn ${TESTING_CLOUDFORMATION_EXECUTION_ROLE}
+            --role-arn ${DEV_CLOUDFORMATION_EXECUTION_ROLE}
 
   integration-test:
     if: github.ref == 'refs/heads/main'
@@ -216,7 +216,7 @@ jobs:
       - name: Run smoke tests
         run: |
           tr -d '\r' > .env <<EOF
-          ${{ vars.TEST_ENV_FILE }}
+          ${{ vars.DEV_ENV_FILE }}
           EOF
           SMOKE_TEST_USE_COLOR=1 ./bin/smoke-test.sh .env
 
