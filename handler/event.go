@@ -33,7 +33,7 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.Type = ApiRequest
 		event.ApiRequest = &events.APIGatewayV2HTTPRequest{}
 		return json.Unmarshal(data, event.ApiRequest)
-	} else if bytes.Contains(data, []byte(`"commonHeaders":`)) {
+	} else if bytes.Contains(data, []byte(`"ses":`)) {
 		event.Type = MailtoEvent
 		event.MailtoEvent = &events.SimpleEmailEvent{}
 		return json.Unmarshal(data, event.MailtoEvent)
