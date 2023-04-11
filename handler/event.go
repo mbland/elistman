@@ -14,12 +14,14 @@ const (
 	NullEvent EventType = iota
 	ApiRequest
 	MailtoEvent
+	SnsEvent
 )
 
 type Event struct {
 	Type        EventType
 	ApiRequest  *events.APIGatewayV2HTTPRequest
 	MailtoEvent *events.SimpleEmailEvent
+	SnsEvent    *events.SNSEvent
 }
 
 // Inspired by:
@@ -37,6 +39,10 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.Type = MailtoEvent
 		event.MailtoEvent = &events.SimpleEmailEvent{}
 		return json.Unmarshal(data, event.MailtoEvent)
+	} else if bytes.Contains(data, []byte(`"Sns":`)) {
+		event.Type = SnsEvent
+		event.SnsEvent = &events.SNSEvent{}
+		return json.Unmarshal(data, event.SnsEvent)
 	}
 	return nil
 }

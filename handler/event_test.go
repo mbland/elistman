@@ -95,3 +95,37 @@ func TestMailtoEvent(t *testing.T) {
 		},
 	})
 }
+
+const snsEventJson string = `{
+	"Records": [
+		{
+			"EventVersion": "1.0",
+			"EventSource":  "aws:sns",
+			"Sns": {
+				"Message": "stringified JSON object, unmarshalled later"
+			}
+		}
+	]
+}`
+
+func TestSnsEvent(t *testing.T) {
+	e := Event{}
+
+	err := e.UnmarshalJSON([]byte(snsEventJson))
+
+	assert.NilError(t, err)
+	assert.DeepEqual(t, e, Event{
+		Type: SnsEvent,
+		SnsEvent: &events.SNSEvent{
+			Records: []events.SNSEventRecord{
+				{
+					EventVersion: "1.0",
+					EventSource:  "aws:sns",
+					SNS: events.SNSEntity{
+						Message: "stringified JSON object, unmarshalled later",
+					},
+				},
+			},
+		},
+	})
+}
