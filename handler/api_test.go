@@ -49,6 +49,10 @@ type apiHandlerFixture struct {
 	handler *apiHandler
 }
 
+func (f *apiHandlerFixture) Logs() string {
+	return f.logs.String()
+}
+
 func newApiHandlerFixture() *apiHandlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
@@ -134,8 +138,7 @@ func TestAddResponseBody(t *testing.T) {
 		assert.Equal(t, res.Headers["content-type"], "text/plain; charset=utf-8")
 		assert.Assert(t, is.Contains(res.Body, "This is only a test"))
 		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
-		expected := "ERROR adding HTML response body:"
-		assert.Assert(t, is.Contains(f.logs.String(), expected))
+		assertLogsContain(t, f, "ERROR adding HTML response body:")
 	})
 }
 
@@ -347,8 +350,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
-		expectedLog := "deadbeef: result: Subscribe"
-		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+		assertLogsContain(t, f, "deadbeef: result: Subscribe")
 	})
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
@@ -364,7 +366,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Subscribed, result)
-		assert.Assert(t, is.Contains(f.logs.String(), "deadbeef: result: Verify"))
+		assertLogsContain(t, f, "deadbeef: result: Verify")
 	})
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
@@ -380,8 +382,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Unsubscribed, result)
-		expectedLog := "deadbeef: result: Unsubscribe"
-		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+		assertLogsContain(t, f, "deadbeef: result: Unsubscribe")
 	})
 
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
@@ -392,7 +393,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
 		expectedLog := "deadbeef: ERROR: Undefined: Invalid: can't handle"
-		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+		assertLogsContain(t, f, expectedLog)
 	})
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
@@ -409,7 +410,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.DeepEqual(t, err, expected)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
 			"Invalid: not our fault..."
-		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+		assertLogsContain(t, f, expectedLog)
 	})
 }
 
@@ -509,8 +510,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
-		expectedLog := "500: failed to base64 decode body"
-		assert.Assert(t, is.Contains(f.logs.String(), expectedLog))
+		assertLogsContain(t, f, "500: failed to base64 decode body")
 	})
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
@@ -523,9 +523,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
-		assert.Assert(
-			t, is.Contains(f.logs.String(), "502: db operation failed"),
-		)
+		assertLogsContain(t, f, "502: db operation failed")
 	})
 
 	t.Run("Succeeds", func(t *testing.T) {

@@ -80,12 +80,25 @@ func (b *testBouncer) Bounce(
 	return b.ReturnMessageId, nil
 }
 
+type LogFixture interface {
+	Logs() string
+}
+
+func assertLogsContain(t *testing.T, lf LogFixture, message string) {
+	t.Helper()
+	assert.Assert(t, is.Contains(lf.Logs(), message))
+}
+
 type handlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
 	bouncer *testBouncer
 	handler *Handler
 	event   *Event
+}
+
+func (f *handlerFixture) Logs() string {
+	return f.logs.String()
 }
 
 func newHandlerFixture() *handlerFixture {
@@ -257,6 +270,6 @@ func TestHandleEvent(t *testing.T) {
 		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
 		assert.Equal(t, testValidUid, f.agent.Uid)
-		assert.Assert(t, is.Contains(f.logs.String(), "success"))
+		assertLogsContain(t, f, "success")
 	})
 }
