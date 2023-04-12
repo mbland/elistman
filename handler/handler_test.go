@@ -20,9 +20,17 @@ type testAgent struct {
 	Uid         uuid.UUID
 	ReturnValue ops.OperationResult
 	Error       error
+	Calls       []testAgentCalls
+}
+
+type testAgentCalls struct {
+	Method string
+	Email  string
+	Uid    uuid.UUID
 }
 
 func (a *testAgent) Subscribe(email string) (ops.OperationResult, error) {
+	a.Calls = append(a.Calls, testAgentCalls{Method: "Subscribe", Email: email})
 	a.Email = email
 	return a.ReturnValue, a.Error
 }
@@ -30,6 +38,7 @@ func (a *testAgent) Subscribe(email string) (ops.OperationResult, error) {
 func (a *testAgent) Verify(
 	email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
+	a.Calls = append(a.Calls, testAgentCalls{"Verify", email, uid})
 	a.Email = email
 	a.Uid = uid
 	return a.ReturnValue, a.Error
@@ -38,6 +47,7 @@ func (a *testAgent) Verify(
 func (a *testAgent) Unsubscribe(
 	email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
+	a.Calls = append(a.Calls, testAgentCalls{"Unsubscribe", email, uid})
 	a.Email = email
 	a.Uid = uid
 	return a.ReturnValue, a.Error
