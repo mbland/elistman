@@ -159,13 +159,18 @@ func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
 	}
 }
 
-// This example matches the fields constructed by newMailtoHandlerFixture().
-func simpleEmailService() *events.SimpleEmailService {
+func testTimestamp() time.Time {
 	timestamp, err := time.Parse(time.DateOnly, "1970-09-18")
 
 	if err != nil {
-		panic("failed to parse simpleEmailService timestamp: " + err.Error())
+		panic("failed to parse test timestamp: " + err.Error())
 	}
+	return timestamp
+}
+
+// This example matches the fields constructed by newMailtoHandlerFixture().
+func simpleEmailService() *events.SimpleEmailService {
+	timestamp := testTimestamp()
 
 	return &events.SimpleEmailService{
 		Mail: events.SimpleEmailMessage{
