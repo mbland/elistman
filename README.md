@@ -80,10 +80,13 @@ Set up SES in the region selected in the above step. Make sure to enable DKIM
 and create a verified domain identity per [Verifying your domain for Amazon SES
 email receiving][].
 
+It's also advisable to configure your [account-level suppression list][] to
+automatically add addresses resulting in bounces and complaints.
+
 Assuming you have your AWS CLI environment set up correctly, this should confirm
 that SES is properly configured (with your own identity listed, of course):
 
-```sh
+```json
 $ aws sesv2 list-email-identities
 
 {
@@ -95,6 +98,34 @@ $ aws sesv2 list-email-identities
             "VerificationStatus": "SUCCESS"
         }
     ]
+}
+```
+
+You can also view other account attributes, such as account suppression list
+status, via:
+
+```json
+$ aws sesv2 get-account
+
+{
+   ...
+    "SendingEnabled": true,
+    "SuppressionAttributes": {
+        "SuppressedReasons": [
+            "BOUNCE",
+            "COMPLAINT"
+        ]
+    },
+    "Details": {
+        "MailType": "MARKETING",
+        "WebsiteURL": "https://mike-bland.com/",
+        "ContactLanguage": "EN",
+        "UseCaseDescription": "This is for publishing blog posts to email subscribers.",
+        "AdditionalContactEmailAddresses": [
+            "mbland@acm.org"
+        ],
+        ...
+    }
 }
 ```
 
@@ -321,6 +352,7 @@ This software is made available as [Open Source software][oss-def] under the
 [GnuWin32.Make]: https://winget.run/pkg/GnuWin32/Make
 [Amazon Simple Email Service endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ses.html
 [AWS Command Line Interface: Quick Setup]: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+[account-level suppression list]: https://docs.aws.amazon.com/ses/latest/dg/sending-email-suppression-list.html
 [Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
 [Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
 [HTTP 303 See Other]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
