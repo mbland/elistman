@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -214,6 +215,49 @@ func simpleEmailEvent() *events.SimpleEmailEvent {
 		Records: []events.SimpleEmailRecord{{SES: *simpleEmailService()}},
 	}
 	return event
+}
+
+func simpleNotificationServiceEvent() *events.SNSEvent {
+	encodedMsg, err := json.Marshal(sesEventRecord())
+
+	if err != nil {
+		panic("failed to json.Marshal test SesEventRecord: " + err.Error())
+	}
+	return &events.SNSEvent{
+		Records: []events.SNSEventRecord{
+			{
+				EventVersion:         "1.0",
+				EventSubscriptionArn: "aws:sns:us-east-1:0123456789:foo/bar",
+				EventSource:          "aws:sns",
+				SNS: events.SNSEntity{
+					Timestamp: testTimestamp(),
+					MessageID: "deadbeef",
+					Type:      "Notification",
+					Message:   string(encodedMsg),
+				},
+			},
+		},
+	}
+}
+
+func sesEventRecord() *SesEventRecord {
+	return &SesEventRecord{
+		EventType: "Send",
+		Send:      &SesSendEvent{},
+		Mail: SesEventMessage{
+			SimpleEmailMessage: events.SimpleEmailMessage{
+				MessageID: "deadbeef",
+				CommonHeaders: events.SimpleEmailCommonHeaders{
+					From:    []string{"mbland@acm.org"},
+					To:      []string{"foo@bar.com"},
+					Subject: "This is an email sent to the list",
+				},
+			},
+			Tags: map[string][]string{
+				"foo": {"bar"},
+			},
+		},
+	}
 }
 
 func TestNewHandler(t *testing.T) {
