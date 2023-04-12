@@ -226,10 +226,6 @@ func TestNewSesEventHandler(t *testing.T) {
 
 	t.Run("ReturnsRejectHandler", func(t *testing.T) {
 		f := newSnsHandlerFixture()
-		// Normally this wouldn't contain both complaintSubType and
-		// complaintFeedbackType, as a nonempty complaintSubType means the
-		// message wasn't even sent. The parser should be able to handle both
-		// fields being present at the same time regardless.
 		message := `
 			{
 				"eventType": "Reject",
