@@ -280,6 +280,7 @@ func TestNewHandler(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, testSiteTitle, handler.api.SiteTitle)
 		assert.Equal(t, testUnsubscribeAddress, handler.mailto.UnsubscribeAddr)
+		assert.Assert(t, handler.sns != nil)
 	})
 
 	t.Run("ReturnsErrorIfBadResponseTemplate", func(t *testing.T) {
@@ -341,6 +342,20 @@ func TestHandleEvent(t *testing.T) {
 		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
 		assert.Equal(t, testValidUid, f.agent.Uid)
+		assertLogsContain(t, f, "success")
+	})
+
+	t.Run("HandleSuccessfulSnsEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		f.event.Type = SnsEvent
+		f.event.SnsEvent = simpleNotificationServiceEvent()
+
+		response, err := f.handler.HandleEvent(f.event)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(response))
+		assertLogsContain(t, f, "Send")
+		assertLogsContain(t, f, `Subject:"This is an email sent to the list"`)
 		assertLogsContain(t, f, "success")
 	})
 }

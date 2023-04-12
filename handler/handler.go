@@ -11,6 +11,7 @@ import (
 type Handler struct {
 	api    *apiHandler
 	mailto *mailtoHandler
+	sns    *snsHandler
 }
 
 func NewHandler(
@@ -33,7 +34,9 @@ func NewHandler(
 
 	unsubAddr := unsubscribeUserName + "@" + emailDomain
 	return &Handler{
-		api, &mailtoHandler{emailDomain, unsubAddr, agent, bouncer, logger},
+		api,
+		&mailtoHandler{emailDomain, unsubAddr, agent, bouncer, logger},
+		&snsHandler{agent, logger},
 	}, nil
 }
 
@@ -56,6 +59,8 @@ func (h *Handler) HandleEvent(event *Event) (result any, err error) {
 		result = h.api.HandleEvent(event.ApiRequest)
 	case MailtoEvent:
 		result = h.mailto.HandleEvent(event.MailtoEvent)
+	case SnsEvent:
+		h.sns.HandleEvent(event.SnsEvent)
 	default:
 		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 	}
