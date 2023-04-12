@@ -10,6 +10,8 @@ type SubscriptionAgent interface {
 	Subscribe(email string) (OperationResult, error)
 	Verify(email string, uid uuid.UUID) (OperationResult, error)
 	Unsubscribe(email string, uid uuid.UUID) (OperationResult, error)
+	Remove(email string) error
+	Restore(email string) error
 }
 
 type ProdAgent struct {
@@ -32,4 +34,14 @@ func (a *ProdAgent) Unsubscribe(
 	email string, uid uuid.UUID) (OperationResult, error,
 ) {
 	return Unsubscribed, nil
+}
+
+func (a *ProdAgent) Remove(email string) error {
+	return nil
+}
+
+// This should generate a new UUID as well as remove the user from the
+// account-level suppression list if present.
+func (a *ProdAgent) Restore(email string) error {
+	return nil
 }

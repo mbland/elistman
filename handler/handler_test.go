@@ -53,6 +53,18 @@ func (a *testAgent) Unsubscribe(
 	return a.ReturnValue, a.Error
 }
 
+func (a *testAgent) Remove(email string) error {
+	a.Calls = append(a.Calls, testAgentCalls{Method: "Remove", Email: email})
+	a.Email = email
+	return a.Error
+}
+
+func (a *testAgent) Restore(email string) error {
+	a.Calls = append(a.Calls, testAgentCalls{Method: "Restore", Email: email})
+	a.Email = email
+	return a.Error
+}
+
 const testEmailDomain = "mike-bland.com"
 const testSiteTitle = "Mike Bland's blog"
 const testUnsubscribeUser = "unsubscribe"
