@@ -1,3 +1,5 @@
+//go:build medium_tests || all_tests
+
 package db
 
 import (

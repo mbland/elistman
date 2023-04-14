@@ -1,6 +1,9 @@
 SHELL := /bin/bash
 .POSIX:
-.PHONY: all clean delete deploy run-local sam-build coverage test build-Function
+.PHONY: all clean \
+	delete deploy run-local sam-build \
+	coverage test medium-tests small-tests static-checks\
+	build-Function
 
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
 # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
@@ -9,13 +12,21 @@ build-Function:
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" \
 		-o $(ARTIFACTS_DIR)/main lambda/main.go
 
-test:
-	go vet ./...
-	staticcheck ./...
-	go test ./...
+static-checks:
+	go vet -tags=all_tests ./...
+	go run honnef.co/go/tools/cmd/staticcheck -tags=all_tests ./...
+	go build -tags=all_tests ./...
+
+small-tests:
+	go test -tags=small_tests ./...
+
+medium-tests:
+	go test -tags=medium_tests -count=1 ./...
+
+test: static-checks small-tests medium-tests
 
 coverage:
-	go test -covermode=count -coverprofile=coverage.out ./...
+	go test -covermode=count -coverprofile=coverage.out -tags=small_tests ./...
 	go tool cover -html=coverage.out	
 
 sam-build: template.yml
