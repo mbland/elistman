@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 var testDb *DynamoDb
@@ -179,8 +180,88 @@ func localDbConfig(localEndpoint string) (*aws.Config, error) {
 	return &dbConfig, nil
 }
 
-// Note that the success cases for CreateTable and DeleteTable are confirmed by
-// TestMain().
+func newTestSubscriber() *Subscriber {
+	return NewSubscriber(randomString(8) + "@example.com")
+}
+
 func TestDatabase(t *testing.T) {
 	assert.Assert(t, testDb != nil)
+
+	var badDb DynamoDb = *testDb
+	badDb.TableName = testDb.TableName + "-nonexistent"
+
+	// Note that the success cases for CreateTable and DeleteTable are confirmed
+	// by TestMain().
+	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
+		err := testDb.CreateTable()
+
+		expected := "failed to create db table " + testDb.TableName + ": "
+		assert.ErrorContains(t, err, expected)
+	})
+
+	t.Run("DeleteTableFailsIfTableDoesNotExist", func(t *testing.T) {
+		err := badDb.DeleteTable()
+
+		expected := "failed to delete db table " + badDb.TableName + ": "
+		assert.ErrorContains(t, err, expected)
+	})
+
+	t.Run("PutGetAndDeleteSucceed", func(t *testing.T) {
+		subscriber := newTestSubscriber()
+
+		putErr := testDb.Put(subscriber)
+		retrievedSubscriber, getErr := testDb.Get(subscriber.Email)
+		deleteErr := testDb.Delete(subscriber.Email)
+		_, getAfterDeleteErr := testDb.Get(subscriber.Email)
+
+		assert.NilError(t, putErr)
+		assert.NilError(t, getErr)
+		assert.NilError(t, deleteErr)
+		assert.DeepEqual(t, subscriber, retrievedSubscriber)
+		expected := subscriber.Email + " is not a subscriber"
+		assert.ErrorContains(t, getAfterDeleteErr, expected)
+	})
+
+	t.Run("GetFails", func(t *testing.T) {
+		t.Run("IfSubscriberDoesNotExist", func(t *testing.T) {
+			subscriber := newTestSubscriber()
+
+			retrieved, err := testDb.Get(subscriber.Email)
+
+			assert.Assert(t, is.Nil(retrieved))
+			expected := subscriber.Email + " is not a subscriber"
+			assert.ErrorContains(t, err, expected)
+		})
+
+		t.Run("IfTableDoesNotExist", func(t *testing.T) {
+			subscriber := newTestSubscriber()
+
+			retrieved, err := badDb.Get(subscriber.Email)
+
+			assert.Assert(t, is.Nil(retrieved))
+			expected := "failed to get " + subscriber.Email + ": "
+			assert.ErrorContains(t, err, expected)
+		})
+	})
+
+	t.Run("PutFails", func(t *testing.T) {
+		t.Run("IfTableDoesNotExist", func(t *testing.T) {
+			subscriber := newTestSubscriber()
+
+			err := badDb.Put(subscriber)
+
+			assert.ErrorContains(t, err, "failed to put "+subscriber.Email+": ")
+		})
+	})
+
+	t.Run("DeleteFails", func(t *testing.T) {
+		t.Run("IfTableDoesNotExist", func(t *testing.T) {
+			subscriber := newTestSubscriber()
+
+			err := badDb.Delete(subscriber.Email)
+
+			expected := "failed to delete " + subscriber.Email + ": "
+			assert.ErrorContains(t, err, expected)
+		})
+	})
 }
