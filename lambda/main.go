@@ -24,7 +24,7 @@ func buildHandler() (*handler.Handler, error) {
 			opts.EmailDomainName,
 			opts.EmailSiteTitle,
 			&ops.ProdAgent{
-				Db:        db.NewDynamoDb(cfg, opts.SubscribersTableName),
+				Db:        db.NewDynamoDb(&cfg, opts.SubscribersTableName),
 				Validator: email.AddressValidatorImpl{},
 				Mailer:    sesMailer,
 			},

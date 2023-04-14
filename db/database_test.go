@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -18,13 +19,13 @@ import (
 	"gotest.tools/assert"
 )
 
-var dbConfig *aws.Config
+var testDb *DynamoDb
 
 func TestMain(m *testing.M) {
 	var teardown func() error
 	var err error
 
-	if dbConfig, teardown, err = setupDynamoDb(); err != nil {
+	if testDb, teardown, err = setupDynamoDb(); err != nil {
 		log.Print(err.Error())
 		os.Exit(1)
 	}
@@ -37,13 +38,45 @@ func TestMain(m *testing.M) {
 	os.Exit(retval)
 }
 
-func setupDynamoDb() (conf *aws.Config, teardown func() error, err error) {
-	// TODO: Add logic to decide whether to test against local or remote
+func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
+	tableName := "elistman-database-test-" + randomString(10)
+	var teardownDb func() error
+	teardownDbWithError := func(err error) error {
+		if err == nil {
+			return teardownDb()
+		} else if teardownErr := teardownDb(); teardownErr != nil {
+			const msgFmt = "teardown after error failed: %s\noriginal error: %s"
+			return fmt.Errorf(msgFmt, teardownErr, err)
+		}
+		return err
+	}
+
+	// TODO(mbland): Add logic to decide whether to test against local or remote
 	// DynamoDB.
-	//
-	// Also create a single random table for all tests. Local teardown will stop
-	// the Docker container. Remote teardown will drop the test table.
-	return setupLocalDynamoDb()
+	if dynDb, teardownDb, err = setupLocalDynamoDb(tableName); err != nil {
+		return
+	} else if err = dynDb.CreateTable(); err != nil {
+		err = teardownDbWithError(err)
+		return
+	}
+
+	teardown = func() error {
+		return teardownDbWithError(dynDb.DeleteTable())
+	}
+	return
+}
+
+// Inspired by:
+// - https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
+func randomString(n int) string {
+	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"0123456789_"
+
+	result := make([]byte, n)
+	for i := range result {
+		result[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(result)
 }
 
 // See also:
@@ -51,9 +84,12 @@ func setupDynamoDb() (conf *aws.Config, teardown func() error, err error) {
 // - https://github.com/aws-samples/aws-sam-java-rest
 // - https://hub.docker.com/r/amazon/dynamodb-local
 // - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.UsageNotes.html
-func setupLocalDynamoDb() (conf *aws.Config, teardown func() error, err error) {
+func setupLocalDynamoDb(
+	tableName string,
+) (dynDb *DynamoDb, teardown func() error, err error) {
 	var endpoint string
 	var containerId string
+	var config *aws.Config
 
 	if err = checkDockerIsRunning(); err != nil {
 		return
@@ -61,9 +97,10 @@ func setupLocalDynamoDb() (conf *aws.Config, teardown func() error, err error) {
 		return
 	} else if containerId, err = launchLocalDb(endpoint); err != nil {
 		return
-	} else if conf, err = localDbConfig(endpoint); err != nil {
+	} else if config, err = localDbConfig(endpoint); err != nil {
 		return
 	}
+	dynDb = NewDynamoDb(config, tableName)
 	teardown = func() error { return cleanupLocalDb(containerId) }
 	return
 }
@@ -77,7 +114,7 @@ func checkDockerIsRunning() (err error) {
 }
 
 func pickUnusedEndpoint() (string, error) {
-	if listener, err := net.Listen("tcp", ":0"); err != nil {
+	if listener, err := net.Listen("tcp", "localhost:0"); err != nil {
 		return "", errors.New("failed to pick unused endpoint: " + err.Error())
 	} else {
 		listener.Close()
@@ -142,15 +179,8 @@ func localDbConfig(localEndpoint string) (*aws.Config, error) {
 	return &dbConfig, nil
 }
 
-func newTestDatabase() *DynamoDb {
-	cfg := aws.Config{}
-	return NewDynamoDb(cfg, "TestTable")
-}
-
-// This function will be replaced by more substantial tests once I begin to
-// implement DynamoDb.
-func TestDatabaseInitialization(t *testing.T) {
-	db := newTestDatabase()
-
-	assert.Equal(t, db.TableName, "TestTable")
+// Note that the success cases for CreateTable and DeleteTable are confirmed by
+// TestMain().
+func TestDatabase(t *testing.T) {
+	assert.Assert(t, testDb != nil)
 }
