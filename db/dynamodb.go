@@ -58,27 +58,33 @@ func (db *DynamoDb) DeleteTable() error {
 	return nil
 }
 
-type dbString = types.AttributeValueMemberS
+type (
+	dbString     = types.AttributeValueMemberS
+	dbAttributes = map[string]types.AttributeValue
+)
 
 var timeFmt = time.RFC3339
 
-func subscriberKey(email string) map[string]types.AttributeValue {
-	return map[string]types.AttributeValue{"email": &dbString{Value: email}}
+func subscriberKey(email string) dbAttributes {
+	return dbAttributes{"email": &dbString{Value: email}}
 }
 
-func getAttribute(name string, output *dynamodb.GetItemOutput) (string, error) {
-	if attrib, ok := output.Item[name]; !ok {
-		return "", fmt.Errorf("attribute '%s' not in: %s", name, output.Item)
-	} else if value, ok := attrib.(*dbString); !ok {
-		return "", fmt.Errorf("attribute '%s' not a string: %s", name, attrib)
-	} else {
-		return value.Value, nil
+type subscriberElements interface {
+	string | uuid.UUID | SubscriberStatus | time.Time
+}
+
+func getAttribute[T subscriberElements](
+	name string, attrs dbAttributes, parse func(string) (T, error),
+) (result T, err error) {
+	if attr, ok := attrs[name]; !ok {
+		err = fmt.Errorf("attribute '%s' not in: %s", name, attrs)
+	} else if value, ok := attr.(*dbString); !ok {
+		err = fmt.Errorf("attribute '%s' not a string: %s", name, attr)
+	} else if result, err = parse(value.Value); err != nil {
+		const errFmt = "failed to parse '%s' from: %s: %s"
+		err = fmt.Errorf(errFmt, name, value.Value, err)
 	}
-}
-
-func parseAttributeError(name, attrStr string, err error) error {
-	const errFmt = "failed to parse '%s' from: %s: %s"
-	return fmt.Errorf(errFmt, name, attrStr, err)
+	return
 }
 
 func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
@@ -86,11 +92,6 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 		Key: subscriberKey(email), TableName: &db.TableName,
 	}
 	var output *dynamodb.GetItemOutput
-	var uid string
-	var status string
-	var tstamp string
-	record := &Subscriber{}
-	errs := make([]error, 4)
 
 	if output, err = db.Client.GetItem(context.TODO(), input); err != nil {
 		err = fmt.Errorf("failed to get %s: %s", email, err)
@@ -99,23 +100,27 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 		err = fmt.Errorf("%s is not a subscriber", email)
 		return
 	}
-	if record.Email, err = getAttribute("email", output); err != nil {
+
+	attrs := output.Item
+	record := &Subscriber{}
+	errs := make([]error, 4)
+	parseStr := func(s string) (string, error) { return s, nil }
+	parseStatus := ParseSubscriberStatus
+	parseTime := func(s string) (time.Time, error) {
+		return time.Parse(timeFmt, s)
+	}
+
+	if record.Email, err = getAttribute("email", attrs, parseStr); err != nil {
 		errs = append(errs, err)
 	}
-	if uid, err = getAttribute("uid", output); err != nil {
+	if record.Uid, err = getAttribute("uid", attrs, uuid.Parse); err != nil {
 		errs = append(errs, err)
-	} else if record.Uid, err = uuid.Parse(uid); err != nil {
-		errs = append(errs, parseAttributeError("uid", uid, err))
 	}
-	if status, err = getAttribute("status", output); err != nil {
+	if record.Status, err = getAttribute("status", attrs, parseStatus); err != nil {
 		errs = append(errs, err)
-	} else if record.Status, err = ParseSubscriberStatus(status); err != nil {
-		errs = append(errs, parseAttributeError("status", status, err))
 	}
-	if tstamp, err = getAttribute("timestamp", output); err != nil {
+	if record.Timestamp, err = getAttribute("timestamp", attrs, parseTime); err != nil {
 		errs = append(errs, err)
-	} else if record.Timestamp, err = time.Parse(timeFmt, tstamp); err != nil {
-		errs = append(errs, parseAttributeError("timestamp", tstamp, err))
 	}
 
 	if err = errors.Join(errs...); err == nil {
