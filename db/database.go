@@ -49,14 +49,14 @@ func NewDynamoDb(awsConfig aws.Config, tableName string) *DynamoDb {
 	}
 }
 
-func (db DynamoDb) Get(email string) (*Subscriber, error) {
+func (db *DynamoDb) Get(email string) (*Subscriber, error) {
 	return nil, nil
 }
 
-func (db DynamoDb) Put(record *Subscriber) error {
+func (db *DynamoDb) Put(record *Subscriber) error {
 	return nil
 }
 
-func (db DynamoDb) Delete(email string) error {
+func (db *DynamoDb) Delete(email string) error {
 	return nil
 }
