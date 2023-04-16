@@ -81,6 +81,8 @@ func randomString(n int) string {
 	return string(result)
 }
 
+const dbImage = "amazon/dynamodb-local"
+
 // See also:
 // - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
 // - https://github.com/aws-samples/aws-sam-java-rest
@@ -96,6 +98,8 @@ func setupLocalDynamoDb(
 	if err = checkDockerIsRunning(); err != nil {
 		return
 	} else if endpoint, err = pickUnusedEndpoint(); err != nil {
+		return
+	} else if err = pullDynamoDbDockerImage(); err != nil {
 		return
 	} else if containerId, err = launchLocalDb(endpoint); err != nil {
 		return
@@ -115,6 +119,15 @@ func checkDockerIsRunning() (err error) {
 	return
 }
 
+func pullDynamoDbDockerImage() error {
+	cmd := exec.Command("docker", "pull", dbImage)
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to pull %s: %s:\n%s", dbImage, err, output)
+	}
+	return nil
+}
+
 func pickUnusedEndpoint() (string, error) {
 	if listener, err := net.Listen("tcp", "localhost:0"); err != nil {
 		return "", errors.New("failed to pick unused endpoint: " + err.Error())
@@ -126,9 +139,7 @@ func pickUnusedEndpoint() (string, error) {
 
 func launchLocalDb(localEndpoint string) (string, error) {
 	portMap := localEndpoint + ":8000"
-	cmd := exec.Command(
-		"docker", "run", "-d", "-p", portMap, "amazon/dynamodb-local",
-	)
+	cmd := exec.Command("docker", "run", "-d", "-p", portMap, dbImage)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		const errFmt = "failed to start local DynamoDB at %s: %s:\n%s"
