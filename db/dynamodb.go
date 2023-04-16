@@ -74,6 +74,28 @@ type dbParser struct {
 	attrs dbAttributes
 }
 
+func (p *dbParser) ParseSubscriber() (subscriber *Subscriber, err error) {
+	s := &Subscriber{}
+	errs := make([]error, 4)
+
+	if s.Email, err = p.GetString("email"); err != nil {
+		errs = append(errs, err)
+	}
+	if s.Uid, err = p.GetUid("uid"); err != nil {
+		errs = append(errs, err)
+	}
+	if s.Verified, err = p.GetBool("verified"); err != nil {
+		errs = append(errs, err)
+	}
+	if s.Timestamp, err = p.GetTime("timestamp"); err != nil {
+		errs = append(errs, err)
+	}
+	if err = errors.Join(errs...); err == nil {
+		subscriber = s
+	}
+	return s, nil
+}
+
 func (p *dbParser) GetString(name string) (value string, err error) {
 	var attr *dbString
 
@@ -117,7 +139,7 @@ func getAttribute[T *dbString | *dbBool](
 	return
 }
 
-func parseValue[T any](
+func parseValue[T uuid.UUID | time.Time](
 	name string, parser *dbParser, parseValue func(string) (T, error),
 ) (value T, err error) {
 	var attr string
@@ -145,26 +167,8 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 		return
 	}
 
-	parser := dbParser{output.Item}
-	record := &Subscriber{}
-	errs := make([]error, 4)
-
-	if record.Email, err = parser.GetString("email"); err != nil {
-		errs = append(errs, err)
-	}
-	if record.Uid, err = parser.GetUid("uid"); err != nil {
-		errs = append(errs, err)
-	}
-	if record.Verified, err = parser.GetBool("verified"); err != nil {
-		errs = append(errs, err)
-	}
-	if record.Timestamp, err = parser.GetTime("timestamp"); err != nil {
-		errs = append(errs, err)
-	}
-	if err = errors.Join(errs...); err == nil {
-		subscriber = record
-	}
-	return
+	parser := &dbParser{output.Item}
+	return parser.ParseSubscriber()
 }
 
 func (db *DynamoDb) Put(record *Subscriber) (err error) {
