@@ -184,7 +184,7 @@ func newTestSubscriber() *Subscriber {
 	return NewSubscriber(randomString(8) + "@example.com")
 }
 
-func TestDatabase(t *testing.T) {
+func TestDynamoDb(t *testing.T) {
 	assert.Assert(t, testDb != nil)
 
 	var badDb DynamoDb = *testDb
