@@ -26,7 +26,8 @@ medium-tests:
 test: static-checks small-tests medium-tests
 
 coverage:
-	go test -covermode=count -coverprofile=coverage.out -tags=small_tests ./...
+	go test -covermode=count -coverprofile=coverage.out \
+	  -tags=small_tests,contract_tests ./...
 	go tool cover -html=coverage.out	
 
 sam-build: template.yml

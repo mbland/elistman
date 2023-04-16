@@ -32,10 +32,10 @@ jobs:
       - name: Build
         run: go build -v -tags=all_tests ./...
 
-      - name: Run small tests
+      - name: Run small tests and contract tests
         run: |
           go test -covermode=count -coverprofile=coverage.out \
-            -tags=small_tests ./...
+            -tags=small_tests,contract_tests ./...
 
       - name: Send test coverage to Coveralls.io
         uses: coverallsapp/github-action@v2
