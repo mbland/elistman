@@ -16,6 +16,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -171,7 +172,18 @@ func localDbConfig(localEndpoint string) (*aws.Config, error) {
 		},
 	)
 	dbConfig, err := config.LoadDefaultConfig(
-		context.TODO(), config.WithEndpointResolverWithOptions(localResolver),
+		context.TODO(),
+		// From: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/config
+		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+			Value: aws.Credentials{
+				AccessKeyID:     "AKID",
+				SecretAccessKey: "SECRET",
+				SessionToken:    "SESSION",
+				Source:          "example hard coded credentials",
+			},
+		}),
+		config.WithRegion("local"),
+		config.WithEndpointResolverWithOptions(localResolver),
 	)
 	if err != nil {
 		const errFmt = "failed to configure local DynamoDB at: %s: %s"
