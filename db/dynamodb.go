@@ -60,6 +60,7 @@ func (db *DynamoDb) DeleteTable() error {
 
 type (
 	dbString     = types.AttributeValueMemberS
+	dbBool       = types.AttributeValueMemberBOOL
 	dbAttributes = map[string]types.AttributeValue
 )
 
@@ -70,7 +71,7 @@ func subscriberKey(email string) dbAttributes {
 }
 
 type subscriberElements interface {
-	string | uuid.UUID | SubscriberStatus | time.Time
+	string | uuid.UUID | time.Time
 }
 
 func getAttribute[T subscriberElements](
@@ -83,6 +84,19 @@ func getAttribute[T subscriberElements](
 	} else if result, err = parse(value.Value); err != nil {
 		const errFmt = "failed to parse '%s' from: %s: %s"
 		err = fmt.Errorf(errFmt, name, value.Value, err)
+	}
+	return
+}
+
+func getAttributeBool(
+	name string, attrs dbAttributes,
+) (result bool, err error) {
+	if attr, ok := attrs[name]; !ok {
+		err = fmt.Errorf("attribute '%s' not in: %s", name, attrs)
+	} else if value, ok := attr.(*dbBool); !ok {
+		err = fmt.Errorf("attribute '%s' not a string: %s", name, attr)
+	} else {
+		result = value.Value
 	}
 	return
 }
@@ -105,7 +119,6 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 	record := &Subscriber{}
 	errs := make([]error, 4)
 	parseStr := func(s string) (string, error) { return s, nil }
-	parseStatus := ParseSubscriberStatus
 	parseTime := func(s string) (time.Time, error) {
 		return time.Parse(timeFmt, s)
 	}
@@ -116,7 +129,7 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 	if record.Uid, err = getAttribute("uid", attrs, uuid.Parse); err != nil {
 		errs = append(errs, err)
 	}
-	if record.Status, err = getAttribute("status", attrs, parseStatus); err != nil {
+	if record.Verified, err = getAttributeBool("verified", attrs); err != nil {
 		errs = append(errs, err)
 	}
 	if record.Timestamp, err = getAttribute("timestamp", attrs, parseTime); err != nil {
@@ -132,9 +145,9 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 func (db *DynamoDb) Put(record *Subscriber) (err error) {
 	input := &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
-			"email":  &dbString{Value: record.Email},
-			"uid":    &dbString{Value: record.Uid.String()},
-			"status": &dbString{Value: record.Status.String()},
+			"email":    &dbString{Value: record.Email},
+			"uid":      &dbString{Value: record.Uid.String()},
+			"verified": &dbBool{Value: record.Verified},
 			"timestamp": &dbString{
 				Value: record.Timestamp.Format(timeFmt),
 			},
