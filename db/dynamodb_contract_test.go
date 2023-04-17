@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -20,25 +19,6 @@ import (
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
-
-var testDb *DynamoDb
-
-func TestMain(m *testing.M) {
-	var teardown func() error
-	var err error
-
-	if testDb, teardown, err = setupDynamoDb(); err != nil {
-		log.Print(err.Error())
-		os.Exit(1)
-	}
-
-	retval := m.Run()
-	if err := teardown(); err != nil {
-		log.Print(err.Error())
-		retval = 1
-	}
-	os.Exit(retval)
-}
 
 func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 	tableName := "elistman-database-test-" + randomString(10)
@@ -208,13 +188,19 @@ func newTestSubscriber() *Subscriber {
 }
 
 func TestDynamoDb(t *testing.T) {
-	assert.Assert(t, testDb != nil)
+	testDb, teardown, err := setupDynamoDb()
+
+	assert.NilError(t, err)
+	defer func() {
+		err := teardown()
+		assert.NilError(t, err)
+	}()
 
 	var badDb DynamoDb = *testDb
 	badDb.TableName = testDb.TableName + "-nonexistent"
 
 	// Note that the success cases for CreateTable and DeleteTable are confirmed
-	// by TestMain().
+	// by setupDynamoDb() and teardown() above.
 	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
 		err := testDb.CreateTable()
 
