@@ -74,7 +74,8 @@ type dbParser struct {
 	attrs dbAttributes
 }
 
-func (p *dbParser) ParseSubscriber() (subscriber *Subscriber, err error) {
+func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
+	p := dbParser{attrs}
 	s := &Subscriber{}
 	errs := make([]error, 4)
 
@@ -90,65 +91,51 @@ func (p *dbParser) ParseSubscriber() (subscriber *Subscriber, err error) {
 	if s.Timestamp, err = p.GetTime("timestamp"); err != nil {
 		errs = append(errs, err)
 	}
-	if err = errors.Join(errs...); err == nil {
+	if err = errors.Join(errs...); err != nil {
+		err = errors.New("failed to parse subscriber: " + err.Error())
+	} else {
 		subscriber = s
 	}
-	return s, nil
+	return
 }
 
 func (p *dbParser) GetString(name string) (value string, err error) {
-	var attr *dbString
-
-	if attr, err = getAttribute[*dbString](name, p.attrs); err == nil {
-		value = attr.Value
-	}
-	return
+	return getAttribute(name, p.attrs, func(attr *dbString) (string, error) {
+		return attr.Value, nil
+	})
 }
 
 func (p *dbParser) GetBool(name string) (value bool, err error) {
-	var attr *dbBool
-
-	if attr, err = getAttribute[*dbBool](name, p.attrs); err == nil {
-		value = attr.Value
-	}
-	return
+	return getAttribute(name, p.attrs, func(attr *dbBool) (bool, error) {
+		return attr.Value, nil
+	})
 }
 
 func (p *dbParser) GetUid(name string) (value uuid.UUID, err error) {
-	return parseValue(name, p, uuid.Parse)
-}
-
-func parseTime(timeStr string) (time.Time, error) {
-	return time.Parse(timeFmt, timeStr)
+	return getAttribute(name, p.attrs, func(attr *dbString) (uuid.UUID, error) {
+		return uuid.Parse(attr.Value)
+	})
 }
 
 func (p *dbParser) GetTime(name string) (value time.Time, err error) {
-	return parseValue(name, p, parseTime)
+	return getAttribute(name, p.attrs, func(attr *dbString) (time.Time, error) {
+		return time.Parse(timeFmt, attr.Value)
+	})
 }
 
-func getAttribute[T *dbString | *dbBool](
-	name string, attrs dbAttributes,
-) (result T, err error) {
+func getAttribute[T any, V any](
+	name string, attrs dbAttributes, parse func(T) (V, error),
+) (value V, err error) {
 	if attr, ok := attrs[name]; !ok {
-		err = fmt.Errorf("attribute '%s' not in: %s", name, attrs)
-	} else if result, ok = attr.(T); !ok {
+		err = fmt.Errorf("attribute '%s' not in: %+v", name, attrs)
+	} else if dbAttr, ok := attr.(T); !ok {
 		// Inspired by: https://stackoverflow.com/a/72626548
 		const errFmt = "attribute '%s' is of type %T, not %T: %+v"
 		err = fmt.Errorf(errFmt, name, attr, new(T), attr)
-	}
-	return
-}
-
-func parseValue[T uuid.UUID | time.Time](
-	name string, parser *dbParser, parseValue func(string) (T, error),
-) (value T, err error) {
-	var attr string
-
-	if attr, err = parser.GetString(name); err != nil {
-		return
-	} else if value, err = parseValue(attr); err != nil {
+	} else if value, err = parse(dbAttr); err != nil {
+		value = *new(V)
 		const errFmt = "failed to parse '%s' from: %+v: %s"
-		err = fmt.Errorf(errFmt, name, attr, err)
+		err = fmt.Errorf(errFmt, name, dbAttr, err)
 	}
 	return
 }
@@ -161,14 +148,12 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 
 	if output, err = db.Client.GetItem(context.TODO(), input); err != nil {
 		err = fmt.Errorf("failed to get %s: %s", email, err)
-		return
 	} else if len(output.Item) == 0 {
 		err = fmt.Errorf("%s is not a subscriber", email)
-		return
+	} else {
+		subscriber, err = ParseSubscriber(output.Item)
 	}
-
-	parser := &dbParser{output.Item}
-	return parser.ParseSubscriber()
+	return
 }
 
 func (db *DynamoDb) Put(record *Subscriber) (err error) {
