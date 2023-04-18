@@ -62,14 +62,12 @@ func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) (err error) {
 
 	for {
 		td, err = db.DescribeTable()
-		if td != nil && td.TableStatus == types.TableStatusActive {
+		if err == nil && td.TableStatus == types.TableStatusActive {
 			return
-		}
-		if current++; current != maxAttempts {
-			sleep()
-		} else {
+		} else if current++; current == maxAttempts {
 			break
 		}
+		sleep()
 	}
 
 	const errFmt = "db table %s not active after %d attempts to check; " +

@@ -328,8 +328,11 @@ func TestDynamoDb(t *testing.T) {
 
 			err := badDb.WaitForTable(maxAttempts, sleep)
 
-			msg := "db table " + badDb.TableName +
-				" not active after 3 attempts to check"
+			msg := fmt.Sprintf(
+				"db table %s not active after %d attempts to check",
+				badDb.TableName,
+				maxAttempts,
+			)
 			assert.ErrorContains(t, err, msg)
 			assert.ErrorContains(t, err, "ResourceNotFoundException")
 			assert.Equal(t, maxAttempts-1, *numSleeps)
