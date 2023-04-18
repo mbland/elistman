@@ -40,14 +40,55 @@ var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	BillingMode: types.BillingModePayPerRequest,
 }
 
-func (db *DynamoDb) CreateTable() error {
+func (db *DynamoDb) CreateTable() (err error) {
 	var input dynamodb.CreateTableInput = *DynamoDbCreateTableInput
 	input.TableName = &db.TableName
 
-	if _, err := db.Client.CreateTable(context.TODO(), &input); err != nil {
-		return fmt.Errorf("failed to create db table %s: %s", db.TableName, err)
+	if _, err = db.Client.CreateTable(context.TODO(), &input); err != nil {
+		err = fmt.Errorf("failed to create db table %s: %s", db.TableName, err)
 	}
-	return nil
+	return
+}
+
+func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) (err error) {
+	if maxAttempts <= 0 {
+		const errFmt = "maxAttempts to wait for DB table must be >= 0, got: %d"
+		err = fmt.Errorf(errFmt, maxAttempts)
+		return
+	}
+
+	var td *types.TableDescription
+	current := 0
+
+	for {
+		td, err = db.DescribeTable()
+		if td != nil && td.TableStatus == types.TableStatusActive {
+			return
+		}
+		if current++; current != maxAttempts {
+			sleep()
+		} else {
+			break
+		}
+	}
+
+	const errFmt = "db table never became active after %d attempts: %s: " +
+		"last error: %s"
+	err = fmt.Errorf(errFmt, maxAttempts, db.TableName, err)
+	return
+}
+
+func (db *DynamoDb) DescribeTable() (td *types.TableDescription, err error) {
+	input := &dynamodb.DescribeTableInput{TableName: &db.TableName}
+	output, descErr := db.Client.DescribeTable(context.TODO(), input)
+
+	if descErr != nil {
+		const errFmt = "failed to describe db table %s: %s"
+		err = fmt.Errorf(errFmt, db.TableName, descErr)
+	} else {
+		td = output.Table
+	}
+	return
 }
 
 func (db *DynamoDb) DeleteTable() error {

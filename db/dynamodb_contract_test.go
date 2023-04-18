@@ -5,6 +5,7 @@ package db
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -19,6 +21,31 @@ import (
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
+
+var useAwsDb bool
+var maxTableWaitAttempts int
+var durationBetweenAttempts time.Duration
+
+func init() {
+	flag.BoolVar(
+		&useAwsDb,
+		"awsdb",
+		false,
+		"Test against DynamoDB in AWS (instead of local Docker container)",
+	)
+	flag.IntVar(
+		&maxTableWaitAttempts,
+		"dbwaitattempts",
+		3,
+		"Maximum times to wait for a new DynamoDB table to become active",
+	)
+	flag.DurationVar(
+		&durationBetweenAttempts,
+		"dbwaitattemptduration",
+		5*time.Second,
+		"Duration to wait between each DynamoDB table status check",
+	)
+}
 
 func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 	tableName := "elistman-database-test-" + randomString(10)
@@ -33,17 +60,24 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return err
 	}
 
-	// TODO(mbland): Add logic to decide whether to test against local or remote
-	// DynamoDB.
-	if dynDb, teardownDb, err = setupLocalDynamoDb(tableName); err != nil {
+	doSetup := setupLocalDynamoDb
+
+	if useAwsDb == true {
+		doSetup = setupAwsDynamoDb
+	}
+
+	if dynDb, teardownDb, err = doSetup(tableName); err != nil {
 		return
 	} else if err = dynDb.CreateTable(); err != nil {
 		err = teardownDbWithError(err)
 		return
 	}
 
-	teardown = func() error {
-		return teardownDbWithError(dynDb.DeleteTable())
+	sleep := func() { time.Sleep(durationBetweenAttempts) }
+	if err = dynDb.WaitForTable(maxTableWaitAttempts, sleep); err == nil {
+		teardown = func() error {
+			return teardownDbWithError(dynDb.DeleteTable())
+		}
 	}
 	return
 }
@@ -59,6 +93,19 @@ func randomString(n int) string {
 		result[i] = chars[rand.Intn(len(chars))]
 	}
 	return string(result)
+}
+
+func setupAwsDynamoDb(
+	tableName string,
+) (dynDb *DynamoDb, teardown func() error, err error) {
+	config, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		err = fmt.Errorf("failed to configure DynamoDB: %s", err)
+	} else {
+		dynDb = NewDynamoDb(&config, tableName)
+		teardown = func() error { return nil }
+	}
+	return
 }
 
 const dbImage = "amazon/dynamodb-local"

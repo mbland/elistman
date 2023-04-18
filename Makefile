@@ -23,7 +23,10 @@ small-tests:
 medium-tests:
 	go test -tags=medium_tests -count=1 ./...
 
-test: static-checks small-tests medium-tests
+contract-tests:
+	go test -tags=contract_tests ./db -args -awsdb
+
+test: static-checks small-tests medium-tests contract-tests
 
 coverage:
 	go test -covermode=count -coverprofile=coverage.out \
