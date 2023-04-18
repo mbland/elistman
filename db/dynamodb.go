@@ -50,30 +50,24 @@ func (db *DynamoDb) CreateTable() (err error) {
 	return
 }
 
-func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) (err error) {
+func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) error {
 	if maxAttempts <= 0 {
 		const errFmt = "maxAttempts to wait for DB table must be >= 0, got: %d"
-		err = fmt.Errorf(errFmt, maxAttempts)
-		return
+		return fmt.Errorf(errFmt, maxAttempts)
 	}
 
-	var td *types.TableDescription
-	current := 0
+	for current := 0; ; {
+		td, err := db.DescribeTable()
 
-	for {
-		td, err = db.DescribeTable()
 		if err == nil && td.TableStatus == types.TableStatusActive {
-			return
+			return nil
 		} else if current++; current == maxAttempts {
-			break
+			const errFmt = "db table %s not active after " +
+				"%d attempts to check; last error: %s"
+			return fmt.Errorf(errFmt, db.TableName, maxAttempts, err)
 		}
 		sleep()
 	}
-
-	const errFmt = "db table %s not active after %d attempts to check; " +
-		"last error: %s"
-	err = fmt.Errorf(errFmt, db.TableName, maxAttempts, err)
-	return
 }
 
 func (db *DynamoDb) DescribeTable() (td *types.TableDescription, err error) {
