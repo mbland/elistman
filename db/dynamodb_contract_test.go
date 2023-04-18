@@ -49,7 +49,6 @@ func init() {
 }
 
 func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
-	tableName := "elistman-database-test-" + randomString(10)
 	var teardownDb func() error
 	teardownDbWithError := func(err error) error {
 		if err == nil {
@@ -61,6 +60,9 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return err
 	}
 
+	tableName := "elistman-database-test-" + randomString(10)
+	maxAttempts := maxTableWaitAttempts
+	sleep := func() { time.Sleep(durationBetweenAttempts) }
 	doSetup := setupLocalDynamoDb
 
 	if useAwsDb == true {
@@ -71,11 +73,9 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return
 	} else if err = dynDb.CreateTable(); err != nil {
 		err = teardownDbWithError(err)
-		return
-	}
-
-	sleep := func() { time.Sleep(durationBetweenAttempts) }
-	if err = dynDb.WaitForTable(maxTableWaitAttempts, sleep); err == nil {
+	} else if err = dynDb.WaitForTable(maxAttempts, sleep); err != nil {
+		err = teardownDbWithError(err)
+	} else {
 		teardown = func() error {
 			return teardownDbWithError(dynDb.DeleteTable())
 		}
