@@ -72,9 +72,9 @@ func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) (err error) {
 		}
 	}
 
-	const errFmt = "db table never became active after %d attempts: %s: " +
+	const errFmt = "db table %s not active after %d attempts to check; " +
 		"last error: %s"
-	err = fmt.Errorf(errFmt, maxAttempts, db.TableName, err)
+	err = fmt.Errorf(errFmt, db.TableName, maxAttempts, err)
 	return
 }
 

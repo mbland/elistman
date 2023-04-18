@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -246,8 +247,8 @@ func TestDynamoDb(t *testing.T) {
 	var badDb DynamoDb = *testDb
 	badDb.TableName = testDb.TableName + "-nonexistent"
 
-	// Note that the success cases for CreateTable and DeleteTable are confirmed
-	// by setupDynamoDb() and teardown() above.
+	// Note that the success cases for CreateTable and DeleteTable are
+	// confirmed by setupDynamoDb() and teardown() above.
 	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
 		err := testDb.CreateTable()
 
@@ -276,6 +277,63 @@ func TestDynamoDb(t *testing.T) {
 		assert.DeepEqual(t, subscriber, retrievedSubscriber)
 		expected := subscriber.Email + " is not a subscriber"
 		assert.ErrorContains(t, getAfterDeleteErr, expected)
+	})
+
+	t.Run("DescribeTable", func(t *testing.T) {
+		t.Run("Succeeds", func(t *testing.T) {
+			td, err := testDb.DescribeTable()
+
+			assert.NilError(t, err)
+			assert.Equal(t, types.TableStatusActive, td.TableStatus)
+		})
+
+		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {
+			td, err := badDb.DescribeTable()
+
+			assert.Assert(t, is.Nil(td))
+			errMsg := "failed to describe db table " + badDb.TableName
+			assert.ErrorContains(t, err, errMsg)
+			assert.ErrorContains(t, err, "ResourceNotFoundException")
+		})
+	})
+
+	t.Run("WaitForTable", func(t *testing.T) {
+		setup := func() (*int, func()) {
+			numSleeps := 0
+			return &numSleeps, func() { numSleeps++ }
+		}
+
+		t.Run("Succeeds", func(t *testing.T) {
+			numSleeps, sleep := setup()
+
+			err := testDb.WaitForTable(1, sleep)
+
+			assert.NilError(t, err)
+			assert.Equal(t, 0, *numSleeps)
+		})
+
+		t.Run("ErrorsIfMaxAttemptsLessThanOne", func(t *testing.T) {
+			numSleeps, sleep := setup()
+
+			err := testDb.WaitForTable(0, sleep)
+
+			msg := "maxAttempts to wait for DB table must be >= 0, got: 0"
+			assert.ErrorContains(t, err, msg)
+			assert.Equal(t, 0, *numSleeps)
+		})
+
+		t.Run("ErrorsIfTableDoesNotBecomeActive", func(t *testing.T) {
+			numSleeps, sleep := setup()
+			maxAttempts := 3
+
+			err := badDb.WaitForTable(maxAttempts, sleep)
+
+			msg := "db table " + badDb.TableName +
+				" not active after 3 attempts to check"
+			assert.ErrorContains(t, err, msg)
+			assert.ErrorContains(t, err, "ResourceNotFoundException")
+			assert.Equal(t, maxAttempts-1, *numSleeps)
+		})
 	})
 
 	t.Run("GetFails", func(t *testing.T) {
