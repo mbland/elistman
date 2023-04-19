@@ -339,6 +339,9 @@ This software is made available as [Open Source software][oss-def] under the
 - [Contents of event data that Amazon SES publishes to Amazon SNS][]
 - [How email sending works in Amazon SES][]
 - [Specifying a configuration set when you send email][]
+- [RFC 2782: A DNS RR for specifying the location of services (DNS SRV)][]
+- [RFC 4409: Message Submission for Mail][]
+- [RFC 6186: Use of SRV Records for Locating Email Submission/Access Services][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -424,3 +427,6 @@ This software is made available as [Open Source software][oss-def] under the
 [Contents of event data that Amazon SES publishes to Amazon SNS]: https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html
 [How email sending works in Amazon SES]: https://docs.aws.amazon.com/ses/latest/dg/send-email-concepts-process.html
 [Specifying a configuration set when you send email]: https://docs.aws.amazon.com/ses/latest/dg/using-configuration-sets-in-email.html
+[RFC 2782: A DNS RR for specifying the location of services (DNS SRV)]: https://www.rfc-editor.org/rfc/rfc2782.html
+[RFC 4409: Message Submission for Mail]: https://www.rfc-editor.org/rfc/rfc4409
+[RFC 6186: Use of SRV Records for Locating Email Submission/Access Services]: https://www.rfc-editor.org/rfc/rfc6186.html
