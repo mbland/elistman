@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -21,18 +20,12 @@ func buildHandler() (*handler.Handler, error) {
 		return nil, err
 	} else {
 		sesMailer := email.NewSesMailer(cfg)
-		senderEmail := fmt.Sprintf(
-			`"%s" <%s@%s>`,
-			opts.SenderName,
-			opts.SenderUserName,
-			opts.EmailDomainName,
-		)
 		return handler.NewHandler(
 			opts.EmailDomainName,
 			opts.EmailSiteTitle,
 			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(&cfg, opts.SubscribersTableName),
-				Validator: email.NewValidator(senderEmail),
+				Validator: &email.ProdAddressValidator{},
 				Mailer:    sesMailer,
 			},
 			opts.RedirectPaths,

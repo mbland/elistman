@@ -5,184 +5,222 @@ import (
 	"fmt"
 	"net"
 	"net/mail"
-	"net/smtp"
 	"strings"
 )
 
-// This validate-before-sending algorithm:
-// - https://mailtrap.io/blog/verify-email-address-without-sending/
+// AddressValidator wraps the ValidateAddress method.
 //
-// Can be implemented using:
-// - https://pkg.go.dev/net/smtp
+// ValidateAddress parses and validates email addresses. The intent is to reduce
+// bounced emails and other potential abuse by filtering out bad addresses
+// before attempting to send email to them.
+//
+// The return value will be nil if the address passes validation, or non nil if
+// it fails.
+type AddressValidator interface{ ValidateAddress(email string) error }
 
-type AddressValidator interface {
-	ValidateAddress(email string) error
+// ProdAddressValidator is the production implementation of AddressValidator.
+type ProdAddressValidator struct {
 }
 
-type AddressValidatorImpl struct {
-	From string
-}
-
-func NewValidator(fromEmail string) *AddressValidatorImpl {
-	return &AddressValidatorImpl{fromEmail}
-}
-
-func (av *AddressValidatorImpl) ValidateAddress(address string) (err error) {
-	user, host, err := parseUsernameAndHost(address)
+// ValidateAddress parses and validates email addresses.
+//
+// The return value will be nil if the address passes validation, or non nil if
+// it fails.
+//
+// This method:
+//
+//   - Parses the username and domain with the help of [mail.ParseAddress]
+//   - Checks against known invalid usernames and domains
+//   - Looks up the DNS MX records (mail hosts) for the domain
+//   - Confirms that at least one mail host is valid by examining DNS records
+//
+// The mail host validation happens by iterating over each MX record until one
+// satisfies the following series of checks:
+//
+//   - Resolve the MX record's hostname to an IP address
+//   - Resolve the IP address to a hostname via reverse DNS lookup (depends on a
+//     DNS PTR record)
+//   - Resolve that hostname to an IP address
+//   - Check that two IP addresses match
+//
+// Each of the lookups above can produce one or more addresses or hostnames.
+// ValidateAddress will iterate through every one until a match is found, or
+// return an error describing all failed attempts to find a match.
+//
+// This algorithm was inspired by the "Reverse Entries for MX records" check
+// from [DNS Inspect].
+//
+// Originally ValidateAddress was to implement the algorithm from [How to Verify
+// Email Address Without Sending an Email].  The idea is to confirm the username
+// exists for the email address domain before actually sending to it. However,
+// most mail hosts these days don't allow anyone to dial in and ping mailboxes
+// anymore, rendering this algorithm ineffective.
+//
+// DNS validation of the domain and bounce notification handling in
+// [github.com/mbland/elistman/handler.Handler.HandleEvent] should minimize
+// the risk of bounces and abuse.
+//
+// [DNS Inspect]: https://dnsinspect.com/
+// [How to Verify Email Address Without Sending an Email]: https://mailtrap.io/blog/verify-email-address-without-sending/
+func (av *ProdAddressValidator) ValidateAddress(address string) (err error) {
+	user, domain, err := parseUsernameAndDomain(address)
 	if err != nil {
 		return
+	} else if isKnownInvalidAddress(user, domain) {
+		return errors.New("invalid email address: " + address)
 	}
-
-	client, err := connectToMailHost(host)
-	if err != nil {
-		return
-	}
-	return checkMailbox(client, av.From, user, host)
+	return checkMailHosts(domain)
 }
 
-func parseUsernameAndHost(address string) (user, host string, err error) {
+func parseUsernameAndDomain(address string) (user, domain string, err error) {
 	addr, parseErr := mail.ParseAddress(address)
 
 	if parseErr != nil {
-		err = fmt.Errorf(`invalid email address "%s": %s`, address, parseErr)
+		err = fmt.Errorf("invalid email address: %s: %s", address, parseErr)
 	} else {
 		// mail.ParseAddress guarantees an "@domain" part is present.
 		i := strings.LastIndexByte(addr.Address, '@')
 		user = addr.Address[0:i]
-		host = addr.Address[i+1:]
+		domain = addr.Address[i+1:]
 	}
 	return
 }
 
-func connectToMailHost(hostname string) (client *smtp.Client, err error) {
-	hosts, err := lookupPotentialMailHosts(hostname)
-
-	if err != nil {
-		return
-	} else if client, err = tryMailHosts(hosts); err != nil {
-		const errFmt = "failed to connect to a mail host for %s: %s"
-		err = fmt.Errorf(errFmt, hostname, err)
-	}
-	return
+var invalidUserNames = map[string]bool{
+	"postmaster": true,
+	"abuse":      true,
 }
 
-func lookupPotentialMailHosts(hostname string) (hosts []string, err error) {
-	errs := make([]error, 0, 3)
-	hosts, err = lookupMxHosts(hostname)
-	errs = append(errs, err)
-
-	if len(hosts) == 0 {
-		hosts, err = lookupSrvHosts(hostname)
-		errs = append(errs, err)
-	}
-	if len(hosts) == 0 {
-		hosts, err = lookupHosts(hostname)
-		errs = append(errs, err)
-	}
-	if len(hosts) == 0 {
-		err = errors.Join(errs...)
-		err = fmt.Errorf("could not find mail host for %s: %s", hostname, err)
-	}
-	return
+var invalidDomains = map[string]bool{
+	"localhost":   true,
+	"example.com": true,
 }
 
-func lookupMxHosts(hostname string) (hosts []string, err error) {
-	records, err := net.LookupMX(hostname)
-	hosts = make([]string, len(records)*len(smtpPorts))
-	current := 0
+func isKnownInvalidAddress(user, domain string) bool {
+	return invalidUserNames[strings.Split(user, "+")[0]] ||
+		strings.HasPrefix(domain, "[") ||
+		net.ParseIP(domain) != nil ||
+		invalidDomains[domain] ||
+		invalidDomains[getPrimaryDomain(domain)]
+}
 
-	for _, r := range records {
-		for _, host := range appendSmtpPorts(r.Host) {
-			hosts[current] = host
-			current++
+func getPrimaryDomain(domainName string) string {
+	parts := strings.Split(domainName, ".")
+	return strings.Join(parts[len(parts)-2:], ".")
+}
+
+func checkMailHosts(domain string) error {
+	mxRecords, err := lookupMxHosts(domain)
+	const errFmt = "no valid MX hosts for %s: %s"
+
+	if mxRecords == nil {
+		return fmt.Errorf(errFmt, domain, err)
+	}
+
+	errs := make([]error, len(mxRecords))
+	for i, record := range mxRecords {
+		errs[i] = checkMailHost(record.Host)
+		if errs[i] == nil {
+			// Found a good MX host.
+			return nil
 		}
 	}
-	return
+	return fmt.Errorf(errFmt, domain, errors.Join(err, errors.Join(errs...)))
 }
 
-//   - RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
-//     https://www.rfc-editor.org/rfc/rfc2782.html
-//   - RFC 4409: Message Submission for Mail
-//     https://www.rfc-editor.org/rfc/rfc4409
-//   - RFC 6186: Use of SRV Records for Locating Email Submission/Access
-//     Services
-//     https://www.rfc-editor.org/rfc/rfc6186.html
-func lookupSrvHosts(hostname string) (hosts []string, err error) {
-	_, records, err := net.LookupSRV("submission", "tcp", hostname)
-	hosts = make([]string, len(records))
+func lookupMxHosts(domain string) ([]*net.MX, error) {
+	records, err := net.LookupMX(domain)
 
-	for i, r := range records {
-		hosts[i] = fmt.Sprintf("%s:%d", r.Target, r.Port)
-	}
-	return
-}
-
-func lookupHosts(hostname string) (hosts []string, err error) {
-	records, err := net.LookupHost(hostname)
-	hosts = make([]string, 0, len(smtpPorts))
-
-	if err != nil {
-		err = errors.New("error looking up " + hostname + ": " + err.Error())
-	} else if len(records) == 0 {
-		err = errors.New("host not found: " + hostname)
-	} else {
-		hosts = append(hosts, appendSmtpPorts(hostname)...)
-	}
-	return
-}
-
-// https://mailtrap.io/blog/smtp-ports-25-465-587-used-for/
-// https://kinsta.com/blog/smtp-port/
-// https://www.mailgun.com/blog/email/which-smtp-port-understanding-ports-25-465-587/
-var smtpPorts []string = []string{"587", "2525"}
-
-func appendSmtpPorts(host string) (result []string) {
-	result = make([]string, len(smtpPorts))
-	i := 0
-
-	for _, port := range smtpPorts {
-		result[i] = host + ":" + port
-		i++
-	}
-	return
-}
-
-func tryMailHosts(hosts []string) (client *smtp.Client, err error) {
-	errs := make([]error, 0, len(hosts))
-
-	for _, host := range hosts {
-		if client, err = smtp.Dial(host); err == nil {
-			return
-		}
-		err = fmt.Errorf("could not connect to %s via SMTP: %s", host, err)
-		errs = append(errs, err)
-	}
-	err = errors.Join(errs...)
-	return
-}
-
-// https://mailtrap.io/blog/verify-email-address-without-sending/
-func checkMailbox(mailhost *smtp.Client, from, user, host string) (err error) {
-	quitMailSession := func() error {
-		if err := mailhost.Quit(); err != nil {
-			return fmt.Errorf("error quitting SMTP session: %s", err)
-		}
-		return nil
-	}
-	defer func() {
+	if len(records) == 0 {
 		if err == nil {
-			err = quitMailSession()
-		} else if quitErr := quitMailSession(); quitErr != nil {
-			const errFmt = "quitting SMTP session after error failed: %s\n" +
-				"original error: %s"
-			err = fmt.Errorf(errFmt, quitErr, err)
+			err = errors.New("no MX records found")
 		}
-	}()
-
-	if err = mailhost.Hello(host); err != nil {
-		return
-	} else if err = mailhost.Mail(from); err != nil {
-		return
+		return nil, err
 	}
-	return mailhost.Rcpt(user + "@" + host)
+	return records, err
+}
+
+func checkMailHost(mailHost string) error {
+	addrs, err := net.LookupHost(mailHost)
+
+	if err != nil {
+		return fmt.Errorf("error resolving MX host: %s: %s", mailHost, err)
+	} else if len(addrs) == 0 {
+		return errors.New("no addresses for MX host: " + mailHost)
+	}
+	return checkMailHostAddresses(mailHost, addrs)
+}
+
+func checkMailHostAddresses(mailHost string, addrs []string) error {
+	errs := make([]error, len(addrs))
+
+	for i, addr := range addrs {
+		errs[i] = checkMailHostIp(addr)
+		if errs[i] == nil {
+			return nil
+		}
+	}
+
+	const errFmt = "reverse lookup of addresses for MX host %s failed: %s"
+	return fmt.Errorf(errFmt, mailHost, errors.Join(errs...))
+}
+
+func checkMailHostIp(addr string) error {
+	hosts, err := net.LookupAddr(addr)
+
+	if err != nil {
+		return errors.New("error resolving: " + addr)
+	} else if len(hosts) == 0 {
+		return errors.New("no hostnames for: " + addr)
+	} else if err = checkHostsMatchAddress(addr, hosts); err != nil {
+		const errFmt = "hosts resolved from %s don't resolve to same IP:\n%s"
+		return fmt.Errorf(errFmt, addr, err)
+	}
+	return nil
+}
+
+func checkHostsMatchAddress(addr string, hosts []string) error {
+	errs := make([]error, len(hosts))
+
+	for i, host := range hosts {
+		addrs, err := net.LookupHost(host)
+
+		if err != nil {
+			errs[i] = fmt.Errorf("lookup failed for: %s: %s", host, err)
+			continue
+		}
+
+		errs[i] = checkHostMatchesAddresses(host, addrs)
+		if errs[i] == nil {
+			return nil
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func checkHostMatchesAddresses(host string, addrs []string) error {
+	errs := make([]error, len(addrs))
+
+	for i, addr := range addrs {
+		errs[i] = checkHostMatchesAddress(host, addr)
+		if errs[i] == nil {
+			return nil
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func checkHostMatchesAddress(host, addr string) error {
+	addrs, err := net.LookupHost(host)
+
+	if err != nil {
+		return fmt.Errorf("error resolving %s: %s", host, err)
+	}
+	for _, hostAddr := range addrs {
+		if hostAddr == addr {
+			return nil
+		}
+	}
+	const errFmt = "%s does not resolve to %s, resolves to: %s"
+	return fmt.Errorf(errFmt, host, addr, strings.Join(addrs, ", "))
 }
