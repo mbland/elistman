@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -20,12 +21,16 @@ func buildHandler() (*handler.Handler, error) {
 		return nil, err
 	} else {
 		sesMailer := email.NewSesMailer(cfg)
+		validator := &email.ProdAddressValidator{
+			Suppressor: sesMailer,
+			Resolver:   net.DefaultResolver,
+		}
 		return handler.NewHandler(
 			opts.EmailDomainName,
 			opts.EmailSiteTitle,
 			&ops.ProdAgent{
 				Db:        db.NewDynamoDb(&cfg, opts.SubscribersTableName),
-				Validator: &email.ProdAddressValidator{},
+				Validator: validator,
 				Mailer:    sesMailer,
 			},
 			opts.RedirectPaths,

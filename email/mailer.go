@@ -49,6 +49,15 @@ type Bouncer interface {
 	) (string, error)
 }
 
+// Suppressor wraps methods for the [SES account-level suppression list].
+//
+// [SES account-level suppression list]: https://docs.aws.amazon.com/ses/latest/dg/sending-email-suppression-list.html
+type Suppressor interface {
+	// IsSuppressed checks whether an email address is on the Simple Email
+	// Service account-level suppression list.
+	IsSuppressed(email string) bool
+}
+
 type SesMailer struct {
 	Client *ses.Client
 }
@@ -78,4 +87,8 @@ func (mailer *SesMailer) Bounce(
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/sesiface/
 	bounceMessageId = "fake bounce message ID"
 	return
+}
+
+func (mailer *SesMailer) IsSuppressed(email string) bool {
+	return false
 }

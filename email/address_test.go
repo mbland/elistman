@@ -3,23 +3,34 @@
 package email
 
 import (
+	"net"
 	"testing"
 
 	"gotest.tools/assert"
 )
 
-func TestParseUsernameAndHost(t *testing.T) {
+type TestSuppressor struct {
+	returnValue bool
+}
+
+func (ts *TestSuppressor) IsSuppressed(email string) bool {
+	return ts.returnValue
+}
+
+func TestParseAddress(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		user, host, err := parseUsernameAndDomain("mbland@acm.org")
+		email, user, host, err := parseAddress("mbland@acm.org")
 
 		assert.NilError(t, err)
+		assert.Equal(t, "mbland@acm.org", email)
 		assert.Equal(t, "mbland", user)
 		assert.Equal(t, "acm.org", host)
 	})
 
 	t.Run("FailsIfNoAtSign", func(t *testing.T) {
-		user, host, err := parseUsernameAndDomain("mblandATacm.org")
+		email, user, host, err := parseAddress("mblandATacm.org")
 
+		assert.Equal(t, "", email)
 		assert.Equal(t, "", user)
 		assert.Equal(t, "", host)
 		assert.ErrorContains(t, err, `invalid email address: mblandATacm.org`)
@@ -28,7 +39,7 @@ func TestParseUsernameAndHost(t *testing.T) {
 }
 
 func TestValidateBasicEmail(t *testing.T) {
-	v := ProdAddressValidator{}
+	v := ProdAddressValidator{&TestSuppressor{}, net.DefaultResolver}
 
 	assert.NilError(t, v.ValidateAddress("mbland@acm.org"))
 }
