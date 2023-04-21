@@ -3,6 +3,7 @@
 package email
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -41,5 +42,7 @@ func TestParseAddress(t *testing.T) {
 func TestValidateBasicEmail(t *testing.T) {
 	v := ProdAddressValidator{&TestSuppressor{}, net.DefaultResolver}
 
-	assert.NilError(t, v.ValidateAddress("mbland@acm.org"))
+	err := v.ValidateAddress(context.Background(), "mbland@acm.org")
+
+	assert.NilError(t, err)
 }

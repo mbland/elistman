@@ -17,7 +17,9 @@ import (
 //
 // The return value will be nil if the address passes validation, or non nil if
 // it fails.
-type AddressValidator interface{ ValidateAddress(email string) error }
+type AddressValidator interface {
+	ValidateAddress(ctx context.Context, email string) error
+}
 
 // Resolver wraps several methods from the net standard library.
 //
@@ -79,7 +81,9 @@ type ProdAddressValidator struct {
 //
 // [DNS Inspect]: https://dnsinspect.com/
 // [How to Verify Email Address Without Sending an Email]: https://mailtrap.io/blog/verify-email-address-without-sending/
-func (av *ProdAddressValidator) ValidateAddress(address string) (err error) {
+func (av *ProdAddressValidator) ValidateAddress(
+	ctx context.Context, address string,
+) (err error) {
 	email, user, domain, err := parseAddress(address)
 	if err != nil {
 		return
@@ -88,7 +92,7 @@ func (av *ProdAddressValidator) ValidateAddress(address string) (err error) {
 	} else if av.Suppressor.IsSuppressed(email) {
 		return errors.New("suppressed email address: " + email)
 	}
-	return av.checkMailHosts(domain)
+	return av.checkMailHosts(ctx, domain)
 }
 
 func parseAddress(address string) (email, user, domain string, err error) {
@@ -129,8 +133,10 @@ func getPrimaryDomain(domainName string) string {
 	return strings.Join(parts[len(parts)-2:], ".")
 }
 
-func (av *ProdAddressValidator) checkMailHosts(domain string) error {
-	mxRecords, err := av.lookupMxHosts(domain)
+func (av *ProdAddressValidator) checkMailHosts(
+	ctx context.Context, domain string,
+) error {
+	mxRecords, err := av.lookupMxHosts(ctx, domain)
 	const errFmt = "no valid MX hosts for %s: %s"
 
 	if mxRecords == nil {
@@ -139,7 +145,7 @@ func (av *ProdAddressValidator) checkMailHosts(domain string) error {
 
 	errs := make([]error, len(mxRecords))
 	for i, record := range mxRecords {
-		errs[i] = av.checkMailHost(record.Host)
+		errs[i] = av.checkMailHost(ctx, record.Host)
 		if errs[i] == nil {
 			// Found a good MX host.
 			return nil
@@ -149,9 +155,9 @@ func (av *ProdAddressValidator) checkMailHosts(domain string) error {
 }
 
 func (av *ProdAddressValidator) lookupMxHosts(
-	domain string,
+	ctx context.Context, domain string,
 ) ([]*net.MX, error) {
-	records, err := av.Resolver.LookupMX(context.Background(), domain)
+	records, err := av.Resolver.LookupMX(ctx, domain)
 
 	if len(records) == 0 {
 		if err == nil {
@@ -162,24 +168,26 @@ func (av *ProdAddressValidator) lookupMxHosts(
 	return records, err
 }
 
-func (av *ProdAddressValidator) checkMailHost(mailHost string) error {
-	addrs, err := av.Resolver.LookupHost(context.Background(), mailHost)
+func (av *ProdAddressValidator) checkMailHost(
+	ctx context.Context, mailHost string,
+) error {
+	addrs, err := av.Resolver.LookupHost(ctx, mailHost)
 
 	if err != nil {
 		return fmt.Errorf("error resolving MX host: %s: %s", mailHost, err)
 	} else if len(addrs) == 0 {
 		return errors.New("no addresses for MX host: " + mailHost)
 	}
-	return av.checkMailHostAddresses(mailHost, addrs)
+	return av.checkMailHostAddresses(ctx, mailHost, addrs)
 }
 
 func (av *ProdAddressValidator) checkMailHostAddresses(
-	mailHost string, addrs []string,
+	ctx context.Context, mailHost string, addrs []string,
 ) error {
 	errs := make([]error, len(addrs))
 
 	for i, addr := range addrs {
-		errs[i] = av.checkMailHostIp(addr)
+		errs[i] = av.checkMailHostIp(ctx, addr)
 		if errs[i] == nil {
 			return nil
 		}
@@ -189,14 +197,16 @@ func (av *ProdAddressValidator) checkMailHostAddresses(
 	return fmt.Errorf(errFmt, mailHost, errors.Join(errs...))
 }
 
-func (av *ProdAddressValidator) checkMailHostIp(addr string) error {
-	hosts, err := av.Resolver.LookupAddr(context.Background(), addr)
+func (av *ProdAddressValidator) checkMailHostIp(
+	ctx context.Context, addr string,
+) error {
+	hosts, err := av.Resolver.LookupAddr(ctx, addr)
 
 	if err != nil {
 		return errors.New("error resolving: " + addr)
 	} else if len(hosts) == 0 {
 		return errors.New("no hostnames for: " + addr)
-	} else if err = av.checkHostsMatchAddress(addr, hosts); err != nil {
+	} else if err = av.checkHostsMatchAddress(ctx, addr, hosts); err != nil {
 		const errFmt = "hosts resolved from %s don't resolve to same IP:\n%s"
 		return fmt.Errorf(errFmt, addr, err)
 	}
@@ -204,19 +214,19 @@ func (av *ProdAddressValidator) checkMailHostIp(addr string) error {
 }
 
 func (av *ProdAddressValidator) checkHostsMatchAddress(
-	addr string, hosts []string,
+	ctx context.Context, addr string, hosts []string,
 ) error {
 	errs := make([]error, len(hosts))
 
 	for i, host := range hosts {
-		addrs, err := av.Resolver.LookupHost(context.Background(), host)
+		addrs, err := av.Resolver.LookupHost(ctx, host)
 
 		if err != nil {
 			errs[i] = fmt.Errorf("lookup failed for: %s: %s", host, err)
 			continue
 		}
 
-		errs[i] = av.checkHostMatchesAddresses(host, addrs)
+		errs[i] = av.checkHostMatchesAddresses(ctx, host, addrs)
 		if errs[i] == nil {
 			return nil
 		}
@@ -225,12 +235,12 @@ func (av *ProdAddressValidator) checkHostsMatchAddress(
 }
 
 func (av *ProdAddressValidator) checkHostMatchesAddresses(
-	host string, addrs []string,
+	ctx context.Context, host string, addrs []string,
 ) error {
 	errs := make([]error, len(addrs))
 
 	for i, addr := range addrs {
-		errs[i] = av.checkHostMatchesAddress(host, addr)
+		errs[i] = av.checkHostMatchesAddress(ctx, host, addr)
 		if errs[i] == nil {
 			return nil
 		}
@@ -239,9 +249,9 @@ func (av *ProdAddressValidator) checkHostMatchesAddresses(
 }
 
 func (av *ProdAddressValidator) checkHostMatchesAddress(
-	host, addr string,
+	ctx context.Context, host, addr string,
 ) error {
-	addrs, err := av.Resolver.LookupHost(context.Background(), host)
+	addrs, err := av.Resolver.LookupHost(ctx, host)
 
 	if err != nil {
 		return fmt.Errorf("error resolving %s: %s", host, err)
