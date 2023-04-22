@@ -12,22 +12,6 @@ import (
 	"gotest.tools/assert"
 )
 
-type TestSuppressor struct {
-	email              string
-	isSuppressedResult bool
-	suppressErr        error
-}
-
-func (ts *TestSuppressor) IsSuppressed(email string) bool {
-	ts.email = email
-	return ts.isSuppressedResult
-}
-
-func (ts *TestSuppressor) Suppress(email string) error {
-	ts.email = email
-	return ts.suppressErr
-}
-
 type TestResolver struct {
 	mailHosts map[string][]*net.MX
 	mxErrs    map[string]error
@@ -331,7 +315,7 @@ func TestCheckMailHosts(t *testing.T) {
 		err := av.checkMailHosts(ctx, "foo@bar.com", "bar.com")
 
 		assert.NilError(t, err)
-		assert.Equal(t, ts.email, "")
+		assert.Equal(t, ts.suppressedEmail, "")
 	})
 
 	t.Run("FailsWithoutSuppressingAddressIfNoMxRecords", func(t *testing.T) {
@@ -342,7 +326,7 @@ func TestCheckMailHosts(t *testing.T) {
 		expected := "error retrieving MX records for bar.com: " +
 			"no records returned"
 		assert.Error(t, err, expected)
-		assert.Equal(t, ts.email, "")
+		assert.Equal(t, ts.suppressedEmail, "")
 	})
 
 	t.Run("FailsAndSuppressesAddressIfMxValidationFails", func(t *testing.T) {
@@ -354,7 +338,7 @@ func TestCheckMailHosts(t *testing.T) {
 		expected := "no valid MX hosts for bar.com: " +
 			"reverse lookup of addresses for MX host mx1.mail.bar.com failed"
 		assert.ErrorContains(t, err, expected)
-		assert.Equal(t, ts.email, "foo@bar.com")
+		assert.Equal(t, ts.suppressedEmail, "foo@bar.com")
 	})
 
 	t.Run("ReportsAllErrorsIncludingSuppressionError", func(t *testing.T) {
@@ -372,41 +356,67 @@ func TestCheckMailHosts(t *testing.T) {
 		}
 		assert.ErrorContains(t, err, strings.Join(expected, "\n"))
 		assert.ErrorContains(t, err, "suppression failed")
-		assert.Equal(t, ts.email, "foo@bar.com")
+		assert.Equal(t, ts.suppressedEmail, "foo@bar.com")
 	})
 }
 
 func TestValidateAddress(t *testing.T) {
-	v := ProdAddressValidator{&TestSuppressor{}, net.DefaultResolver}
-	ctx := context.Background()
-
 	t.Run("Succeeds", func(t *testing.T) {
-		assert.NilError(t, v.ValidateAddress(ctx, "mbland@acm.org"))
+		f := newAddressValidatorFixture()
+		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}
+		f.tr.hosts["mail.mailroute.net"] = []string{"199.89.3.120"}
+		f.tr.addrs["199.89.3.120"] = []string{"mail.mia.mailroute.net"}
+		f.tr.hosts["mail.mia.mailroute.net"] = []string{"199.89.3.120"}
+
+		assert.NilError(t, f.av.ValidateAddress(f.ctx, "mbland@acm.org"))
+		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 
 	t.Run("FailsIfAddressDoesNotParse", func(t *testing.T) {
-		err := v.ValidateAddress(ctx, "mblandATacm.org")
+		f := newAddressValidatorFixture()
+
+		err := f.av.ValidateAddress(f.ctx, "mblandATacm.org")
 
 		assert.ErrorContains(t, err, "address failed to parse: mblandATacm.org")
+		assert.Equal(t, "", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 
 	t.Run("FailsIfKnownInvalidAddress", func(t *testing.T) {
-		err := v.ValidateAddress(ctx, "abuse@acm.org")
+		f := newAddressValidatorFixture()
+
+		err := f.av.ValidateAddress(f.ctx, "abuse@acm.org")
 
 		assert.ErrorContains(t, err, "invalid email address: abuse@acm.org")
+		assert.Equal(t, "", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 
 	t.Run("FailsIfAddressIsSuppressed", func(t *testing.T) {
-		suppressor := &TestSuppressor{isSuppressedResult: true}
-		v := ProdAddressValidator{suppressor, net.DefaultResolver}
+		f := newAddressValidatorFixture()
+		f.ts.isSuppressedResult = true
 
-		err := v.ValidateAddress(ctx, "mbland@acm.org")
+		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
 		assert.ErrorContains(t, err, "suppressed email address: mbland@acm.org")
-		assert.Equal(t, "mbland@acm.org", suppressor.email)
+		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 
 	t.Run("FailsIfAddressFailsDnsValidation", func(t *testing.T) {
-		t.Skip("unimplemented")
+		f := newAddressValidatorFixture()
+		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}
+
+		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+
+		expected := "address failed DNS validation: mbland@acm.org: " +
+			"no valid MX hosts for acm.org: " +
+			"reverse lookup of addresses for MX host " +
+			"mail.mailroute.net failed: " +
+			"error resolving mail.mailroute.net: no addresses returned"
+		assert.ErrorContains(t, err, expected)
+		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
+		assert.Equal(t, "mbland@acm.org", f.ts.suppressedEmail)
 	})
 }

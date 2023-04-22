@@ -24,7 +24,7 @@ medium-tests:
 	go test -tags=medium_tests -count=1 ./...
 
 contract-tests:
-	go test -tags=contract_tests ./db -args -awsdb
+	go test -tags=contract_tests ./... -args -awsdb
 
 test: static-checks small-tests medium-tests contract-tests
 
