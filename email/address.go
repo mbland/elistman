@@ -86,13 +86,15 @@ func (av *ProdAddressValidator) ValidateAddress(
 ) (err error) {
 	email, user, domain, err := parseAddress(address)
 	if err != nil {
-		return
+		err = errors.New("address failed to parse: " + address)
 	} else if isKnownInvalidAddress(user, domain) {
-		return errors.New("invalid email address: " + address)
+		err = errors.New("invalid email address: " + address)
 	} else if av.Suppressor.IsSuppressed(email) {
-		return errors.New("suppressed email address: " + email)
+		err = errors.New("suppressed email address: " + address)
+	} else if err = av.checkMailHosts(ctx, email, domain); err != nil {
+		err = fmt.Errorf("address failed DNS validation: %s: %s", address, err)
 	}
-	return av.checkMailHosts(ctx, domain)
+	return
 }
 
 func parseAddress(address string) (email, user, domain string, err error) {
@@ -134,16 +136,18 @@ func getPrimaryDomain(domainName string) string {
 }
 
 func (av *ProdAddressValidator) checkMailHosts(
-	ctx context.Context, domain string,
+	ctx context.Context, email, domain string,
 ) error {
-	mxRecords, err := av.lookupMxHosts(ctx, domain)
-	const errFmt = "no valid MX hosts for %s: %s"
+	mxRecords, err := av.lookupMx(ctx, domain)
 
-	if mxRecords == nil {
-		return fmt.Errorf(errFmt, domain, err)
+	// If LookupMX failed to resolve any hosts, it could be due to a typo. In
+	// this case, don't add the address to the suppression list.
+	if len(mxRecords) == 0 {
+		return err
 	}
 
 	errs := make([]error, len(mxRecords))
+
 	for i, record := range mxRecords {
 		errs[i] = av.checkMailHost(ctx, record.Host)
 		if errs[i] == nil {
@@ -151,116 +155,125 @@ func (av *ProdAddressValidator) checkMailHosts(
 			return nil
 		}
 	}
-	return fmt.Errorf(errFmt, domain, errors.Join(err, errors.Join(errs...)))
-}
 
-func (av *ProdAddressValidator) lookupMxHosts(
-	ctx context.Context, domain string,
-) ([]*net.MX, error) {
-	records, err := av.Resolver.LookupMX(ctx, domain)
-
-	if len(records) == 0 {
-		if err == nil {
-			err = errors.New("no MX records found")
-		}
-		return nil, err
-	}
-	return records, err
+	// If LookupMX succeeded, but validating all the MX records fail, sending a
+	// message to the address would bounce, so suppress the address. This will
+	// short circuit ValidateAddress before it calls this method for the same
+	// address.
+	//
+	// This could be a configuration or network issue, but it could also be an
+	// attack. Of course, an attacker could use different addresses from the
+	// same domain. It might be worth creating a table of suppressed domains at
+	// some point.
+	suppressErr := av.Suppressor.Suppress(email)
+	err = errors.Join(err, errors.Join(errs...), suppressErr)
+	return fmt.Errorf("no valid MX hosts for %s: %s", domain, err)
 }
 
 func (av *ProdAddressValidator) checkMailHost(
 	ctx context.Context, mailHost string,
 ) error {
-	addrs, err := av.Resolver.LookupHost(ctx, mailHost)
+	mailHostIps, mailHostIpLookupErr := av.lookupHost(ctx, mailHost)
+	errs := make([]error, len(mailHostIps))
 
-	if err != nil {
-		return fmt.Errorf("error resolving MX host: %s: %s", mailHost, err)
-	} else if len(addrs) == 0 {
-		return errors.New("no addresses for MX host: " + mailHost)
-	}
-	return av.checkMailHostAddresses(ctx, mailHost, addrs)
-}
-
-func (av *ProdAddressValidator) checkMailHostAddresses(
-	ctx context.Context, mailHost string, addrs []string,
-) error {
-	errs := make([]error, len(addrs))
-
-	for i, addr := range addrs {
-		errs[i] = av.checkMailHostIp(ctx, addr)
+	for i, mailIp := range mailHostIps {
+		errs[i] = av.checkReverseLookupHostResolvesToOriginalIp(ctx, mailIp)
 		if errs[i] == nil {
 			return nil
 		}
 	}
 
 	const errFmt = "reverse lookup of addresses for MX host %s failed: %s"
-	return fmt.Errorf(errFmt, mailHost, errors.Join(errs...))
+	err := errors.Join(mailHostIpLookupErr, errors.Join(errs...))
+	return fmt.Errorf(errFmt, mailHost, err)
 }
 
-func (av *ProdAddressValidator) checkMailHostIp(
+func (av *ProdAddressValidator) checkReverseLookupHostResolvesToOriginalIp(
 	ctx context.Context, addr string,
 ) error {
-	hosts, err := av.Resolver.LookupAddr(ctx, addr)
-
-	if err != nil {
-		return errors.New("error resolving: " + addr)
-	} else if len(hosts) == 0 {
-		return errors.New("no hostnames for: " + addr)
-	} else if err = av.checkHostsMatchAddress(ctx, addr, hosts); err != nil {
-		const errFmt = "hosts resolved from %s don't resolve to same IP:\n%s"
-		return fmt.Errorf(errFmt, addr, err)
-	}
-	return nil
-}
-
-func (av *ProdAddressValidator) checkHostsMatchAddress(
-	ctx context.Context, addr string, hosts []string,
-) error {
+	hosts, lookupErr := av.lookupAddr(ctx, addr)
 	errs := make([]error, len(hosts))
 
 	for i, host := range hosts {
-		addrs, err := av.Resolver.LookupHost(ctx, host)
-
-		if err != nil {
-			errs[i] = fmt.Errorf("lookup failed for: %s: %s", host, err)
-			continue
-		}
-
-		errs[i] = av.checkHostMatchesAddresses(ctx, host, addrs)
+		errs[i] = av.checkHostResolvesToAddress(ctx, host, addr)
 		if errs[i] == nil {
 			return nil
 		}
 	}
-	return errors.Join(errs...)
+
+	const errFmt = "no host resolves to %s: %s"
+	err := errors.Join(lookupErr, errors.Join(errs...))
+	return fmt.Errorf(errFmt, addr, err)
 }
 
-func (av *ProdAddressValidator) checkHostMatchesAddresses(
-	ctx context.Context, host string, addrs []string,
-) error {
-	errs := make([]error, len(addrs))
-
-	for i, addr := range addrs {
-		errs[i] = av.checkHostMatchesAddress(ctx, host, addr)
-		if errs[i] == nil {
-			return nil
-		}
-	}
-	return errors.Join(errs...)
-}
-
-func (av *ProdAddressValidator) checkHostMatchesAddress(
+func (av *ProdAddressValidator) checkHostResolvesToAddress(
 	ctx context.Context, host, addr string,
 ) error {
-	addrs, err := av.Resolver.LookupHost(ctx, host)
-
-	if err != nil {
-		return fmt.Errorf("error resolving %s: %s", host, err)
+	addrs, err := av.lookupHost(ctx, host)
+	if len(addrs) == 0 {
+		return err
 	}
+
 	for _, hostAddr := range addrs {
 		if hostAddr == addr {
 			return nil
 		}
 	}
-	const errFmt = "%s does not resolve to %s, resolves to: %s"
-	return fmt.Errorf(errFmt, host, addr, strings.Join(addrs, ", "))
+	return errors.Join(
+		err, fmt.Errorf("%s resolves to: %s", host, strings.Join(addrs, ", ")),
+	)
+}
+
+func (av *ProdAddressValidator) lookupMx(
+	ctx context.Context, domain string,
+) ([]*net.MX, error) {
+	const noValuesErrMsg = "no records returned"
+	const errFmt = "error retrieving MX records for %s: %s"
+	return lookup(av.Resolver.LookupMX, ctx, domain, noValuesErrMsg, errFmt)
+}
+
+func (av *ProdAddressValidator) lookupAddr(
+	ctx context.Context, addr string,
+) ([]string, error) {
+	const noValuesErrMsg = "no hostnames returned"
+	const errFmt = "error resolving %s: %s"
+	return lookup(av.Resolver.LookupAddr, ctx, addr, noValuesErrMsg, errFmt)
+}
+
+func (av *ProdAddressValidator) lookupHost(
+	ctx context.Context, host string,
+) ([]string, error) {
+	const noValuesErrMsg = "no addresses returned"
+	const errFmt = "error resolving %s: %s"
+	return lookup(av.Resolver.LookupHost, ctx, host, noValuesErrMsg, errFmt)
+}
+
+// lookup wraps error messages from net.Resolver methods.
+//
+// Both [net.Resolver.LookupMX] and [net.Resolver.LookupAddr] can potentially
+// return valid results and non nil error values. This is because both will
+// filter returned DNS records, returning all valid records while reporting that
+// malformed records exist. As a result, this function will pass through any
+// returned records and generate an error prefixed using errFmt if:
+//
+// - zero records are returned, but the request otherwise succeeded (err == nil)
+// - the request returned an error
+//
+// [net.Resolver.LookupHost] doesn't explicitly state that it could return both
+// valid records and a non nil error. However, wrapping it with [lookup] will do
+// the right thing regardless.
+func lookup[T []string | []*net.MX, F func(context.Context, string) (T, error)](
+	lookup F, ctx context.Context, target, noValuesErrMsg, errFmt string,
+) (values T, err error) {
+	values, err = lookup(ctx, target)
+
+	if len(values) == 0 {
+		if err == nil {
+			err = errors.New(noValuesErrMsg)
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf(errFmt, target, err)
+	}
+	return
 }
