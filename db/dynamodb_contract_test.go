@@ -64,6 +64,7 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 	maxAttempts := maxTableWaitAttempts
 	sleep := func() { time.Sleep(durationBetweenAttempts) }
 	doSetup := setupLocalDynamoDb
+	ctx := context.Background()
 
 	if useAwsDb == true {
 		doSetup = setupAwsDynamoDb
@@ -71,13 +72,13 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 
 	if dynDb, teardownDb, err = doSetup(tableName); err != nil {
 		return
-	} else if err = dynDb.CreateTable(); err != nil {
+	} else if err = dynDb.CreateTable(ctx); err != nil {
 		err = teardownDbWithError(err)
-	} else if err = dynDb.WaitForTable(maxAttempts, sleep); err != nil {
+	} else if err = dynDb.WaitForTable(ctx, maxAttempts, sleep); err != nil {
 		err = teardownDbWithError(err)
 	} else {
 		teardown = func() error {
-			return teardownDbWithError(dynDb.DeleteTable())
+			return teardownDbWithError(dynDb.DeleteTable(ctx))
 		}
 	}
 	return
@@ -99,7 +100,7 @@ func randomString(n int) string {
 func setupAwsDynamoDb(
 	tableName string,
 ) (dynDb *DynamoDb, teardown func() error, err error) {
-	config, err := config.LoadDefaultConfig(context.TODO())
+	config, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		err = fmt.Errorf("failed to configure DynamoDB: %s", err)
 	} else {
@@ -211,7 +212,7 @@ func localDbConfig(localEndpoint string) (*aws.Config, error) {
 		},
 	)
 	dbConfig, err := config.LoadDefaultConfig(
-		context.TODO(),
+		context.Background(),
 		// From: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/config
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
@@ -244,20 +245,21 @@ func TestDynamoDb(t *testing.T) {
 		assert.NilError(t, err)
 	}()
 
+	ctx := context.Background()
 	var badDb DynamoDb = *testDb
 	badDb.TableName = testDb.TableName + "-nonexistent"
 
 	// Note that the success cases for CreateTable and DeleteTable are
 	// confirmed by setupDynamoDb() and teardown() above.
 	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
-		err := testDb.CreateTable()
+		err := testDb.CreateTable(ctx)
 
 		expected := "failed to create db table " + testDb.TableName + ": "
 		assert.ErrorContains(t, err, expected)
 	})
 
 	t.Run("DeleteTableFailsIfTableDoesNotExist", func(t *testing.T) {
-		err := badDb.DeleteTable()
+		err := badDb.DeleteTable(ctx)
 
 		expected := "failed to delete db table " + badDb.TableName + ": "
 		assert.ErrorContains(t, err, expected)
@@ -266,10 +268,10 @@ func TestDynamoDb(t *testing.T) {
 	t.Run("PutGetAndDeleteSucceed", func(t *testing.T) {
 		subscriber := newTestSubscriber()
 
-		putErr := testDb.Put(subscriber)
-		retrievedSubscriber, getErr := testDb.Get(subscriber.Email)
-		deleteErr := testDb.Delete(subscriber.Email)
-		_, getAfterDeleteErr := testDb.Get(subscriber.Email)
+		putErr := testDb.Put(ctx, subscriber)
+		retrievedSubscriber, getErr := testDb.Get(ctx, subscriber.Email)
+		deleteErr := testDb.Delete(ctx, subscriber.Email)
+		_, getAfterDeleteErr := testDb.Get(ctx, subscriber.Email)
 
 		assert.NilError(t, putErr)
 		assert.NilError(t, getErr)
@@ -281,14 +283,14 @@ func TestDynamoDb(t *testing.T) {
 
 	t.Run("DescribeTable", func(t *testing.T) {
 		t.Run("Succeeds", func(t *testing.T) {
-			td, err := testDb.DescribeTable()
+			td, err := testDb.DescribeTable(ctx)
 
 			assert.NilError(t, err)
 			assert.Equal(t, types.TableStatusActive, td.TableStatus)
 		})
 
 		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {
-			td, err := badDb.DescribeTable()
+			td, err := badDb.DescribeTable(ctx)
 
 			assert.Assert(t, is.Nil(td))
 			errMsg := "failed to describe db table " + badDb.TableName
@@ -306,7 +308,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("Succeeds", func(t *testing.T) {
 			numSleeps, sleep := setup()
 
-			err := testDb.WaitForTable(1, sleep)
+			err := testDb.WaitForTable(ctx, 1, sleep)
 
 			assert.NilError(t, err)
 			assert.Equal(t, 0, *numSleeps)
@@ -315,7 +317,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("ErrorsIfMaxAttemptsLessThanOne", func(t *testing.T) {
 			numSleeps, sleep := setup()
 
-			err := testDb.WaitForTable(0, sleep)
+			err := testDb.WaitForTable(ctx, 0, sleep)
 
 			msg := "maxAttempts to wait for DB table must be >= 0, got: 0"
 			assert.ErrorContains(t, err, msg)
@@ -326,7 +328,7 @@ func TestDynamoDb(t *testing.T) {
 			numSleeps, sleep := setup()
 			maxAttempts := 3
 
-			err := badDb.WaitForTable(maxAttempts, sleep)
+			err := badDb.WaitForTable(ctx, maxAttempts, sleep)
 
 			msg := fmt.Sprintf(
 				"db table %s not active after %d attempts to check",
@@ -343,7 +345,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("IfSubscriberDoesNotExist", func(t *testing.T) {
 			subscriber := newTestSubscriber()
 
-			retrieved, err := testDb.Get(subscriber.Email)
+			retrieved, err := testDb.Get(ctx, subscriber.Email)
 
 			assert.Assert(t, is.Nil(retrieved))
 			expected := subscriber.Email + " is not a subscriber"
@@ -353,7 +355,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
 			subscriber := newTestSubscriber()
 
-			retrieved, err := badDb.Get(subscriber.Email)
+			retrieved, err := badDb.Get(ctx, subscriber.Email)
 
 			assert.Assert(t, is.Nil(retrieved))
 			expected := "failed to get " + subscriber.Email + ": "
@@ -365,7 +367,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
 			subscriber := newTestSubscriber()
 
-			err := badDb.Put(subscriber)
+			err := badDb.Put(ctx, subscriber)
 
 			assert.ErrorContains(t, err, "failed to put "+subscriber.Email+": ")
 		})
@@ -375,7 +377,7 @@ func TestDynamoDb(t *testing.T) {
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
 			subscriber := newTestSubscriber()
 
-			err := badDb.Delete(subscriber.Email)
+			err := badDb.Delete(ctx, subscriber.Email)
 
 			expected := "failed to delete " + subscriber.Email + ": "
 			assert.ErrorContains(t, err, expected)

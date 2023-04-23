@@ -40,24 +40,26 @@ var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	BillingMode: types.BillingModePayPerRequest,
 }
 
-func (db *DynamoDb) CreateTable() (err error) {
+func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	var input dynamodb.CreateTableInput = *DynamoDbCreateTableInput
 	input.TableName = &db.TableName
 
-	if _, err = db.Client.CreateTable(context.TODO(), &input); err != nil {
+	if _, err = db.Client.CreateTable(ctx, &input); err != nil {
 		err = fmt.Errorf("failed to create db table %s: %s", db.TableName, err)
 	}
 	return
 }
 
-func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) error {
+func (db *DynamoDb) WaitForTable(
+	ctx context.Context, maxAttempts int, sleep func(),
+) error {
 	if maxAttempts <= 0 {
 		const errFmt = "maxAttempts to wait for DB table must be >= 0, got: %d"
 		return fmt.Errorf(errFmt, maxAttempts)
 	}
 
 	for current := 0; ; {
-		td, err := db.DescribeTable()
+		td, err := db.DescribeTable(ctx)
 
 		if err == nil && td.TableStatus == types.TableStatusActive {
 			return nil
@@ -70,9 +72,11 @@ func (db *DynamoDb) WaitForTable(maxAttempts int, sleep func()) error {
 	}
 }
 
-func (db *DynamoDb) DescribeTable() (td *types.TableDescription, err error) {
+func (db *DynamoDb) DescribeTable(
+	ctx context.Context,
+) (td *types.TableDescription, err error) {
 	input := &dynamodb.DescribeTableInput{TableName: &db.TableName}
-	output, descErr := db.Client.DescribeTable(context.TODO(), input)
+	output, descErr := db.Client.DescribeTable(ctx, input)
 
 	if descErr != nil {
 		const errFmt = "failed to describe db table %s: %s"
@@ -83,9 +87,9 @@ func (db *DynamoDb) DescribeTable() (td *types.TableDescription, err error) {
 	return
 }
 
-func (db *DynamoDb) DeleteTable() error {
+func (db *DynamoDb) DeleteTable(ctx context.Context) error {
 	input := &dynamodb.DeleteTableInput{TableName: &db.TableName}
-	if _, err := db.Client.DeleteTable(context.TODO(), input); err != nil {
+	if _, err := db.Client.DeleteTable(ctx, input); err != nil {
 		return fmt.Errorf("failed to delete db table %s: %s", db.TableName, err)
 	}
 	return nil
@@ -173,13 +177,15 @@ func getAttribute[T any, V any](
 	return
 }
 
-func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
+func (db *DynamoDb) Get(
+	ctx context.Context, email string,
+) (subscriber *Subscriber, err error) {
 	input := &dynamodb.GetItemInput{
 		Key: subscriberKey(email), TableName: &db.TableName,
 	}
 	var output *dynamodb.GetItemOutput
 
-	if output, err = db.Client.GetItem(context.TODO(), input); err != nil {
+	if output, err = db.Client.GetItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to get %s: %s", email, err)
 	} else if len(output.Item) == 0 {
 		err = fmt.Errorf("%s is not a subscriber", email)
@@ -189,7 +195,7 @@ func (db *DynamoDb) Get(email string) (subscriber *Subscriber, err error) {
 	return
 }
 
-func (db *DynamoDb) Put(record *Subscriber) (err error) {
+func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
 	input := &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
 			"email":    &dbString{Value: record.Email},
@@ -201,17 +207,17 @@ func (db *DynamoDb) Put(record *Subscriber) (err error) {
 		},
 		TableName: &db.TableName,
 	}
-	if _, err = db.Client.PutItem(context.TODO(), input); err != nil {
+	if _, err = db.Client.PutItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to put %s: %s", record.Email, err)
 	}
 	return
 }
 
-func (db *DynamoDb) Delete(email string) (err error) {
+func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	input := &dynamodb.DeleteItemInput{
 		Key: subscriberKey(email), TableName: &db.TableName,
 	}
-	if _, err = db.Client.DeleteItem(context.TODO(), input); err != nil {
+	if _, err = db.Client.DeleteItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to delete %s: %s", email, err)
 	}
 	return

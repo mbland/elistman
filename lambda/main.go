@@ -15,7 +15,7 @@ import (
 )
 
 func buildHandler() (*handler.Handler, error) {
-	if cfg, err := config.LoadDefaultConfig(context.TODO()); err != nil {
+	if cfg, err := config.LoadDefaultConfig(context.Background()); err != nil {
 		return nil, err
 	} else if opts, err := handler.GetOptions(os.Getenv); err != nil {
 		return nil, err

@@ -1,15 +1,16 @@
 package db
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type Database interface {
-	Get(email string) (*Subscriber, error)
-	Put(subscriber *Subscriber) error
-	Delete(email string) error
+	Get(ctx context.Context, email string) (*Subscriber, error)
+	Put(ctx context.Context, subscriber *Subscriber) error
+	Delete(ctx context.Context, email string) error
 }
 
 type Subscriber struct {
