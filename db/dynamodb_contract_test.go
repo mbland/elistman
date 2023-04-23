@@ -4,12 +4,10 @@ package db
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
-	"net"
 	"os/exec"
 	"strings"
 	"testing"
@@ -17,8 +15,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -124,46 +123,20 @@ func setupLocalDynamoDb(
 	var containerId string
 	var config *aws.Config
 
-	if err = checkDockerIsRunning(); err != nil {
+	if err = testutils.CheckDockerIsRunning(); err != nil {
 		return
-	} else if endpoint, err = pickUnusedEndpoint(); err != nil {
+	} else if err = testutils.PullDockerImage(dbImage); err != nil {
 		return
-	} else if err = pullDynamoDbDockerImage(); err != nil {
-		return
-	} else if containerId, err = launchLocalDb(endpoint); err != nil {
+	} else if endpoint, err = testutils.PickUnusedHostPort(); err != nil {
 		return
 	} else if config, err = localDbConfig(endpoint); err != nil {
+		return
+	} else if containerId, err = launchLocalDb(endpoint); err != nil {
 		return
 	}
 	dynDb = NewDynamoDb(config, tableName)
 	teardown = func() error { return cleanupLocalDb(containerId) }
 	return
-}
-
-func checkDockerIsRunning() (err error) {
-	cmd := exec.Command("docker", "info")
-	if err = cmd.Run(); err != nil {
-		err = errors.New("Please start Docker before running this test.")
-	}
-	return
-}
-
-func pullDynamoDbDockerImage() error {
-	cmd := exec.Command("docker", "pull", dbImage)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to pull %s: %s:\n%s", dbImage, err, output)
-	}
-	return nil
-}
-
-func pickUnusedEndpoint() (string, error) {
-	if listener, err := net.Listen("tcp", "localhost:0"); err != nil {
-		return "", errors.New("failed to pick unused endpoint: " + err.Error())
-	} else {
-		listener.Close()
-		return listener.Addr().String(), nil
-	}
 }
 
 func launchLocalDb(localEndpoint string) (string, error) {
@@ -203,33 +176,14 @@ func cleanupLocalDb(containerId string) (errResult error) {
 // Inspired by:
 // - https://davidagood.com/dynamodb-local-go/
 // - https://github.com/aws/aws-sdk-go-v2/blob/main/config/example_test.go
-func localDbConfig(localEndpoint string) (*aws.Config, error) {
-	localResolver := aws.EndpointResolverWithOptionsFunc(
-		func(
-			service, region string, options ...interface{},
-		) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: "http://" + localEndpoint}, nil
-		},
-	)
-	dbConfig, err := config.LoadDefaultConfig(
-		context.Background(),
-		// From: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/config
-		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-			Value: aws.Credentials{
-				AccessKeyID:     "AKID",
-				SecretAccessKey: "SECRET",
-				SessionToken:    "SESSION",
-				Source:          "example hard coded credentials",
-			},
-		}),
-		config.WithRegion("local"),
-		config.WithEndpointResolverWithOptions(localResolver),
-	)
+func localDbConfig(localHostPort string) (*aws.Config, error) {
+	dbConfig, resolver, err := testutils.AwsConfig()
 	if err != nil {
 		const errFmt = "failed to configure local DynamoDB at: %s: %s"
-		return nil, fmt.Errorf(errFmt, localEndpoint, err)
+		return nil, fmt.Errorf(errFmt, localHostPort, err)
 	}
-	return &dbConfig, nil
+	resolver.AddEndpoint(dynamodb.ServiceID, localHostPort)
+	return dbConfig, nil
 }
 
 func newTestSubscriber() *Subscriber {

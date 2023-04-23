@@ -1,0 +1,62 @@
+package testutils
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+)
+
+type EndpointResolver struct {
+	endpoints map[string]*aws.Endpoint
+}
+
+func (r *EndpointResolver) AddEndpoint(service, localHostPort string) {
+	r.endpoints[service] = &aws.Endpoint{
+		URL:               "http://" + localHostPort,
+		HostnameImmutable: true,
+		Source:            aws.EndpointSourceCustom,
+	}
+}
+
+func (r *EndpointResolver) ResolveEndpoint(
+	service, region string, options ...interface{},
+) (endpoint aws.Endpoint, err error) {
+	log.Printf("looking up endpoint for service: %s", service)
+	if ep, ok := r.endpoints[service]; !ok {
+		err = &aws.EndpointNotFoundError{Err: errors.New(service + " (local)")}
+	} else {
+		endpoint = *ep
+	}
+	return
+}
+
+// Inspired by:
+// - https://davidagood.com/dynamodb-local-go/
+// - https://github.com/aws/aws-sdk-go-v2/blob/main/config/example_test.go
+func AwsConfig() (*aws.Config, *EndpointResolver, error) {
+	resolver := &EndpointResolver{map[string]*aws.Endpoint{}}
+	dbConfig, err := config.LoadDefaultConfig(
+		context.Background(),
+		// From: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/config
+		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+			Value: aws.Credentials{
+				AccessKeyID:     "AKID",
+				SecretAccessKey: "SECRET",
+				SessionToken:    "SESSION",
+				Source:          "example hard coded credentials",
+			},
+		}),
+		config.WithRegion("local"),
+		config.WithEndpointResolverWithOptions(resolver),
+	)
+	if err != nil {
+		err = fmt.Errorf("error loading local AWS configuration: %s", err)
+		return nil, nil, err
+	}
+	return &dbConfig, resolver, nil
+}
