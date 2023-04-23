@@ -27,6 +27,7 @@ package email
 // - https://en.wikipedia.org/wiki/MIME
 
 import (
+	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,6 +36,7 @@ import (
 
 type Mailer interface {
 	Send(
+		ctx context.Context,
 		toAddr string,
 		fromAddr string,
 		subject string,
@@ -45,7 +47,10 @@ type Mailer interface {
 
 type Bouncer interface {
 	Bounce(
-		emailDomain string, recipients []string, timestamp time.Time,
+		ctx context.Context,
+		emailDomain string,
+		recipients []string,
+		timestamp time.Time,
 	) (string, error)
 }
 
@@ -55,10 +60,10 @@ type Bouncer interface {
 type Suppressor interface {
 	// IsSuppressed checks whether an email address is on the SES account-level
 	// suppression list.
-	IsSuppressed(email string) bool
+	IsSuppressed(ctx context.Context, email string) bool
 
 	// Suppress adds an email address to the SES account-level suppression list.
-	Suppress(email string) error
+	Suppress(ctx context.Context, email string) error
 }
 
 type SesMailer struct {
@@ -70,6 +75,7 @@ func NewSesMailer(awsConfig aws.Config) *SesMailer {
 }
 
 func (mailer *SesMailer) Send(
+	ctx context.Context,
 	toAddr string,
 	fromAddr string,
 	subject string,
@@ -80,7 +86,10 @@ func (mailer *SesMailer) Send(
 }
 
 func (mailer *SesMailer) Bounce(
-	emailDomain string, recipients []string, timestamp time.Time,
+	ctx context.Context,
+	emailDomain string,
+	recipients []string,
+	timestamp time.Time,
 ) (bounceMessageId string, err error) {
 	// https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#SES.SendBounce
@@ -92,10 +101,10 @@ func (mailer *SesMailer) Bounce(
 	return
 }
 
-func (mailer *SesMailer) IsSuppressed(email string) bool {
+func (mailer *SesMailer) IsSuppressed(ctx context.Context, email string) bool {
 	return false
 }
 
-func (mailer *SesMailer) Suppress(email string) error {
+func (mailer *SesMailer) Suppress(ctx context.Context, email string) error {
 	return nil
 }

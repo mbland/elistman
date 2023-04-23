@@ -1,5 +1,7 @@
 package email
 
+import "context"
+
 type TestSuppressor struct {
 	checkedEmail       string
 	isSuppressedResult bool
@@ -7,12 +9,12 @@ type TestSuppressor struct {
 	suppressErr        error
 }
 
-func (ts *TestSuppressor) IsSuppressed(email string) bool {
+func (ts *TestSuppressor) IsSuppressed(ctx context.Context, email string) bool {
 	ts.checkedEmail = email
 	return ts.isSuppressedResult
 }
 
-func (ts *TestSuppressor) Suppress(email string) error {
+func (ts *TestSuppressor) Suppress(ctx context.Context, email string) error {
 	ts.suppressedEmail = email
 	return ts.suppressErr
 }

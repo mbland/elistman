@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -53,14 +54,16 @@ const ResponseTemplate = `<!DOCTYPE html>
   </body>
 </html>`
 
-func (h *Handler) HandleEvent(event *Event) (result any, err error) {
+func (h *Handler) HandleEvent(
+	ctx context.Context, event *Event,
+) (result any, err error) {
 	switch event.Type {
 	case ApiRequest:
-		result = h.api.HandleEvent(event.ApiRequest)
+		result = h.api.HandleEvent(ctx, event.ApiRequest)
 	case MailtoEvent:
-		result = h.mailto.HandleEvent(event.MailtoEvent)
+		result = h.mailto.HandleEvent(ctx, event.MailtoEvent)
 	case SnsEvent:
-		h.sns.HandleEvent(event.SnsEvent)
+		h.sns.HandleEvent(ctx, event.SnsEvent)
 	default:
 		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 	}

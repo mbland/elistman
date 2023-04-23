@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"strings"
 
@@ -18,13 +19,13 @@ type mailtoHandler struct {
 }
 
 func (h *mailtoHandler) HandleEvent(
-	e *events.SimpleEmailEvent,
+	ctx context.Context, e *events.SimpleEmailEvent,
 ) *events.SimpleEmailDisposition {
 	// If I understand the contract correctly, there should only ever be one
 	// valid Record per event. However, we have the technology to deal
 	// gracefully with the unexpected.
 	for _, record := range e.Records {
-		h.handleMailtoEvent(newMailtoEvent(&record.SES))
+		h.handleMailtoEvent(ctx, newMailtoEvent(&record.SES))
 	}
 	return &events.SimpleEmailDisposition{
 		Disposition: events.SimpleEmailStopRuleSet,
@@ -64,10 +65,12 @@ func newMailtoEvent(ses *events.SimpleEmailService) *mailtoEvent {
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
-func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) {
+func (h *mailtoHandler) handleMailtoEvent(
+	ctx context.Context, ev *mailtoEvent,
+) {
 	outcome := "success"
 
-	if bounceMessageId, err := h.bounceIfDmarcFails(ev); err != nil {
+	if bounceMessageId, err := h.bounceIfDmarcFails(ctx, ev); err != nil {
 		outcome = "DMARC bounce failed: " + err.Error()
 	} else if bounceMessageId != "" {
 		outcome = "DMARC bounced with message ID: " + bounceMessageId
@@ -75,7 +78,7 @@ func (h *mailtoHandler) handleMailtoEvent(ev *mailtoEvent) {
 		outcome = "marked as spam, ignored"
 	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
 		outcome = "failed to parse, ignoring: " + err.Error()
-	} else if result, err := h.Agent.Unsubscribe(op.Email, op.Uid); err != nil {
+	} else if result, err := unsubscribe(ctx, h.Agent, op); err != nil {
 		outcome = "error: " + err.Error()
 	} else if result != ops.Unsubscribed {
 		outcome = "failed: " + result.String()
@@ -95,11 +98,11 @@ func (h *mailtoHandler) logOutcome(ev *mailtoEvent, outcome string) {
 }
 
 func (h *mailtoHandler) bounceIfDmarcFails(
-	ev *mailtoEvent,
+	ctx context.Context, ev *mailtoEvent,
 ) (bounceMessageId string, err error) {
 	if ev.DmarcVerdict == "FAIL" && ev.DmarcPolicy == "REJECT" {
 		bounceMessageId, err = h.Bouncer.Bounce(
-			h.EmailDomain, ev.Recipients, ev.Timestamp,
+			ctx, h.EmailDomain, ev.Recipients, ev.Timestamp,
 		)
 	}
 	return
@@ -110,4 +113,10 @@ func isSpam(ev *mailtoEvent) bool {
 		ev.DkimVerdict == "FAIL" ||
 		ev.SpamVerdict == "FAIL" ||
 		ev.VirusVerdict == "FAIL"
+}
+
+func unsubscribe(
+	ctx context.Context, agent ops.SubscriptionAgent, op *eventOperation,
+) (ops.OperationResult, error) {
+	return agent.Unsubscribe(ctx, op.Email, op.Uid)
 }

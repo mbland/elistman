@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ type mailtoHandlerFixture struct {
 	bouncer *testBouncer
 	logs    *strings.Builder
 	handler *mailtoHandler
+	ctx     context.Context
 	event   *mailtoEvent
 }
 
@@ -43,6 +45,7 @@ func newMailtoHandlerFixture() *mailtoHandlerFixture {
 		&mailtoHandler{
 			testEmailDomain, testUnsubscribeAddress, agent, bouncer, logger,
 		},
+		context.Background(),
 		&mailtoEvent{
 			From:         []string{"mbland@acm.org"},
 			To:           []string{testUnsubscribeAddress},
@@ -85,7 +88,7 @@ func TestBounceIfDmarcFails(t *testing.T) {
 	t.Run("DoesNothingIfDoesNotFail", func(t *testing.T) {
 		f := newMailtoHandlerFixture()
 
-		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "", bounceMessageId)
@@ -96,7 +99,7 @@ func TestBounceIfDmarcFails(t *testing.T) {
 		f.event.DmarcVerdict = "FAIL"
 		f.event.DmarcPolicy = "NONE"
 
-		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "", bounceMessageId)
@@ -107,7 +110,7 @@ func TestBounceIfDmarcFails(t *testing.T) {
 		f.event.DmarcVerdict = "FAIL"
 		f.event.DmarcPolicy = "REJECT"
 
-		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "0x123456789", bounceMessageId)
@@ -122,7 +125,7 @@ func TestBounceIfDmarcFails(t *testing.T) {
 		f.event.DmarcPolicy = "REJECT"
 		f.bouncer.Error = errors.New("couldn't bounce")
 
-		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.event)
+		bounceMessageId, err := f.handler.bounceIfDmarcFails(f.ctx, f.event)
 
 		assert.Equal(t, "", bounceMessageId)
 		assert.ErrorContains(t, err, "couldn't bounce")
@@ -147,7 +150,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f := newMailtoHandlerFixture()
 		f.agent.ReturnValue = ops.Unsubscribed
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, `unsubscribe [Id:"deadbeef" `+
 			`From:"mbland@acm.org" `+
@@ -161,7 +164,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f.event.DmarcPolicy = "REJECT"
 		f.bouncer.Error = errors.New("couldn't bounce")
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, "DMARC bounce failed: couldn't bounce")
 	})
@@ -172,7 +175,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f.event.DmarcPolicy = "REJECT"
 		f.bouncer.ReturnMessageId = "0x123456789"
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, "DMARC bounced with message ID: 0x123456789")
 	})
@@ -181,7 +184,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f := newMailtoHandlerFixture()
 		f.event.VirusVerdict = "FAIL"
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, "marked as spam, ignored")
 	})
@@ -190,7 +193,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f := newMailtoHandlerFixture()
 		f.event.Subject = "foo@bar.com UID"
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, `failed to parse, ignoring: invalid uid: `)
 	})
@@ -199,7 +202,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f := newMailtoHandlerFixture()
 		f.agent.Error = errors.New("agent failed")
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, `error: agent failed`)
 	})
@@ -208,7 +211,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 		f := newMailtoHandlerFixture()
 		f.agent.ReturnValue = ops.Invalid
 
-		f.handler.handleMailtoEvent(f.event)
+		f.handler.handleMailtoEvent(f.ctx, f.event)
 
 		assertLogsContain(t, f, `failed: Invalid`)
 	})
@@ -218,7 +221,7 @@ func TestMailtoHandlerHandleEvent(t *testing.T) {
 	f := newMailtoHandlerFixture()
 	f.agent.ReturnValue = ops.Unsubscribed
 
-	response := f.handler.HandleEvent(simpleEmailEvent())
+	response := f.handler.HandleEvent(f.ctx, simpleEmailEvent())
 
 	expected := &events.SimpleEmailDisposition{
 		Disposition: events.SimpleEmailStopRuleSet,

@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -32,14 +33,16 @@ type testAgentCalls struct {
 	Uid    uuid.UUID
 }
 
-func (a *testAgent) Subscribe(email string) (ops.OperationResult, error) {
+func (a *testAgent) Subscribe(
+	ctx context.Context, email string,
+) (ops.OperationResult, error) {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Subscribe", Email: email})
 	a.Email = email
 	return a.ReturnValue, a.Error
 }
 
 func (a *testAgent) Verify(
-	email string, uid uuid.UUID,
+	ctx context.Context, email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
 	a.Calls = append(a.Calls, testAgentCalls{"Verify", email, uid})
 	a.Email = email
@@ -48,7 +51,7 @@ func (a *testAgent) Verify(
 }
 
 func (a *testAgent) Unsubscribe(
-	email string, uid uuid.UUID,
+	ctx context.Context, email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
 	a.Calls = append(a.Calls, testAgentCalls{"Unsubscribe", email, uid})
 	a.Email = email
@@ -56,13 +59,13 @@ func (a *testAgent) Unsubscribe(
 	return a.ReturnValue, a.Error
 }
 
-func (a *testAgent) Remove(email string) error {
+func (a *testAgent) Remove(ctx context.Context, email string) error {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Remove", Email: email})
 	a.Email = email
 	return a.Error
 }
 
-func (a *testAgent) Restore(email string) error {
+func (a *testAgent) Restore(ctx context.Context, email string) error {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Restore", Email: email})
 	a.Email = email
 	return a.Error
@@ -94,7 +97,10 @@ type testBouncer struct {
 }
 
 func (b *testBouncer) Bounce(
-	emailDomain string, recipients []string, timestamp time.Time,
+	ctx context.Context,
+	emailDomain string,
+	recipients []string,
+	timestamp time.Time,
 ) (string, error) {
 	b.EmailDomain = emailDomain
 	b.Recipients = recipients
@@ -119,6 +125,7 @@ type handlerFixture struct {
 	logs    *strings.Builder
 	bouncer *testBouncer
 	handler *Handler
+	ctx     context.Context
 	event   *Event
 }
 
@@ -130,6 +137,7 @@ func newHandlerFixture() *handlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
 	bouncer := &testBouncer{}
+	ctx := context.Background()
 	handler, err := NewHandler(
 		testEmailDomain,
 		testSiteTitle,
@@ -144,7 +152,7 @@ func newHandlerFixture() *handlerFixture {
 	if err != nil {
 		panic(err.Error())
 	}
-	return &handlerFixture{agent, logs, bouncer, handler, &Event{}}
+	return &handlerFixture{agent, logs, bouncer, handler, ctx, &Event{}}
 }
 
 func testLogger() (*strings.Builder, *log.Logger) {
@@ -297,7 +305,7 @@ func TestHandleEvent(t *testing.T) {
 	t.Run("ReturnsErrorOnUnexpectedEvent", func(t *testing.T) {
 		f := newHandlerFixture()
 
-		response, err := f.handler.HandleEvent(f.event)
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.Equal(t, nil, response)
 		expected := fmt.Sprintf(
@@ -318,7 +326,7 @@ func TestHandleEvent(t *testing.T) {
 		req.Body = "email=mbland%40acm.org"
 		f.event.ApiRequest = req
 
-		response, err := f.handler.HandleEvent(f.event)
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
@@ -335,7 +343,7 @@ func TestHandleEvent(t *testing.T) {
 		f.event.MailtoEvent = simpleEmailEvent()
 		f.agent.ReturnValue = ops.Unsubscribed
 
-		response, err := f.handler.HandleEvent(f.event)
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		expected := &events.SimpleEmailDisposition{
@@ -352,7 +360,7 @@ func TestHandleEvent(t *testing.T) {
 		f.event.Type = SnsEvent
 		f.event.SnsEvent = simpleNotificationServiceEvent()
 
-		response, err := f.handler.HandleEvent(f.event)
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(response))

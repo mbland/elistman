@@ -70,7 +70,7 @@ func (e *ParseError) Error() string {
 }
 
 type apiRequest struct {
-	RequestId   string
+	Id          string
 	RawPath     string
 	Method      string
 	ContentType string

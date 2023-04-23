@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -49,6 +50,7 @@ type apiHandlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
 	handler *apiHandler
+	ctx     context.Context
 }
 
 func (f *apiHandlerFixture) Logs() string {
@@ -70,7 +72,7 @@ func newApiHandlerFixture() *apiHandlerFixture {
 	if err != nil {
 		panic(err.Error())
 	}
-	return &apiHandlerFixture{agent, logs, handler}
+	return &apiHandlerFixture{agent, logs, handler, context.Background()}
 }
 
 func TestNewApiHandler(t *testing.T) {
@@ -346,6 +348,7 @@ func TestPerformOperation(t *testing.T) {
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
 		result, err := f.handler.performOperation(
+			f.ctx,
 			"deadbeef",
 			&eventOperation{Type: Subscribe, Email: "mbland@acm.org"},
 		)
@@ -360,6 +363,7 @@ func TestPerformOperation(t *testing.T) {
 		f.agent.ReturnValue = ops.Subscribed
 
 		result, err := f.handler.performOperation(
+			f.ctx,
 			"deadbeef",
 			&eventOperation{
 				Type: Verify, Email: "mbland@acm.org", Uid: testValidUid,
@@ -376,6 +380,7 @@ func TestPerformOperation(t *testing.T) {
 		f.agent.ReturnValue = ops.Unsubscribed
 
 		result, err := f.handler.performOperation(
+			f.ctx,
 			"deadbeef",
 			&eventOperation{
 				Type: Unsubscribe, Email: "mbland@acm.org", Uid: testValidUid,
@@ -390,7 +395,9 @@ func TestPerformOperation(t *testing.T) {
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
 		f := newApiHandlerFixture()
 
-		result, err := f.handler.performOperation("deadbeef", &eventOperation{})
+		result, err := f.handler.performOperation(
+			f.ctx, "deadbeef", &eventOperation{},
+		)
 
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
@@ -403,6 +410,7 @@ func TestPerformOperation(t *testing.T) {
 		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
 
 		result, err := f.handler.performOperation(
+			f.ctx,
 			"deadbeef",
 			&eventOperation{Type: Subscribe, Email: "mbland@acm.org"},
 		)
@@ -420,7 +428,7 @@ func TestHandleApiRequest(t *testing.T) {
 	// Use an unsubscribe request since it will allow us to hit every branch.
 	newUnsubscribeRequest := func() *apiRequest {
 		return &apiRequest{
-			RequestId: "deadbeef",
+			Id: "deadbeef",
 			RawPath: UnsubscribePrefix + "mbland%40acm.org/" +
 				testValidUidStr,
 			Method:      http.MethodGet,
@@ -436,7 +444,9 @@ func TestHandleApiRequest(t *testing.T) {
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.Unsubscribed
 
-		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
+		response, err := f.handler.handleApiRequest(
+			f.ctx, newUnsubscribeRequest(),
+		)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
@@ -450,7 +460,7 @@ func TestHandleApiRequest(t *testing.T) {
 		req := newUnsubscribeRequest()
 		req.Params["email"] = "mbland acm.org"
 
-		response, err := f.handler.handleApiRequest(req)
+		response, err := f.handler.handleApiRequest(f.ctx, req)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "", f.agent.Email)
@@ -461,7 +471,9 @@ func TestHandleApiRequest(t *testing.T) {
 		f := newApiHandlerFixture()
 		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
 
-		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
+		response, err := f.handler.handleApiRequest(
+			f.ctx, newUnsubscribeRequest(),
+		)
 
 		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
 		assert.DeepEqual(t, expected, err)
@@ -476,7 +488,7 @@ func TestHandleApiRequest(t *testing.T) {
 		req.ContentType = "application/x-www-form-urlencoded"
 		req.Body = "List-Unsubscribe=One-Click"
 
-		response, err := f.handler.handleApiRequest(req)
+		response, err := f.handler.handleApiRequest(f.ctx, req)
 
 		assert.NilError(t, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -487,7 +499,9 @@ func TestHandleApiRequest(t *testing.T) {
 		f.agent.ReturnValue = ops.Unsubscribed
 		delete(f.handler.Redirects, ops.Unsubscribed)
 
-		response, err := f.handler.handleApiRequest(newUnsubscribeRequest())
+		response, err := f.handler.handleApiRequest(
+			f.ctx, newUnsubscribeRequest(),
+		)
 
 		assert.ErrorContains(t, err, "no redirect for op result: Unsubscribed")
 		assert.Assert(t, is.Nil(response))
@@ -508,7 +522,7 @@ func TestApiHandleEvent(t *testing.T) {
 		badReq.Body = "Definitely not base64 encoded"
 		badReq.IsBase64Encoded = true
 
-		res := f.handler.HandleEvent(badReq)
+		res := f.handler.HandleEvent(f.ctx, badReq)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
@@ -521,7 +535,7 @@ func TestApiHandleEvent(t *testing.T) {
 			Message: "db operation failed",
 		}
 
-		res := f.handler.HandleEvent(req)
+		res := f.handler.HandleEvent(f.ctx, req)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
@@ -532,7 +546,7 @@ func TestApiHandleEvent(t *testing.T) {
 		f := newApiHandlerFixture()
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
-		res := f.handler.HandleEvent(req)
+		res := f.handler.HandleEvent(f.ctx, req)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusSeeOther, res.StatusCode)

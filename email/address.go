@@ -89,7 +89,7 @@ func (av *ProdAddressValidator) ValidateAddress(
 		err = errors.New("address failed to parse: " + address)
 	} else if isKnownInvalidAddress(user, domain) {
 		err = errors.New("invalid email address: " + address)
-	} else if av.Suppressor.IsSuppressed(email) {
+	} else if av.Suppressor.IsSuppressed(ctx, email) {
 		err = errors.New("suppressed email address: " + address)
 	} else if err = av.checkMailHosts(ctx, email, domain); err != nil {
 		err = fmt.Errorf("address failed DNS validation: %s: %s", address, err)
@@ -165,7 +165,7 @@ func (av *ProdAddressValidator) checkMailHosts(
 	// attack. Of course, an attacker could use different addresses from the
 	// same domain. It might be worth creating a table of suppressed domains at
 	// some point.
-	suppressErr := av.Suppressor.Suppress(email)
+	suppressErr := av.Suppressor.Suppress(ctx, email)
 	err = errors.Join(err, errors.Join(errs...), suppressErr)
 	return fmt.Errorf("no valid MX hosts for %s: %s", domain, err)
 }

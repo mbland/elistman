@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -87,12 +88,12 @@ func initResponseBodyTemplate(
 }
 
 func (h *apiHandler) HandleEvent(
-	origReq *events.APIGatewayV2HTTPRequest,
+	ctx context.Context, origReq *events.APIGatewayV2HTTPRequest,
 ) (res *events.APIGatewayV2HTTPResponse) {
 	req, err := newApiRequest(origReq)
 
 	if err == nil {
-		res, err = h.handleApiRequest(req)
+		res, err = h.handleApiRequest(ctx, req)
 	}
 
 	if err != nil {
@@ -207,14 +208,14 @@ func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
 }
 
 func (h *apiHandler) handleApiRequest(
-	req *apiRequest,
+	ctx context.Context, req *apiRequest,
 ) (*events.APIGatewayV2HTTPResponse, error) {
 	res := &events.APIGatewayV2HTTPResponse{Headers: map[string]string{}}
 	res.Headers["content-type"] = "text/plain; charset=utf-8"
 
 	if op, err := parseApiRequest(req); err != nil {
 		return h.respondToParseError(res, err)
-	} else if result, err := h.performOperation(req.RequestId, op); err != nil {
+	} else if result, err := h.performOperation(ctx, req.Id, op); err != nil {
 		return nil, err
 	} else if op.OneClick {
 		res.StatusCode = http.StatusOK
@@ -246,15 +247,15 @@ func (h *apiHandler) respondToParseError(
 }
 
 func (h *apiHandler) performOperation(
-	requestId string, op *eventOperation,
+	ctx context.Context, requestId string, op *eventOperation,
 ) (result ops.OperationResult, err error) {
 	switch op.Type {
 	case Subscribe:
-		result, err = h.Agent.Subscribe(op.Email)
+		result, err = h.Agent.Subscribe(ctx, op.Email)
 	case Verify:
-		result, err = h.Agent.Verify(op.Email, op.Uid)
+		result, err = h.Agent.Verify(ctx, op.Email, op.Uid)
 	case Unsubscribe:
-		result, err = h.Agent.Unsubscribe(op.Email, op.Uid)
+		result, err = h.Agent.Unsubscribe(ctx, op.Email, op.Uid)
 	default:
 		err = fmt.Errorf("can't handle operation type: %s", op.Type)
 	}

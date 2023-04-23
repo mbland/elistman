@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -17,19 +18,19 @@ type snsHandler struct {
 
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
-func (h *snsHandler) HandleEvent(e *events.SNSEvent) {
+func (h *snsHandler) HandleEvent(ctx context.Context, e *events.SNSEvent) {
 	for _, snsRecord := range e.Records {
 		msg := snsRecord.SNS.Message
 		if sesHandler, err := newSesEventHandler(h, msg); err != nil {
 			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
 		} else {
-			sesHandler.HandleEvent()
+			sesHandler.HandleEvent(ctx)
 		}
 	}
 }
 
 type sesEventHandler interface {
-	HandleEvent()
+	HandleEvent(ctx context.Context)
 }
 
 func newSesEventHandler(
@@ -89,7 +90,7 @@ type baseSesEventHandler struct {
 	Log       *log.Logger
 }
 
-func (evh *baseSesEventHandler) HandleEvent() {
+func (evh *baseSesEventHandler) HandleEvent(ctx context.Context) {
 	evh.logOutcome("success")
 }
 
@@ -106,38 +107,46 @@ func (evh *baseSesEventHandler) logOutcome(outcome string) {
 	)
 }
 
-func (evh *baseSesEventHandler) removeRecipients(reason string) {
+func (evh *baseSesEventHandler) removeRecipients(
+	ctx context.Context, reason string,
+) {
 	evh.updateRecipients(
+		ctx,
 		reason,
 		&recipientUpdater{evh.Agent.Remove, "removed", "error removing"},
 	)
 }
 
-func (evh *baseSesEventHandler) restoreRecipients(reason string) {
+func (evh *baseSesEventHandler) restoreRecipients(
+	ctx context.Context, reason string,
+) {
 	evh.updateRecipients(
+		ctx,
 		reason,
 		&recipientUpdater{evh.Agent.Restore, "restored", "error restoring"},
 	)
 }
 
 func (evh *baseSesEventHandler) updateRecipients(
-	reason string, up *recipientUpdater,
+	ctx context.Context, reason string, up *recipientUpdater,
 ) {
 	for _, email := range evh.To {
-		evh.logOutcome(up.updateRecipient(email, reason))
+		evh.logOutcome(up.updateRecipient(ctx, email, reason))
 	}
 }
 
 type recipientUpdater struct {
-	action        func(string) error
+	action        func(context.Context, string) error
 	successPrefix string
 	errPrefix     string
 }
 
-func (up *recipientUpdater) updateRecipient(email, reason string) string {
+func (up *recipientUpdater) updateRecipient(
+	ctx context.Context, email, reason string,
+) string {
 	emailAndReason := " " + email + " due to: " + reason
 
-	if err := up.action(email); err != nil {
+	if err := up.action(ctx, email); err != nil {
 		return up.errPrefix + emailAndReason + ": " + err.Error()
 	}
 	return up.successPrefix + emailAndReason
@@ -149,12 +158,12 @@ type bounceHandler struct {
 	BounceSubType string
 }
 
-func (evh *bounceHandler) HandleEvent() {
+func (evh *bounceHandler) HandleEvent(ctx context.Context) {
 	reason := evh.BounceType + "/" + evh.BounceSubType
 	if evh.BounceType == "Transient" {
 		evh.logOutcome("not removing recipients: " + reason)
 	} else {
-		evh.removeRecipients(reason)
+		evh.removeRecipients(ctx, reason)
 	}
 }
 
@@ -164,7 +173,7 @@ type complaintHandler struct {
 	ComplaintFeedbackType string
 }
 
-func (evh *complaintHandler) HandleEvent() {
+func (evh *complaintHandler) HandleEvent(ctx context.Context) {
 	reason := evh.ComplaintSubType
 	if reason == "" {
 		reason = evh.ComplaintFeedbackType
@@ -174,9 +183,9 @@ func (evh *complaintHandler) HandleEvent() {
 	}
 
 	if reason == "not-spam" {
-		evh.restoreRecipients(reason)
+		evh.restoreRecipients(ctx, reason)
 	} else {
-		evh.removeRecipients(reason)
+		evh.removeRecipients(ctx, reason)
 	}
 }
 
@@ -185,6 +194,6 @@ type rejectHandler struct {
 	Reason string
 }
 
-func (evh *rejectHandler) HandleEvent() {
+func (evh *rejectHandler) HandleEvent(ctx context.Context) {
 	evh.logOutcome(evh.Reason)
 }

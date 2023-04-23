@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
@@ -17,6 +18,7 @@ type snsHandlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
 	handler *snsHandler
+	ctx     context.Context
 }
 
 func (f *snsHandlerFixture) Logs() string {
@@ -26,8 +28,9 @@ func (f *snsHandlerFixture) Logs() string {
 func newSnsHandlerFixture() *snsHandlerFixture {
 	logs, logger := testLogger()
 	agent := &testAgent{}
+	ctx := context.Background()
 
-	return &snsHandlerFixture{agent, logs, &snsHandler{agent, logger}}
+	return &snsHandlerFixture{agent, logs, &snsHandler{agent, logger}, ctx}
 }
 
 // This and other test messages adapted from:
@@ -248,22 +251,28 @@ func TestNewSesEventHandler(t *testing.T) {
 func TestRecipientUpdater(t *testing.T) {
 	t.Run("ReturnsSuccessfulOutcome", func(t *testing.T) {
 		updater := &recipientUpdater{
-			func(string) error { return nil }, "updated", "error updating",
+			func(context.Context, string) error { return nil },
+			"updated",
+			"error updating",
 		}
 
-		result := updater.updateRecipient("mbland@acm.org", "testing")
+		result := updater.updateRecipient(
+			context.Background(), "mbland@acm.org", "testing",
+		)
 
 		assert.Equal(t, "updated mbland@acm.org due to: testing", result)
 	})
 
 	t.Run("ReturnsErrorOutcome", func(t *testing.T) {
 		updater := &recipientUpdater{
-			func(string) error { return errors.New("d'oh!") },
+			func(context.Context, string) error { return errors.New("d'oh!") },
 			"updated",
 			"error updating",
 		}
 
-		result := updater.updateRecipient("mbland@acm.org", "testing")
+		result := updater.updateRecipient(
+			context.Background(), "mbland@acm.org", "testing",
+		)
 
 		expected := "error updating mbland@acm.org due to: testing: d'oh!"
 		assert.Equal(t, expected, result)
@@ -273,6 +282,7 @@ func TestRecipientUpdater(t *testing.T) {
 type sesEventHandlerFixture struct {
 	agent *testAgent
 	logs  *strings.Builder
+	ctx   context.Context
 }
 
 func (f *sesEventHandlerFixture) Logs() string {
@@ -287,7 +297,7 @@ func newSesEventHandlerFixture(
 
 	handler.Agent = agent
 	handler.Log = logger
-	return &sesEventHandlerFixture{agent, logs}
+	return &sesEventHandlerFixture{agent, logs, context.Background()}
 }
 
 var testBaseSesEventHandler = &baseSesEventHandler{
@@ -330,7 +340,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 		t.Run("DoesNothingButLogSuccessfulOutcome", func(t *testing.T) {
 			handler, f := setup()
 
-			handler.HandleEvent()
+			handler.HandleEvent(f.ctx)
 
 			assertLogsContain(t, f, ": success: ")
 		})
@@ -340,10 +350,12 @@ func TestBaseSesEventHandler(t *testing.T) {
 		handler, f := setup()
 		handler.To = []string{"mbland@acm.org", "foo@bar.com"}
 		updater := &recipientUpdater{
-			func(string) error { return nil }, "updated", "error updating",
+			func(context.Context, string) error { return nil },
+			"updated",
+			"error updating",
 		}
 
-		handler.updateRecipients("testing", updater)
+		handler.updateRecipients(f.ctx, "testing", updater)
 
 		assertLogsContain(t, f, "updated mbland@acm.org due to: testing")
 		assertLogsContain(t, f, "updated foo@bar.com due to: testing")
@@ -352,7 +364,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 	t.Run("RemoveRecipients", func(t *testing.T) {
 		handler, f := setup()
 
-		handler.removeRecipients("testing")
+		handler.removeRecipients(f.ctx, "testing")
 
 		assertLogsContain(t, f, "removed mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
@@ -361,7 +373,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 	t.Run("RestoreRecipients", func(t *testing.T) {
 		handler, f := setup()
 
-		handler.restoreRecipients("testing")
+		handler.restoreRecipients(f.ctx, "testing")
 
 		assertLogsContain(t, f, "restored mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
@@ -382,7 +394,7 @@ func TestBounceHandler(t *testing.T) {
 		handler.BounceType = "Transient"
 		handler.BounceSubType = "General"
 
-		handler.HandleEvent()
+		handler.HandleEvent(f.ctx)
 
 		assertLogsContain(t, f, "not removing recipients: Transient/General")
 		assert.Assert(t, is.Nil(f.agent.Calls))
@@ -393,7 +405,7 @@ func TestBounceHandler(t *testing.T) {
 		handler.BounceType = "Permanent"
 		handler.BounceSubType = "General"
 
-		handler.HandleEvent()
+		handler.HandleEvent(f.ctx)
 
 		assertLogsContain(
 			t, f, "removed mbland@acm.org due to: Permanent/General",
@@ -418,7 +430,7 @@ func TestComplaintHandler(t *testing.T) {
 			handler, f := setup()
 			handler.ComplaintSubType = "OnAccountSuppressionList"
 
-			handler.HandleEvent()
+			handler.HandleEvent(f.ctx)
 
 			assertLogsContain(t, f, msgPrefix+"OnAccountSuppressionList")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
@@ -428,7 +440,7 @@ func TestComplaintHandler(t *testing.T) {
 			handler, f := setup()
 			handler.ComplaintFeedbackType = "abuse"
 
-			handler.HandleEvent()
+			handler.HandleEvent(f.ctx)
 
 			assertLogsContain(t, f, msgPrefix+"abuse")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
@@ -437,7 +449,7 @@ func TestComplaintHandler(t *testing.T) {
 		t.Run("IfFeedbackIsUnknown", func(t *testing.T) {
 			handler, f := setup()
 
-			handler.HandleEvent()
+			handler.HandleEvent(f.ctx)
 
 			assertLogsContain(t, f, msgPrefix+"unknown")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
@@ -448,7 +460,7 @@ func TestComplaintHandler(t *testing.T) {
 		handler, f := setup()
 		handler.ComplaintFeedbackType = "not-spam"
 
-		handler.HandleEvent()
+		handler.HandleEvent(f.ctx)
 
 		assertLogsContain(t, f, "restored mbland@acm.org due to: not-spam")
 		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
@@ -468,7 +480,7 @@ func TestRejectHandler(t *testing.T) {
 		handler, f := setup()
 		handler.Reason = "Bad content"
 
-		handler.HandleEvent()
+		handler.HandleEvent(f.ctx)
 
 		assertLogsContain(t, f, "Bad content")
 		assert.Assert(t, is.Nil(f.agent.Calls))
@@ -479,7 +491,7 @@ func TestHandleSnsEvent(t *testing.T) {
 	t.Run("DoesNothingIfNoSnsRecords", func(t *testing.T) {
 		f := newSnsHandlerFixture()
 
-		f.handler.HandleEvent(&events.SNSEvent{})
+		f.handler.HandleEvent(f.ctx, &events.SNSEvent{})
 
 		assert.Equal(t, "", f.Logs())
 	})
@@ -489,7 +501,7 @@ func TestHandleSnsEvent(t *testing.T) {
 		event := simpleNotificationServiceEvent()
 		event.Records[0].SNS.Message = ""
 
-		f.handler.HandleEvent(event)
+		f.handler.HandleEvent(f.ctx, event)
 
 		expected := "parsing SES event from SNS failed: " +
 			"unexpected end of JSON input: "
@@ -500,7 +512,7 @@ func TestHandleSnsEvent(t *testing.T) {
 		f := newSnsHandlerFixture()
 		event := simpleNotificationServiceEvent()
 
-		f.handler.HandleEvent(event)
+		f.handler.HandleEvent(f.ctx, event)
 
 		expected := `Send ` +
 			`[Id:"deadbeef" From:"mbland@acm.org" To:"foo@bar.com" ` +
