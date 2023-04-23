@@ -6,7 +6,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -56,7 +55,7 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return err
 	}
 
-	tableName := "elistman-database-test-" + randomString(10)
+	tableName := "elistman-database-test-" + testutils.RandomString(10)
 	maxAttempts := maxTableWaitAttempts
 	sleep := func() { time.Sleep(durationBetweenAttempts) }
 	doSetup := setupLocalDynamoDb
@@ -78,19 +77,6 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		}
 	}
 	return
-}
-
-// Inspired by:
-// - https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
-func randomString(n int) string {
-	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"0123456789_"
-
-	result := make([]byte, n)
-	for i := range result {
-		result[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(result)
 }
 
 func setupAwsDynamoDb(
@@ -153,7 +139,7 @@ func launchLocalDb(localHostPort string) (teardown func() error, err error) {
 }
 
 func newTestSubscriber() *Subscriber {
-	return NewSubscriber(randomString(8) + "@example.com")
+	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
 
 func TestDynamoDb(t *testing.T) {

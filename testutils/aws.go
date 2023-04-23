@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -37,7 +36,6 @@ func (r *EndpointResolver) CreateEndpoint(service string) (string, error) {
 func (r *EndpointResolver) ResolveEndpoint(
 	service, region string, options ...interface{},
 ) (endpoint aws.Endpoint, err error) {
-	log.Printf("looking up endpoint for service: %s", service)
 	if ep, ok := r.endpoints[service]; !ok {
 		err = &aws.EndpointNotFoundError{Err: errors.New(service + " (local)")}
 	} else {
