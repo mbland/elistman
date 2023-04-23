@@ -23,6 +23,17 @@ func (r *EndpointResolver) AddEndpoint(service, localHostPort string) {
 	}
 }
 
+func (r *EndpointResolver) CreateEndpoint(service string) (string, error) {
+	localHostPort, err := PickUnusedHostPort()
+
+	if err != nil {
+		const errFmt = "could not create local %s endpoint: %s"
+		return "", fmt.Errorf(errFmt, service, err)
+	}
+	r.AddEndpoint(service, localHostPort)
+	return localHostPort, nil
+}
+
 func (r *EndpointResolver) ResolveEndpoint(
 	service, region string, options ...interface{},
 ) (endpoint aws.Endpoint, err error) {
