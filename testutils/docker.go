@@ -29,7 +29,7 @@ func PullDockerImage(dbImage string) error {
 
 func LaunchDockerContainer(
 	service, localHostPort string, containerPort int, dbImage string,
-) (teardown func() error, err error) {
+) (cleanup func() error, err error) {
 	portMap := fmt.Sprintf("%s:%d", localHostPort, containerPort)
 	cmd := exec.Command("docker", "run", "-d", "-p", portMap, dbImage)
 	var output []byte
@@ -46,11 +46,10 @@ func LaunchDockerContainer(
 	containerId := strings.TrimSpace(string(output))
 	log.Printf(logFmt, service, localHostPort, containerId)
 
-	teardown = func() error {
+	cleanup = func() error {
 		return CleanupDockerContainer(service, containerId)
 	}
 	return
-
 }
 
 func CleanupDockerContainer(service, containerId string) (errResult error) {

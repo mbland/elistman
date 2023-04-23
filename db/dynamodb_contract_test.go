@@ -92,8 +92,6 @@ func setupAwsDynamoDb(
 	return
 }
 
-const dbImage = "amazon/dynamodb-local"
-
 // See also:
 // - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
 // - https://github.com/aws-samples/aws-sam-java-rest
@@ -102,15 +100,17 @@ const dbImage = "amazon/dynamodb-local"
 func setupLocalDynamoDb(
 	tableName string,
 ) (dynDb *DynamoDb, teardown func() error, err error) {
-	var config *aws.Config
-	var endpoint string
-
-	if config, endpoint, err = localDbConfig(); err != nil {
-		return
-	} else if teardown, err = launchLocalDb(endpoint); err != nil {
+	config, endpoint, err := localDbConfig()
+	if err != nil {
 		return
 	}
-	dynDb = NewDynamoDb(config, tableName)
+
+	teardown, err = testutils.LaunchDockerContainer(
+		dynamodb.ServiceID, endpoint, 8000, "amazon/dynamodb-local",
+	)
+	if err == nil {
+		dynDb = NewDynamoDb(config, tableName)
+	}
 	return
 }
 
@@ -130,12 +130,6 @@ func localDbConfig() (*aws.Config, string, error) {
 		return nil, "", err
 	}
 	return dbConfig, endpoint, nil
-}
-
-func launchLocalDb(localHostPort string) (teardown func() error, err error) {
-	return testutils.LaunchDockerContainer(
-		dynamodb.ServiceID, localHostPort, 8000, dbImage,
-	)
 }
 
 func newTestSubscriber() *Subscriber {
