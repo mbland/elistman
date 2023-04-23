@@ -69,6 +69,7 @@ func (h *mailtoHandler) handleMailtoEvent(
 	ctx context.Context, ev *mailtoEvent,
 ) {
 	outcome := "success"
+	unsubscribe := h.Agent.Unsubscribe
 
 	if bounceMessageId, err := h.bounceIfDmarcFails(ctx, ev); err != nil {
 		outcome = "DMARC bounce failed: " + err.Error()
@@ -78,7 +79,7 @@ func (h *mailtoHandler) handleMailtoEvent(
 		outcome = "marked as spam, ignored"
 	} else if op, err := parseMailtoEvent(ev, h.UnsubscribeAddr); err != nil {
 		outcome = "failed to parse, ignoring: " + err.Error()
-	} else if result, err := unsubscribe(ctx, h.Agent, op); err != nil {
+	} else if result, err := unsubscribe(ctx, op.Email, op.Uid); err != nil {
 		outcome = "error: " + err.Error()
 	} else if result != ops.Unsubscribed {
 		outcome = "failed: " + result.String()
@@ -113,10 +114,4 @@ func isSpam(ev *mailtoEvent) bool {
 		ev.DkimVerdict == "FAIL" ||
 		ev.SpamVerdict == "FAIL" ||
 		ev.VirusVerdict == "FAIL"
-}
-
-func unsubscribe(
-	ctx context.Context, agent ops.SubscriptionAgent, op *eventOperation,
-) (ops.OperationResult, error) {
-	return agent.Unsubscribe(ctx, op.Email, op.Uid)
 }
