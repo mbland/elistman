@@ -25,6 +25,7 @@ PARAMETER_OVERRIDES=(
   "SenderName=${SENDER_NAME// /\ }"
   "SenderUserName=${SENDER_USER_NAME:?}"
   "UnsubscribeUserName=${UNSUBSCRIBE_USER_NAME:?}"
+  "ReceiptRuleSetName=${RECEIPT_RULE_SET_NAME:?}"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME:?}"
   "InvalidRequestPath=${INVALID_REQUEST_PATH:?}"
   "AlreadySubscribedPath=${ALREADY_SUBSCRIBED_PATH:?}"

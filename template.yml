@@ -19,6 +19,8 @@ Parameters:
     Type: String
   UnsubscribeUserName:
     Type: String
+  ReceiptRuleSetName:
+    Type: String
   SubscribersTableName:
     Type: String
   InvalidRequestPath:
@@ -131,25 +133,20 @@ Resources:
     Properties:
       LogGroupName: !Sub "${AWS::StackName}-api"
 
-  ReceiptRuleSet:
-    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
-    Type: AWS::SES::ReceiptRuleSet
-    Properties:
-      RuleSetName: !Sub "${AWS::StackName}"
-
   ReceiptRuleSetPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt Function.Arn
       Principal: "ses.amazonaws.com"
-      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ReceiptRuleSet}:receipt-rule/*"
+      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ReceiptRuleSetName}:receipt-rule/*"
 
   UnsubscribeReceiptRule:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
     Type: AWS::SES::ReceiptRule
     Properties:
-      RuleSetName: !Ref ReceiptRuleSet
+      RuleSetName: !Sub "${ReceiptRuleSetName}"
       Rule:
         Name: Unsubscribe
         Enabled: true

@@ -24,6 +24,7 @@ Implemented in [Go][] using the following [Amazon Web Services][]:
 - [Lambda][]
 - [DynamoDB][]
 - [Simple Email Service][]
+- [Simple Notification Service][]
 
 Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
 deploying the Lambda function, binding to the API Gateway, managing permissions,
@@ -74,11 +75,24 @@ section of [Amazon Simple Email Service endpoints and quotas][].
 Follow the guidance on the [AWS Command Line Interface: Quick Setup][] page if
 necessary.
 
+### Configure AWS Simple Notification Service (SNS)
+
+Create a topic in SNS for the SES Receipt Rules described in the next section.
+The most straightforward option is to create a rule for [Email notifications].
+
 ### Configure AWS Simple Email Service (SES)
 
 Set up SES in the region selected in the above step. Make sure to enable DKIM
 and create a verified domain identity per [Verifying your domain for Amazon SES
 email receiving][].
+
+Create a [Receipt Rule Set][] and set it as Active. Add a Receipt Rule to the
+active Receipt Rule Set that includes recipient conditions for the `postmaster`
+and `abuse` accounts. Add any other recipient conditions for this rule as you
+wish, as well as any other receipt rules. EListMan will add a Receipt Rule for
+an unsubscribe email address to this Receipt Rule Set.
+
+When you're ready for the system to go live, [publish an MX record for Amazon SES email receiving][].
 
 It's also advisable to configure your [account-level suppression list][] to
 automatically add addresses resulting in bounces and complaints.
@@ -349,14 +363,18 @@ This software is made available as [Open Source software][oss-def] under the
 [Lambda]: https://aws.amazon.com/lambda/
 [DynamoDB]: https://aws.amazon.com/dynamodb/
 [Simple Email Service]: https://aws.amazon.com/ses/
+[Simple Notification Service]: https://aws.amazon.com/sns/
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [AWS Serverless Application Model (SAM)]: https://aws.amazon.com/serverless/sam/
 [victoriadrake/simple-subscribe]: https://github.com/victoriadrake/simple-subscribe/
 [GnuWin32.Make]: https://winget.run/pkg/GnuWin32/Make
 [Amazon Simple Email Service endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ses.html
 [AWS Command Line Interface: Quick Setup]: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+[Email notifications]: https://docs.aws.amazon.com/sns/latest/dg/sns-email-notifications.html
+[publish an MX record for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-mx-record.html
 [account-level suppression list]: https://docs.aws.amazon.com/ses/latest/dg/sending-email-suppression-list.html
 [Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
+[Receipt Rule Set]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-receipt-rules-console-walkthrough.html
 [Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
 [HTTP 303 See Other]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
 [Location HTTP Header]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
