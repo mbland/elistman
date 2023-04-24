@@ -232,8 +232,8 @@ Resources:
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  Api:
-    Description: "API Gateway root URL for the ListMan function"
+  EListManApi:
+    Description: "Root URL for the EListMan API Gateway endpoint"
     Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
   Function:
     Description: "EListMan Lambda function ARN"
