@@ -19,6 +19,7 @@ import (
 )
 
 var useAwsDb bool
+var dynamodbDockerVersion string
 var maxTableWaitAttempts int
 var durationBetweenAttempts time.Duration
 
@@ -28,6 +29,12 @@ func init() {
 		"awsdb",
 		false,
 		"Test against DynamoDB in AWS (instead of local Docker container)",
+	)
+	flag.StringVar(
+		&dynamodbDockerVersion,
+		"dynDbDockerVersion",
+		"1.21.0",
+		"Version of the amazon/dynamodb-local Docker image to test against",
 	)
 	flag.IntVar(
 		&maxTableWaitAttempts,
@@ -105,8 +112,9 @@ func setupLocalDynamoDb(
 		return
 	}
 
+	dockerImage := "amazon/dynamodb-local:" + dynamodbDockerVersion
 	teardown, err = testutils.LaunchDockerContainer(
-		dynamodb.ServiceID, endpoint, 8000, "amazon/dynamodb-local",
+		dynamodb.ServiceID, endpoint, 8000, dockerImage,
 	)
 	if err == nil {
 		dynDb = NewDynamoDb(config, tableName)
