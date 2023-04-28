@@ -2,48 +2,66 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/handler"
 	"github.com/mbland/elistman/ops"
 )
 
-func buildHandler() (*handler.Handler, error) {
-	if cfg, err := config.LoadDefaultConfig(context.Background()); err != nil {
-		return nil, err
-	} else if opts, err := handler.GetOptions(os.Getenv); err != nil {
-		return nil, err
-	} else {
-		sesMailer := email.NewSesMailer(cfg)
-		validator := &email.ProdAddressValidator{
-			Suppressor: sesMailer,
-			Resolver:   net.DefaultResolver,
-		}
-		return handler.NewHandler(
-			opts.EmailDomainName,
-			opts.EmailSiteTitle,
-			&ops.ProdAgent{
-				Db: &db.DynamoDb{
-					Client:    dynamodb.NewFromConfig(cfg),
-					TableName: opts.SubscribersTableName,
-				},
-				Validator: validator,
-				Mailer:    sesMailer,
-			},
-			opts.RedirectPaths,
-			handler.ResponseTemplate,
-			opts.UnsubscribeUserName,
-			sesMailer,
-			log.Default(),
-		)
+func buildHandler() (h *handler.Handler, err error) {
+	var cfg aws.Config
+	var opts *handler.Options
+
+	if cfg, err = config.LoadDefaultConfig(context.Background()); err != nil {
+		return
+	} else if opts, err = handler.GetOptions(os.Getenv); err != nil {
+		return
 	}
+
+	sesMailer := &email.SesMailer{
+		Client:    ses.NewFromConfig(cfg),
+		ConfigSet: opts.ConfigurationSet,
+		SenderAddress: fmt.Sprintf(
+			"%s <%s@%s>",
+			opts.SenderName,
+			opts.SenderUserName,
+			opts.EmailDomainName,
+		),
+		UnsubscribeBaseUrl: fmt.Sprintf(
+			"https://%s/%s/", opts.ApiDomainName, opts.ApiMappingKey,
+		),
+	}
+	h, err = handler.NewHandler(
+		opts.EmailDomainName,
+		opts.EmailSiteTitle,
+		&ops.ProdAgent{
+			Db: &db.DynamoDb{
+				Client:    dynamodb.NewFromConfig(cfg),
+				TableName: opts.SubscribersTableName,
+			},
+			Validator: &email.ProdAddressValidator{
+				Suppressor: sesMailer,
+				Resolver:   net.DefaultResolver,
+			},
+			Mailer: sesMailer,
+		},
+		opts.RedirectPaths,
+		handler.ResponseTemplate,
+		opts.UnsubscribeUserName,
+		sesMailer,
+		log.Default(),
+	)
+	return
 }
 
 func main() {

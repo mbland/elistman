@@ -28,21 +28,17 @@ package email
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 )
 
 type Mailer interface {
 	Send(
-		ctx context.Context,
-		toAddr string,
-		fromAddr string,
-		subject string,
-		textMsg string,
-		htmlMsg string,
-	) error
+		ctx context.Context, toAddr, subject, textMsg, htmlMsg string,
+	) (string, error)
 }
 
 type Bouncer interface {
@@ -67,22 +63,51 @@ type Suppressor interface {
 }
 
 type SesMailer struct {
-	Client *ses.Client
+	Client             SesApi
+	ConfigSet          string
+	SenderAddress      string
+	UnsubscribeBaseUrl string
 }
 
-func NewSesMailer(awsConfig aws.Config) *SesMailer {
-	return &SesMailer{Client: ses.NewFromConfig(awsConfig)}
+type SesApi interface {
+	SendRawEmail(
+		context.Context, *ses.SendRawEmailInput, ...func(*ses.Options),
+	) (*ses.SendRawEmailOutput, error)
+
+	SendBounce(
+		context.Context, *ses.SendBounceInput, ...func(*ses.Options),
+	) (*ses.SendBounceOutput, error)
 }
 
 func (mailer *SesMailer) Send(
-	ctx context.Context,
-	toAddr string,
-	fromAddr string,
-	subject string,
-	textMsg string,
-	htmlMsg string,
-) error {
-	return nil
+	ctx context.Context, toAddr, subject, textMsg, htmlMsg string,
+) (messageId string, err error) {
+	msg, err := buildMessage(
+		toAddr, mailer.SenderAddress, subject, textMsg, htmlMsg,
+	)
+	if err != nil {
+		return
+	}
+
+	sesMsg := &ses.SendRawEmailInput{
+		Destinations:         []string{toAddr},
+		ConfigurationSetName: &mailer.ConfigSet,
+		RawMessage:           &types.RawMessage{Data: msg},
+	}
+	var output *ses.SendRawEmailOutput
+
+	if output, err = mailer.Client.SendRawEmail(ctx, sesMsg); err != nil {
+		err = fmt.Errorf("send failed: %s", err)
+	} else {
+		messageId = *output.MessageId
+	}
+	return
+}
+
+func buildMessage(
+	toAddr, fromAddr, subject, textMsg, htmlMsg string,
+) (msg []byte, err error) {
+	return
 }
 
 func (mailer *SesMailer) Bounce(
