@@ -10,7 +10,7 @@ SHELL := /bin/bash
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
 build-Function:
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" \
-		-o $(ARTIFACTS_DIR)/main lambda/main.go
+		-o $(ARTIFACTS_DIR)/elistman-lambda lambda/main.go
 
 static-checks:
 	go vet -tags=all_tests ./...

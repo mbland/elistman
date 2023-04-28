@@ -46,9 +46,9 @@ Resources:
     Metadata:
       BuildMethod: makefile
     Properties:
-      Handler: main
+      Handler: elistman-lambda
       Runtime: go1.x
-      Description: Coordinates between the API Gateway, DynamoDB, and SES
+      Description: Coordinates between the API Gateway, DynamoDB, SES, and SNS
       Timeout: 5
       # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html
       Policies:
