@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/handler"
@@ -29,7 +30,10 @@ func buildHandler() (*handler.Handler, error) {
 			opts.EmailDomainName,
 			opts.EmailSiteTitle,
 			&ops.ProdAgent{
-				Db:        db.NewDynamoDb(&cfg, opts.SubscribersTableName),
+				Db: &db.DynamoDb{
+					Client:    dynamodb.NewFromConfig(cfg),
+					TableName: opts.SubscribersTableName,
+				},
 				Validator: validator,
 				Mailer:    sesMailer,
 			},

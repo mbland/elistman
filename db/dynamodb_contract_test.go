@@ -93,7 +93,7 @@ func setupAwsDynamoDb(
 	if err != nil {
 		err = fmt.Errorf("failed to configure DynamoDB: %s", err)
 	} else {
-		dynDb = NewDynamoDb(&config, tableName)
+		dynDb = &DynamoDb{dynamodb.NewFromConfig(config), tableName}
 		teardown = func() error { return nil }
 	}
 	return
@@ -117,7 +117,7 @@ func setupLocalDynamoDb(
 		dynamodb.ServiceID, endpoint, 8000, dockerImage,
 	)
 	if err == nil {
-		dynDb = NewDynamoDb(config, tableName)
+		dynDb = &DynamoDb{dynamodb.NewFromConfig(*config), tableName}
 	}
 	return
 }
