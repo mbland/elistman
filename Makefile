@@ -2,7 +2,7 @@ SHELL := /bin/bash
 .POSIX:
 .PHONY: all clean \
 	delete deploy run-local sam-build \
-	coverage test contract-test-aws medium-tests small-tests static-checks\
+	coverage test contract-tests-aws medium-tests small-tests static-checks\
 	build-Function
 
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
@@ -24,7 +24,7 @@ medium-tests:
 	go test -tags=medium_tests -count=1 ./...
 
 contract-tests-aws:
-	go test -tags=contract_tests ./db -args -awsdb
+	go test -tags=contract_tests -count=1 ./db -args -awsdb
 
 test: static-checks small-tests medium-tests contract-tests-aws
 
