@@ -146,7 +146,7 @@ Resources:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
     Type: AWS::SES::ReceiptRule
     Properties:
-      RuleSetName: !Sub "${ReceiptRuleSetName}"
+      RuleSetName: !Ref ReceiptRuleSetName
       Rule:
         Name: Unsubscribe
         Enabled: true
@@ -163,7 +163,7 @@ Resources:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sns-topic.html
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub "${AWS::StackName}"
+      TopicName: !Ref AWS::StackName
 
   DeliveryNotificationsTopicPolicy:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sns-policy.html
@@ -193,14 +193,14 @@ Resources:
               Resource: !Ref DeliveryNotificationsTopic
               Condition:
                 StringEquals:
-                  "AWS:SourceAccount": !Sub "${AWS::AccountId}"
+                  "AWS:SourceAccount": !Ref AWS::AccountId
                   "AWS:SourceArn": !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SendingConfigurationSet}"
 
   SendingConfigurationSet:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
     Type: AWS::SES::ConfigurationSet
     Properties:
-      Name: !Sub "${AWS::StackName}"
+      Name: !Ref AWS::StackName
       DeliveryOptions:
         TlsPolicy: REQUIRE
       SendingOptions:
