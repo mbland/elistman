@@ -61,7 +61,10 @@ Resources:
             Action:
               - "ses:SendRawEmail"
               - "ses:SendBounce"
-            Resource: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:*"
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
+              - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${AWS::StackName}"
+
       Tracing: Active
       Environment:
         Variables:
