@@ -53,8 +53,16 @@ Resources:
       # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html
       Policies:
         - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SubscribersTableName
+        - Statement:
+            Sid: DynamoDbPolicy
+            Effect: Allow
+            Action:
+              - "dynamoDb:GetItem"
+              - "dynamoDb:PutItem"
+              - "dynamoDb:DeleteItem"
+            Resource:
+              - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SubscribersTableName}"
+              - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SubscribersTableName}/index/*"
         - Statement:
             Sid: SESSendEmailPolicy
             Effect: Allow
@@ -147,7 +155,7 @@ Resources:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt Function.Arn
       Principal: "ses.amazonaws.com"
-      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ReceiptRuleSetName}:receipt-rule/*"
+      SourceArn: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ReceiptRuleSetName}:receipt-rule/${UnsubscribeUserName}"
 
   UnsubscribeReceiptRule:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
