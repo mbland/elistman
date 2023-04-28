@@ -22,6 +22,7 @@ type Options struct {
 	SenderUserName       string
 	UnsubscribeUserName  string
 	SubscribersTableName string
+	ConfigurationSet     string
 
 	RedirectPaths RedirectPaths
 }
@@ -55,6 +56,7 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.SenderUserName, "SENDER_USER_NAME")
 	env.assign(&opts.UnsubscribeUserName, "UNSUBSCRIBE_USER_NAME")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
+	env.assign(&opts.ConfigurationSet, "CONFIGURATION_SET")
 
 	redirects := &opts.RedirectPaths
 	env.assignRedirect(&redirects.Invalid, "INVALID_REQUEST_PATH")

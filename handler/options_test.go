@@ -32,6 +32,7 @@ func TestReportUndefinedEnviromentVariables(t *testing.T) {
 				"SENDER_USER_NAME",
 				"UNSUBSCRIBE_USER_NAME",
 				"SUBSCRIBERS_TABLE_NAME",
+				"CONFIGURATION_SET",
 				"INVALID_REQUEST_PATH",
 				"ALREADY_SUBSCRIBED_PATH",
 				"VERIFY_LINK_SENT_PATH",
@@ -53,6 +54,7 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 		"SENDER_USER_NAME":        "no-reply",
 		"UNSUBSCRIBE_USER_NAME":   "unsubscribe",
 		"SUBSCRIBERS_TABLE_NAME":  "subscribers",
+		"CONFIGURATION_SET":       "config-set",
 		"INVALID_REQUEST_PATH":    "/invalid",
 		"ALREADY_SUBSCRIBED_PATH": "/already-subscribed",
 		"VERIFY_LINK_SENT_PATH":   "/verify",
@@ -77,6 +79,7 @@ func TestAllRequiredEnvironmentVariablesDefined(t *testing.T) {
 			SenderUserName:       "no-reply",
 			UnsubscribeUserName:  "unsubscribe",
 			SubscribersTableName: "subscribers",
+			ConfigurationSet:     "config-set",
 
 			// Note that GetOptions will remove a leading '/' character from the
 			// path value.
