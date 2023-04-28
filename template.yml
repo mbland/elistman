@@ -148,7 +148,7 @@ Resources:
     Properties:
       RuleSetName: !Ref ReceiptRuleSetName
       Rule:
-        Name: Unsubscribe
+        Name: !Ref UnsubscribeUserName
         Enabled: true
         TlsPolicy: Require
         ScanEnabled: true
