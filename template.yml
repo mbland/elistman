@@ -55,8 +55,13 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref SubscribersTableName
-        - SESCrudPolicy:
-            IdentityName: !Ref EmailDomainName
+        - Statement:
+            Sid: SESSendEmailPolicy
+            Effect: Allow
+            Action:
+              - "ses:SendRawEmail"
+              - "ses:SendBounce"
+            Resource: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:*"
       Tracing: Active
       Environment:
         Variables:
