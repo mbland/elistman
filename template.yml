@@ -200,8 +200,7 @@ Resources:
               Action: "sns:Publish"
               Resource: !Ref DeliveryNotificationsTopic
               Condition:
-                StringEquals:
-                  "AWS:SourceAccount": !Ref AWS::AccountId
+                ArnEquals:
                   "AWS:SourceArn": !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SendingConfigurationSet}"
 
   SendingConfigurationSet:
