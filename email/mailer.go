@@ -33,11 +33,19 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/google/uuid"
 )
+
+type Subscriber struct {
+	Email string
+	Uid   uuid.UUID
+}
 
 type Mailer interface {
 	Send(
-		ctx context.Context, toAddr, subject, textMsg, htmlMsg string,
+		ctx context.Context,
+		subscriber Subscriber,
+		subject, textMsg, htmlMsg string,
 	) (string, error)
 }
 
@@ -66,6 +74,7 @@ type SesMailer struct {
 	Client             SesApi
 	ConfigSet          string
 	SenderAddress      string
+	UnsubscribeEmail   string
 	UnsubscribeBaseUrl string
 }
 
@@ -80,17 +89,17 @@ type SesApi interface {
 }
 
 func (mailer *SesMailer) Send(
-	ctx context.Context, toAddr, subject, textMsg, htmlMsg string,
+	ctx context.Context,
+	subscriber Subscriber,
+	subject, textMsg, htmlMsg string,
 ) (messageId string, err error) {
-	msg, err := buildMessage(
-		toAddr, mailer.SenderAddress, subject, textMsg, htmlMsg,
-	)
+	msg, err := mailer.buildMessage(subscriber, subject, textMsg, htmlMsg)
 	if err != nil {
 		return
 	}
 
 	sesMsg := &ses.SendRawEmailInput{
-		Destinations:         []string{toAddr},
+		Destinations:         []string{subscriber.Email},
 		ConfigurationSetName: &mailer.ConfigSet,
 		RawMessage:           &types.RawMessage{Data: msg},
 	}
@@ -104,8 +113,8 @@ func (mailer *SesMailer) Send(
 	return
 }
 
-func buildMessage(
-	toAddr, fromAddr, subject, textMsg, htmlMsg string,
+func (mailer *SesMailer) buildMessage(
+	subscriber Subscriber, subject, textMsg, htmlMsg string,
 ) (msg []byte, err error) {
 	return
 }
