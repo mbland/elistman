@@ -42,7 +42,7 @@ func newTestMailer() *SesMailer {
 		ConfigSet:          "config-set",
 		SenderAddress:      "Mike <mike@foo.com>",
 		UnsubscribeEmail:   "unsubscribe@foo.com",
-		UnsubscribeBaseUrl: "https://foo.com/email/",
+		UnsubscribeBaseUrl: "https://foo.com/email/unsubscribe/",
 	}
 }
 
@@ -54,6 +54,7 @@ var testSubscriber *Subscriber = &Subscriber{
 func TestBuildMessage(t *testing.T) {
 	subject := "This is a test"
 	textMsg := "This is only a test."
+
 	// Ensure this is longer than 76 chars so we can see the quoted-printable
 	// encoding kicking in.
 	htmlMsg := `<!DOCTYPE html>` +

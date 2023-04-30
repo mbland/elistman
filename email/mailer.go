@@ -30,20 +30,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
-	"github.com/google/uuid"
 )
-
-const UnsubscribeUrlTemplate = "{{EListManUnsubscribeUrl}}"
-
-type Subscriber struct {
-	Email string
-	Uid   uuid.UUID
-}
 
 type Mailer interface {
 	Send(
@@ -101,9 +92,22 @@ func (mailer *SesMailer) Send(
 	if err != nil {
 		return
 	}
+	return mailer.sendRaw(ctx, subscriber.Email, msg)
+}
 
+func (mailer *SesMailer) SendToSubscribers(
+	ctx context.Context,
+	subscribers []*Subscriber,
+	msg *Message,
+) (messageId string, err error) {
+	return
+}
+
+func (mailer *SesMailer) sendRaw(
+	ctx context.Context, recipient string, msg []byte,
+) (messageId string, err error) {
 	sesMsg := &ses.SendRawEmailInput{
-		Destinations:         []string{subscriber.Email},
+		Destinations:         []string{recipient},
 		ConfigurationSetName: &mailer.ConfigSet,
 		RawMessage:           &types.RawMessage{Data: msg},
 	}
@@ -118,30 +122,27 @@ func (mailer *SesMailer) Send(
 }
 
 func (mailer *SesMailer) buildMessage(
-	subscriber *Subscriber, subject, textMsg, htmlMsg string,
+	sub *Subscriber, subject, textMsg, htmlMsg string,
 ) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	b := &Builder{buf}
-	unsubEmail, unsubUrl := mailer.createUnsubscribeUris(subscriber)
-	err := b.BuildMessage(
-		mailer.SenderAddress,
-		subscriber.Email,
-		subject,
-		fmt.Sprintf("List-Unsubscribe: <%s>, <%s>", unsubEmail, unsubUrl),
-		strings.Replace(textMsg, UnsubscribeUrlTemplate, unsubUrl, 1),
-		strings.Replace(htmlMsg, UnsubscribeUrlTemplate, unsubUrl, 1),
-	)
-	return buf.Bytes(), err
-}
+	sub.SetUnsubscribeInfo(mailer.UnsubscribeEmail, mailer.UnsubscribeBaseUrl)
+	mt, err := ConvertToTemplate(&Message{
+		From:       mailer.SenderAddress,
+		Subject:    subject,
+		TextBody:   textMsg,
+		TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
+		HtmlBody:   htmlMsg,
+		HtmlFooter: fmt.Sprintf(
+			`<a href="%s">Unsubscribe</a>`, UnsubscribeUrlTemplate,
+		),
+	})
 
-func (mailer *SesMailer) createUnsubscribeUris(
-	subscriber *Subscriber,
-) (string, string) {
-	uid := subscriber.Uid.String()
-	mailto := "mailto:" + mailer.UnsubscribeEmail +
-		"?subject=" + subscriber.Email + "%20" + uid
-	link := mailer.UnsubscribeBaseUrl + subscriber.Email + "/" + uid
-	return mailto, link
+	if err != nil {
+		return nil, err
+	}
+	err = b.buildListMessage(mt, sub)
+	return buf.Bytes(), err
 }
 
 func (mailer *SesMailer) Bounce(
