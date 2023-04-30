@@ -4,6 +4,7 @@ package email
 
 import (
 	"context"
+	"net/mail"
 	"strings"
 	"testing"
 
@@ -53,22 +54,19 @@ var testSubscriber *Subscriber = &Subscriber{
 func TestBuildMessage(t *testing.T) {
 	subject := "This is a test"
 	textMsg := "This is only a test."
-	htmlMsg := strings.Join(
-		[]string{
-			`<!DOCTYPE html>`,
-			`<html>`,
-			`<head><title>This is a test</title></head>`,
-			`<body><p>This is only a test.</p></body>`,
-			`</html>`,
-		},
-		"\n",
-	)
+	// Ensure this is longer than 76 chars so we can see the quoted-printable
+	// encoding kicking in.
+	htmlMsg := `<!DOCTYPE html>` +
+		`<html><head><title>This is a test</title></head>` +
+		`<body><p>This is only a test.</p></body></html>`
 
 	t.Run("Succeeds", func(t *testing.T) {
 		m := newTestMailer()
 
-		msg, err := m.buildMessage(*testSubscriber, subject, textMsg, htmlMsg)
+		msg, err := m.buildMessage(testSubscriber, subject, textMsg, htmlMsg)
 
+		assert.NilError(t, err)
+		_, err = mail.ReadMessage(strings.NewReader(string(msg)))
 		assert.NilError(t, err)
 		assert.Equal(t, string(msg), "")
 	})

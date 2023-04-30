@@ -27,14 +27,18 @@ package email
 // - https://en.wikipedia.org/wiki/MIME
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"github.com/google/uuid"
 )
+
+const UnsubscribeUrlTemplate = "{{EListManUnsubscribeUrl}}"
 
 type Subscriber struct {
 	Email string
@@ -44,7 +48,7 @@ type Subscriber struct {
 type Mailer interface {
 	Send(
 		ctx context.Context,
-		subscriber Subscriber,
+		subscriber *Subscriber,
 		subject, textMsg, htmlMsg string,
 	) (string, error)
 }
@@ -90,7 +94,7 @@ type SesApi interface {
 
 func (mailer *SesMailer) Send(
 	ctx context.Context,
-	subscriber Subscriber,
+	subscriber *Subscriber,
 	subject, textMsg, htmlMsg string,
 ) (messageId string, err error) {
 	msg, err := mailer.buildMessage(subscriber, subject, textMsg, htmlMsg)
@@ -114,9 +118,30 @@ func (mailer *SesMailer) Send(
 }
 
 func (mailer *SesMailer) buildMessage(
-	subscriber Subscriber, subject, textMsg, htmlMsg string,
-) (msg []byte, err error) {
-	return
+	subscriber *Subscriber, subject, textMsg, htmlMsg string,
+) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	b := &Builder{buf}
+	unsubEmail, unsubUrl := mailer.createUnsubscribeUris(subscriber)
+	err := b.BuildMessage(
+		mailer.SenderAddress,
+		subscriber.Email,
+		subject,
+		fmt.Sprintf("List-Unsubscribe: <%s>, <%s>", unsubEmail, unsubUrl),
+		strings.Replace(textMsg, UnsubscribeUrlTemplate, unsubUrl, 1),
+		strings.Replace(htmlMsg, UnsubscribeUrlTemplate, unsubUrl, 1),
+	)
+	return buf.Bytes(), err
+}
+
+func (mailer *SesMailer) createUnsubscribeUris(
+	subscriber *Subscriber,
+) (string, string) {
+	uid := subscriber.Uid.String()
+	mailto := "mailto:" + mailer.UnsubscribeEmail +
+		"?subject=" + subscriber.Email + "%20" + uid
+	link := mailer.UnsubscribeBaseUrl + subscriber.Email + "/" + uid
+	return mailto, link
 }
 
 func (mailer *SesMailer) Bounce(
