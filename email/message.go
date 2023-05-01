@@ -2,7 +2,6 @@ package email
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -20,46 +19,78 @@ type Message struct {
 	HtmlFooter string
 }
 
-type MessageTemplate Message
+type MessageTemplate struct {
+	from       string
+	subject    string
+	textBody   string
+	textFooter string
+	htmlBody   string
+	htmlFooter string
+}
 
-func ConvertToTemplate(m *Message) (mt *MessageTemplate, err error) {
-	mt = &MessageTemplate{
-		From:       "From: " + m.From,
-		Subject:    "Subject: " + m.Subject,
-		TextBody:   convertToCrlf(m.TextBody),
-		TextFooter: convertToCrlf(m.TextFooter),
-		HtmlBody:   convertToCrlf(m.HtmlBody),
-		HtmlFooter: convertToCrlf(m.HtmlFooter),
+func NewMessageTemplate(m *Message) *MessageTemplate {
+	mt := &MessageTemplate{
+		from:       "From: " + m.From,
+		subject:    "Subject: " + m.Subject,
+		textBody:   convertToCrlf(m.TextBody),
+		textFooter: convertToCrlf(m.TextFooter),
+		htmlBody:   convertToCrlf(m.HtmlBody),
+		htmlFooter: convertToCrlf(m.HtmlFooter),
 	}
 
 	tb := &strings.Builder{}
 	hb := &strings.Builder{}
-	if err = convertBodiesToQuotedPrintable(mt, tb, hb); err != nil {
-		mt = nil
+
+	// strings.Builder never errors, so neither will the quotedprintable writer.
+	writeQuotedPrintable(tb, mt.textBody)
+	mt.textBody = tb.String()
+	writeQuotedPrintable(hb, mt.htmlBody)
+	mt.htmlBody = hb.String()
+	return mt
+}
+
+var toHeaderPrefix = []byte("To: ")
+
+func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
+	w := &writer{buf: b}
+
+	w.WriteLine(mt.from)
+	w.Write(toHeaderPrefix)
+	w.WriteLine(sub.Email)
+	w.WriteLine(mt.subject)
+
+	// If unsubHeader is empty, this is a verification message. No need for the
+	// unsubscribe info if the subscriber isn't yet verified.
+	if len(sub.unsubHeader) != 0 {
+		w.WriteLine(sub.unsubHeader)
+		w.WriteLine("List-Unsubscribe-Post: List-Unsubscribe=One-Click")
 	}
-	mt.TextBody = tb.String()
-	mt.HtmlBody = hb.String()
-	return
+	w.WriteLine("MIME-Version: 1.0")
+
+	if len(mt.htmlBody) == 0 {
+		mt.emitTextOnly(w, sub)
+	} else {
+		mt.emitMultipart(w, sub)
+	}
+	return w.err
 }
 
 var charsetUtf8 = map[string]string{"charset": "utf-8"}
 var textContentType = mime.FormatMediaType("text/plain", charsetUtf8)
 var htmlContentType = mime.FormatMediaType("text/html", charsetUtf8)
 
-func (mt *MessageTemplate) EmitTextOnly(w *Writer, sub *Subscriber) {
+func (mt *MessageTemplate) emitTextOnly(w *writer, sub *Subscriber) {
 	w.WriteLine("Content-Type: " + textContentType)
 	w.WriteLine("Content-Transfer-Encoding: quoted-printable")
 	w.WriteLine("")
-	w.WriteLine(mt.TextBody)
+	w.WriteLine(mt.textBody)
 
 	if w.err == nil {
-		w.err = convertToQuotedPrintable(
-			w, sub.AddUnsubscribeUrl(mt.TextFooter),
-		)
+		w.err = writeQuotedPrintable(w, sub.FillInUnsubscribeUrl(mt.textFooter))
 	}
 }
 
-func (mt *MessageTemplate) EmitMultipart(w *Writer, sub *Subscriber) {
+func (mt *MessageTemplate) emitMultipart(w *writer, sub *Subscriber) {
 	mpw := multipart.NewWriter(w)
 	contentType := mime.FormatMediaType(
 		"multipart/alternative",
@@ -72,12 +103,12 @@ func (mt *MessageTemplate) EmitMultipart(w *Writer, sub *Subscriber) {
 	h.Add("Content-Transfer-Encoding", "quoted-printable")
 
 	if w.err == nil {
-		tf := sub.AddUnsubscribeUrl(mt.TextFooter)
-		w.err = emitPart(mpw, h, textContentType, mt.TextBody, tf)
+		tf := sub.FillInUnsubscribeUrl(mt.textFooter)
+		w.err = emitPart(mpw, h, textContentType, mt.textBody, tf)
 	}
 	if w.err == nil {
-		hf := sub.AddUnsubscribeUrl(mt.HtmlFooter)
-		w.err = emitPart(mpw, h, htmlContentType, mt.HtmlBody, hf)
+		hf := sub.FillInUnsubscribeUrl(mt.htmlFooter)
+		w.err = emitPart(mpw, h, htmlContentType, mt.htmlBody, hf)
 	}
 	if w.err == nil {
 		w.err = mpw.Close()
@@ -92,25 +123,14 @@ func emitPart(
 	h.Set("Content-Type", contentType)
 	if pw, err := w.CreatePart(h); err != nil {
 		return err
-	} else if _, err = pw.Write([]byte(body + "\r\n")); err != nil {
+	} else if _, err = pw.Write([]byte(body)); err != nil {
 		return err
 	} else {
-		return convertToQuotedPrintable(pw, footer)
+		return writeQuotedPrintable(pw, footer)
 	}
 }
 
-func convertBodiesToQuotedPrintable(
-	mt *MessageTemplate, textBuf, htmlBuf io.Writer,
-) (err error) {
-	if err = convertToQuotedPrintable(textBuf, mt.TextBody); err != nil {
-		err = fmt.Errorf("encoding text body failed: %s", err)
-	} else if err = convertToQuotedPrintable(htmlBuf, mt.HtmlBody); err != nil {
-		err = fmt.Errorf("encoding html body failed: %s", err)
-	}
-	return
-}
-
-func convertToQuotedPrintable(w io.Writer, msg string) error {
+func writeQuotedPrintable(w io.Writer, msg string) error {
 	qpw := quotedprintable.NewWriter(w)
 	_, err := qpw.Write([]byte(msg))
 	return errors.Join(err, qpw.Close())

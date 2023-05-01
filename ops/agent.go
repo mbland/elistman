@@ -21,9 +21,12 @@ type SubscriptionAgent interface {
 }
 
 type ProdAgent struct {
-	Db        db.Database
-	Validator email.AddressValidator
-	Mailer    email.Mailer
+	SenderAddress      string
+	UnsubscribeEmail   string
+	UnsubscribeBaseUrl string
+	Db                 db.Database
+	Validator          email.AddressValidator
+	Mailer             email.Mailer
 }
 
 func (a *ProdAgent) Subscribe(

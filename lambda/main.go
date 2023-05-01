@@ -31,21 +31,22 @@ func buildHandler() (h *handler.Handler, err error) {
 	sesMailer := &email.SesMailer{
 		Client:    ses.NewFromConfig(cfg),
 		ConfigSet: opts.ConfigurationSet,
-		SenderAddress: fmt.Sprintf(
-			"%s <%s@%s>",
-			opts.SenderName,
-			opts.SenderUserName,
-			opts.EmailDomainName,
-		),
-		UnsubscribeEmail: opts.UnsubscribeUserName + "@" + opts.EmailDomainName,
-		UnsubscribeBaseUrl: fmt.Sprintf(
-			"https://%s/%s/", opts.ApiDomainName, opts.ApiMappingKey,
-		),
 	}
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
 		opts.EmailSiteTitle,
 		&ops.ProdAgent{
+			SenderAddress: fmt.Sprintf(
+				"%s <%s@%s>",
+				opts.SenderName,
+				opts.SenderUserName,
+				opts.EmailDomainName,
+			),
+			UnsubscribeEmail: opts.UnsubscribeUserName +
+				"@" + opts.EmailDomainName,
+			UnsubscribeBaseUrl: fmt.Sprintf(
+				"https://%s/%s/", opts.ApiDomainName, opts.ApiMappingKey,
+			),
 			Db: &db.DynamoDb{
 				Client:    dynamodb.NewFromConfig(cfg),
 				TableName: opts.SubscribersTableName,

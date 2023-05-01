@@ -4,18 +4,19 @@ import (
 	"io"
 )
 
-type Writer struct {
+type writer struct {
 	buf io.Writer
 	err error
 }
 
-func (w *Writer) WriteLine(s string) {
-	if w.err == nil {
-		_, w.err = w.buf.Write([]byte(s + "\r\n"))
-	}
+var crlf = []byte("\r\n")
+
+func (w *writer) WriteLine(s string) {
+	w.Write([]byte(s))
+	w.Write(crlf)
 }
 
-func (w *Writer) Write(b []byte) (n int, err error) {
+func (w *writer) Write(b []byte) (n int, err error) {
 	if w.err == nil {
 		n, err = w.buf.Write(b)
 		w.err = err

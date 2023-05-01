@@ -1,7 +1,6 @@
 package email
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -12,20 +11,39 @@ const UnsubscribeUrlTemplate = "{{UnsubscribeUrl}}"
 type Subscriber struct {
 	Email       string
 	Uid         uuid.UUID
-	UnsubMailto string
-	UnsubUrl    string
-	UnsubHeader string
+	unsubMailto string
+	unsubUrl    string
+	unsubHeader string
 }
 
 func (sub *Subscriber) SetUnsubscribeInfo(email, baseUrl string) {
 	uid := sub.Uid.String()
-	sub.UnsubMailto = "mailto:" + email + "?subject=" + sub.Email + "%20" + uid
-	sub.UnsubUrl = baseUrl + sub.Email + "/" + uid
+	sb := &strings.Builder{}
 
-	const hdrFmt = "List-Unsubscribe: <%s>, <%s>"
-	sub.UnsubHeader = fmt.Sprintf(hdrFmt, sub.UnsubMailto, sub.UnsubUrl)
+	sb.WriteString("mailto:")
+	sb.WriteString(email)
+	sb.WriteString("?subject=")
+	sb.WriteString(sub.Email)
+	sb.WriteString("%20")
+	sb.WriteString(uid)
+	sub.unsubMailto = sb.String()
+
+	sb.Reset()
+	sb.WriteString(baseUrl)
+	sb.WriteString(sub.Email)
+	sb.WriteString("/")
+	sb.WriteString(uid)
+	sub.unsubUrl = sb.String()
+
+	sb.Reset()
+	sb.WriteString("List-Unsubscribe: <")
+	sb.WriteString(sub.unsubMailto)
+	sb.WriteString(">, <")
+	sb.WriteString(sub.unsubUrl)
+	sb.WriteString(">")
+	sub.unsubHeader = sb.String()
 }
 
-func (sub *Subscriber) AddUnsubscribeUrl(msg string) string {
-	return strings.Replace(msg, UnsubscribeUrlTemplate, sub.UnsubUrl, 1)
+func (sub *Subscriber) FillInUnsubscribeUrl(msg string) string {
+	return strings.Replace(msg, UnsubscribeUrlTemplate, sub.unsubUrl, 1)
 }

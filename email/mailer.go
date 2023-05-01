@@ -27,7 +27,6 @@ package email
 // - https://en.wikipedia.org/wiki/MIME
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -38,10 +37,8 @@ import (
 
 type Mailer interface {
 	Send(
-		ctx context.Context,
-		subscriber *Subscriber,
-		subject, textMsg, htmlMsg string,
-	) (string, error)
+		ctx context.Context, recipient string, msg []byte,
+	) (messageId string, err error)
 }
 
 type Bouncer interface {
@@ -66,11 +63,8 @@ type Suppressor interface {
 }
 
 type SesMailer struct {
-	Client             SesApi
-	ConfigSet          string
-	SenderAddress      string
-	UnsubscribeEmail   string
-	UnsubscribeBaseUrl string
+	Client    SesApi
+	ConfigSet string
 }
 
 type SesApi interface {
@@ -84,26 +78,6 @@ type SesApi interface {
 }
 
 func (mailer *SesMailer) Send(
-	ctx context.Context,
-	subscriber *Subscriber,
-	subject, textMsg, htmlMsg string,
-) (messageId string, err error) {
-	msg, err := mailer.buildMessage(subscriber, subject, textMsg, htmlMsg)
-	if err != nil {
-		return
-	}
-	return mailer.sendRaw(ctx, subscriber.Email, msg)
-}
-
-func (mailer *SesMailer) SendToSubscribers(
-	ctx context.Context,
-	subscribers []*Subscriber,
-	msg *Message,
-) (messageId string, err error) {
-	return
-}
-
-func (mailer *SesMailer) sendRaw(
 	ctx context.Context, recipient string, msg []byte,
 ) (messageId string, err error) {
 	sesMsg := &ses.SendRawEmailInput{
@@ -119,30 +93,6 @@ func (mailer *SesMailer) sendRaw(
 		messageId = *output.MessageId
 	}
 	return
-}
-
-func (mailer *SesMailer) buildMessage(
-	sub *Subscriber, subject, textMsg, htmlMsg string,
-) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	b := &Builder{buf}
-	sub.SetUnsubscribeInfo(mailer.UnsubscribeEmail, mailer.UnsubscribeBaseUrl)
-	mt, err := ConvertToTemplate(&Message{
-		From:       mailer.SenderAddress,
-		Subject:    subject,
-		TextBody:   textMsg,
-		TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
-		HtmlBody:   htmlMsg,
-		HtmlFooter: fmt.Sprintf(
-			`<a href="%s">Unsubscribe</a>`, UnsubscribeUrlTemplate,
-		),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	err = b.buildListMessage(mt, sub)
-	return buf.Bytes(), err
 }
 
 func (mailer *SesMailer) Bounce(
