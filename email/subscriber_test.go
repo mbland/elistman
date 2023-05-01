@@ -27,23 +27,21 @@ func TestSubscriber(t *testing.T) {
 
 		const mailtoFmt = "mailto:%s?subject=%s%%20%s"
 		mailto := fmt.Sprintf(mailtoFmt, testUnsubEmail, sub.Email, testUid)
-		assert.Equal(t, mailto, sub.unsubMailto)
-
 		unsubUrl := fmt.Sprintf("%s%s/%s", testUnsubBaseUrl, sub.Email, testUid)
-		assert.Equal(t, unsubUrl, sub.unsubUrl)
-
-		header := fmt.Sprintf("List-Unsubscribe: <%s>, <%s>", mailto, unsubUrl)
-		assert.Equal(t, header, sub.unsubHeader)
+		header := fmt.Sprintf(
+			"List-Unsubscribe: <%s>, <%s>\r\n", mailto, unsubUrl,
+		)
+		assert.Equal(t, unsubUrl, string(sub.unsubUrl))
+		assert.Equal(t, header, string(sub.unsubHeader))
 	})
 
 	t.Run("FillInUnsubscribeUrlReplacesTemplate", func(t *testing.T) {
 		sub := setup()
+		orig := "Unsubscribe at " + UnsubscribeUrlTemplate + " at any time"
 
-		result := sub.FillInUnsubscribeUrl(
-			"Unsubscribe at " + UnsubscribeUrlTemplate + " at any time",
-		)
+		result := sub.FillInUnsubscribeUrl([]byte(orig))
 
-		expected := "Unsubscribe at " + sub.unsubUrl + " at any time"
-		assert.Equal(t, expected, result)
+		expected := "Unsubscribe at " + string(sub.unsubUrl) + " at any time"
+		assert.Equal(t, expected, string(result))
 	})
 }

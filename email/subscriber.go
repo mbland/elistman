@@ -1,49 +1,48 @@
 package email
 
 import (
-	"strings"
+	"bytes"
 
 	"github.com/google/uuid"
 )
 
 const UnsubscribeUrlTemplate = "{{UnsubscribeUrl}}"
 
+var unsubscribeUrlTemplate = []byte(UnsubscribeUrlTemplate)
+
 type Subscriber struct {
 	Email       string
 	Uid         uuid.UUID
-	unsubMailto string
-	unsubUrl    string
-	unsubHeader string
+	unsubUrl    []byte
+	unsubHeader []byte
 }
 
 func (sub *Subscriber) SetUnsubscribeInfo(email, baseUrl string) {
 	uid := sub.Uid.String()
-	sb := &strings.Builder{}
+	b := &bytes.Buffer{}
 
-	sb.WriteString("mailto:")
-	sb.WriteString(email)
-	sb.WriteString("?subject=")
-	sb.WriteString(sub.Email)
-	sb.WriteString("%20")
-	sb.WriteString(uid)
-	sub.unsubMailto = sb.String()
+	b.Reset()
+	b.WriteString(baseUrl)
+	b.WriteString(sub.Email)
+	b.WriteString("/")
+	b.WriteString(uid)
+	sub.unsubUrl = make([]byte, b.Len())
+	copy(sub.unsubUrl, b.Bytes())
 
-	sb.Reset()
-	sb.WriteString(baseUrl)
-	sb.WriteString(sub.Email)
-	sb.WriteString("/")
-	sb.WriteString(uid)
-	sub.unsubUrl = sb.String()
-
-	sb.Reset()
-	sb.WriteString("List-Unsubscribe: <")
-	sb.WriteString(sub.unsubMailto)
-	sb.WriteString(">, <")
-	sb.WriteString(sub.unsubUrl)
-	sb.WriteString(">")
-	sub.unsubHeader = sb.String()
+	b.Reset()
+	b.WriteString("List-Unsubscribe: <mailto:")
+	b.WriteString(email)
+	b.WriteString("?subject=")
+	b.WriteString(sub.Email)
+	b.WriteString("%20")
+	b.WriteString(uid)
+	b.WriteString(">, <")
+	b.Write(sub.unsubUrl)
+	b.WriteString(">\r\n")
+	sub.unsubHeader = make([]byte, b.Len())
+	copy(sub.unsubHeader, b.Bytes())
 }
 
-func (sub *Subscriber) FillInUnsubscribeUrl(msg string) string {
-	return strings.Replace(msg, UnsubscribeUrlTemplate, sub.unsubUrl, 1)
+func (sub *Subscriber) FillInUnsubscribeUrl(msg []byte) []byte {
+	return bytes.Replace(msg, unsubscribeUrlTemplate, sub.unsubUrl, 1)
 }
