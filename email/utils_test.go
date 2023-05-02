@@ -19,6 +19,10 @@ func (ew *ErrWriter) Write(b []byte) (int, error) {
 	return ew.buf.Write(b)
 }
 
+const testUnsubEmail = "unsubscribe@foo.com"
+const testUnsubBaseUrl = "https://foo.com/email/unsubscribe/"
+const testUid = "00000000-1111-2222-3333-444444444444"
+
 type TestSuppressor struct {
 	checkedEmail       string
 	isSuppressedResult bool

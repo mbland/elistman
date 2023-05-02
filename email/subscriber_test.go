@@ -10,10 +10,6 @@ import (
 	"gotest.tools/assert"
 )
 
-const testUnsubEmail = "unsubscribe@foo.com"
-const testUnsubBaseUrl = "https://foo.com/email/unsubscribe/"
-const testUid = "00000000-1111-2222-3333-444444444444"
-
 func TestSubscriber(t *testing.T) {
 	setup := func() *Subscriber {
 		sub := &Subscriber{

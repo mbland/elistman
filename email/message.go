@@ -111,10 +111,10 @@ func (mt *MessageTemplate) emitTextOnly(w *writer, sub *Subscriber) {
 	w.WriteLine(textContentType)
 	w.Write(contentEncodingQuotedPrintable)
 	w.Write(mt.textBody)
-	w.Write(crlf)
+	err := writeQuotedPrintable(w, sub.FillInUnsubscribeUrl(mt.textFooter))
 
 	if w.err == nil {
-		w.err = writeQuotedPrintable(w, sub.FillInUnsubscribeUrl(mt.textFooter))
+		w.err = err
 	}
 }
 

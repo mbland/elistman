@@ -203,7 +203,54 @@ func TestNewMessageTemplate(t *testing.T) {
 
 var testSubscriber *Subscriber = &Subscriber{
 	Email: "subscriber@foo.com",
-	Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
+	Uid:   uuid.MustParse(testUid),
+}
+
+func newTestSubscriber() *Subscriber {
+	var sub Subscriber = *testSubscriber
+	return &sub
+}
+
+var textContent string = string(testTemplate.textBody) +
+	"\r\n" +
+	"Unsubscribe: https://foo.com/email/unsubscribe/" +
+	"subscriber@foo.com/00000000-=\r\n" +
+	"1111-2222-3333-444444444444\r\n" +
+	"This footer is over 76 characters wide, " +
+	"but will be quoted-printable encode=\r\n" +
+	"d by EmitMessage."
+
+var textOnlyMsg string = "Content-Type: " + textContentType + "\r\n" +
+	string(contentEncodingQuotedPrintable) +
+	textContent
+
+func TestEmitTextOnly(t *testing.T) {
+	setup := func() (*strings.Builder, *writer, *ErrWriter, *Subscriber) {
+		sb := &strings.Builder{}
+		sub := newTestSubscriber()
+		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		return sb, &writer{buf: sb}, &ErrWriter{buf: sb}, sub
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		sb, w, _, sub := setup()
+
+		testTemplate.emitTextOnly(w, sub)
+
+		assert.NilError(t, w.err)
+		assert.Equal(t, textOnlyMsg, sb.String())
+	})
+
+	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
+		_, w, ew, sub := setup()
+		w.buf = ew
+		ew.errorOn = "Unsubscribe: "
+		ew.err = errors.New("writeQuotedPrintable error")
+
+		testTemplate.emitTextOnly(w, sub)
+
+		assert.Error(t, w.err, "writeQuotedPrintable error")
+	})
 }
 
 func TestMessage(t *testing.T) {
