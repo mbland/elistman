@@ -2,7 +2,6 @@ package email
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -163,8 +162,10 @@ func emitPart(
 
 func writeQuotedPrintable(w io.Writer, msg []byte) error {
 	qpw := quotedprintable.NewWriter(w)
-	_, err := qpw.Write(msg)
-	return errors.Join(err, qpw.Close())
+	if _, err := qpw.Write(msg); err != nil {
+		return err
+	}
+	return qpw.Close()
 }
 
 // Per 'man ascii': 0x0d == "\r", 0x0a == "\n"

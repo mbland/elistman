@@ -86,6 +86,54 @@ func TestConvertToCrlf(t *testing.T) {
 	})
 }
 
+func TestWriteQuotedPrintable(t *testing.T) {
+	setup := func() (*strings.Builder, *ErrWriter) {
+		sb := &strings.Builder{}
+		return sb, &ErrWriter{buf: sb}
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		sb, _ := setup()
+		msg := "This message is longer than 76 chars so we can see " +
+			"the quoted-printable encoding kick in.\r\n" +
+			"\r\n" +
+			"It also contains <a href=\"https://foo.com/\">a hyperlink</a>, " +
+			"in which the equals sign will be encoded."
+
+		err := writeQuotedPrintable(sb, []byte(msg))
+
+		assert.NilError(t, err)
+		expected := "This message is longer than 76 chars so we can see " +
+			"the quoted-printable enc=\r\n" +
+			"oding kick in.\r\n" +
+			"\r\n" +
+			`It also contains <a href=3D"https://foo.com/">a hyperlink</a>, ` +
+			"in which the=\r\n" +
+			" equals sign will be encoded."
+		actual := sb.String()
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("ReturnsWriteError", func(t *testing.T) {
+		_, ew := setup()
+		msg := "This message will trigger an artificial Write error " +
+			"when the first 76 characters are flushed."
+		ew.errorOn = "trigger an artificial Write error"
+		ew.err = errors.New("Write error")
+
+		assert.Error(t, writeQuotedPrintable(ew, []byte(msg)), "Write error")
+	})
+
+	t.Run("ReturnsCloseError", func(t *testing.T) {
+		_, ew := setup()
+		msg := "Close will fail when it calls flush on this short message."
+		ew.errorOn = "Close will fail"
+		ew.err = errors.New("Close error")
+
+		assert.Error(t, writeQuotedPrintable(ew, []byte(msg)), "Close error")
+	})
+}
+
 var testSubscriber *Subscriber = &Subscriber{
 	Email: "subscriber@foo.com",
 	Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
