@@ -59,9 +59,6 @@ func NewMessageTemplate(m *Message) *MessageTemplate {
 }
 
 var toHeaderPrefix = []byte("To: ")
-var listUnsubscribePost = []byte(
-	"List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n",
-)
 var mimeVersion = []byte("MIME-Version: 1.0\r\n")
 
 func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
@@ -71,13 +68,7 @@ func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
 	w.Write(toHeaderPrefix)
 	w.WriteLine(sub.Email)
 	w.Write(mt.subject)
-
-	// If unsubHeader is empty, this is a verification message. No need for the
-	// unsubscribe info if the subscriber isn't yet verified.
-	if len(sub.unsubHeader) != 0 {
-		w.Write(sub.unsubHeader)
-		w.Write(listUnsubscribePost)
-	}
+	sub.EmitUnsubscribeHeaders(w)
 	w.Write(mimeVersion)
 
 	if len(mt.htmlBody) == 0 {

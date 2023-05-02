@@ -1,10 +1,8 @@
 package email
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net/mail"
 	"strings"
 	"testing"
@@ -13,19 +11,6 @@ import (
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
-
-type ErrWriter struct {
-	buf     io.Writer
-	errorOn string
-	err     error
-}
-
-func (ew *ErrWriter) Write(b []byte) (int, error) {
-	if bytes.Contains(b, []byte(ew.errorOn)) {
-		return 0, ew.err
-	}
-	return ew.buf.Write(b)
-}
 
 func TestWriter(t *testing.T) {
 	setup := func() (*strings.Builder, *writer) {
