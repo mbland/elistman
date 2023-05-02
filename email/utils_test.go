@@ -1,3 +1,5 @@
+//go:build small_tests || medium_tests || all_tests
+
 package email
 
 import (
