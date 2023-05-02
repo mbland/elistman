@@ -88,6 +88,26 @@ func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
 	return w.err
 }
 
+type writer struct {
+	buf io.Writer
+	err error
+}
+
+var crlf = []byte("\r\n")
+
+func (w *writer) WriteLine(s string) {
+	w.Write([]byte(s))
+	w.Write(crlf)
+}
+
+func (w *writer) Write(b []byte) (n int, err error) {
+	if w.err == nil {
+		n, err = w.buf.Write(b)
+		w.err = err
+	}
+	return
+}
+
 var contentTypeHeader = []byte("Content-Type: ")
 var charsetUtf8 = map[string]string{"charset": "utf-8"}
 var textContentType = mime.FormatMediaType("text/plain", charsetUtf8)
