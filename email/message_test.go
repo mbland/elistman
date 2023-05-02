@@ -78,6 +78,12 @@ func TestConvertToCrlf(t *testing.T) {
 	t.Run("DoesNotAddNewlinesAfterCarriageFeeds", func(t *testing.T) {
 		checkCrlfOutput(t, "foo\rbar\nbaz", "foo\rbar\r\nbaz")
 	})
+
+	t.Run("TrimsResultToExactCapacity", func(t *testing.T) {
+		result := convertToCrlf("foo\nbar\nbaz")
+
+		assert.Equal(t, cap(result), len(result))
+	})
 }
 
 var testSubscriber *Subscriber = &Subscriber{

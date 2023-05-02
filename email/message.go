@@ -167,34 +167,34 @@ func writeQuotedPrintable(w io.Writer, msg []byte) error {
 	return errors.Join(err, qpw.Close())
 }
 
-func convertToCrlf(s string) []byte {
-	// Per 'man ascii':
-	// - 0x0d == "\r"
-	// - 0x0a == "\n"
-	numLf := 0
-	for i := range s {
-		if s[i] == 0x0a {
-			numLf++
-		}
-	}
+// Per 'man ascii': 0x0d == "\r", 0x0a == "\n"
+const newline byte = 0x0a
+const carriageReturn byte = 0x0d
 
-	buf := make([]byte, len(s)+numLf)
+func convertToCrlf(s string) []byte {
+	// Allocate enough space for a pathological string of all newlines.
+	buf := make([]byte, len(s)*2)
 	n := 0
 	emitCr := true
 
 	for i := range s {
 		c := s[i]
+
 		switch c {
-		case 0x0a:
+		case newline:
 			if emitCr {
-				buf[n] = 0x0d
+				buf[n] = carriageReturn
 				n++
 			}
 		default:
-			emitCr = c != 0x0d
+			emitCr = c != carriageReturn
 		}
 		buf[n] = c
 		n++
 	}
-	return buf[:n]
+
+	// Trim the result to avoid hanging on to extra memory.
+	result := make([]byte, n)
+	copy(result, buf[:n])
+	return result
 }
