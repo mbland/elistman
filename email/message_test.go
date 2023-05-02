@@ -2,7 +2,6 @@ package email
 
 import (
 	"errors"
-	"fmt"
 	"net/mail"
 	"strings"
 	"testing"
@@ -134,31 +133,83 @@ func TestWriteQuotedPrintable(t *testing.T) {
 	})
 }
 
+var testMessage *Message = &Message{
+	From:    "EListMan@foo.com",
+	Subject: "This is a test",
+
+	TextBody: "This is only a test.\n" +
+		"\n" +
+		"This message body is over 76 characters wide " +
+		"so we can see quoted-printable encoding in the MessageTemplate.\n",
+	TextFooter: "\nUnsubscribe: " + UnsubscribeUrlTemplate + "\n" +
+		"This footer is over 76 characters wide, " +
+		"but will be quoted-printable encoded by EmitMessage.",
+
+	HtmlBody: "<!DOCTYPE html>\n" +
+		"<html><head><title>This is a test</title></head>\n" +
+		"<body><p>This is only a test.</p>\n" +
+		"\n" +
+		"<p>This message body is over 76 characters wide " +
+		"so we can see quoted-printable encoding in the MessageTemplate.</p>\n",
+	HtmlFooter: "\n<p><a href=\"" + UnsubscribeUrlTemplate +
+		"\">Unsubscribe</a></p>\n" +
+		"<p>This footer is over 76 characters wide, " +
+		"but will be quoted-printable encoded by EmitMessage.</p>\n" +
+		"</body></html>",
+}
+
+var testTemplate *MessageTemplate = &MessageTemplate{
+	from:    []byte("From: EListMan@foo.com\r\n"),
+	subject: []byte("Subject: This is a test\r\n"),
+
+	textBody: []byte("This is only a test.\r\n" +
+		"\r\n" +
+		"This message body is over 76 characters wide " +
+		"so we can see quoted-printable=\r\n" +
+		" encoding in the MessageTemplate.\r\n"),
+	textFooter: []byte("\r\nUnsubscribe: " + UnsubscribeUrlTemplate + "\r\n" +
+		"This footer is over 76 characters wide, " +
+		"but will be quoted-printable encoded by EmitMessage."),
+
+	htmlBody: []byte("<!DOCTYPE html>\r\n" +
+		"<html><head><title>This is a test</title></head>\r\n" +
+		"<body><p>This is only a test.</p>\r\n" +
+		"\r\n" +
+		"<p>This message body is over 76 characters wide " +
+		"so we can see quoted-printa=\r\n" +
+		"ble encoding in the MessageTemplate.</p>\r\n"),
+	htmlFooter: []byte("\r\n<p><a href=\"" + UnsubscribeUrlTemplate +
+		"\">Unsubscribe</a></p>\r\n" +
+		"<p>This footer is over 76 characters wide, " +
+		"but will be quoted-printable encoded by EmitMessage.</p>\r\n" +
+		"</body></html>"),
+}
+
+func byteStringsEqual(t *testing.T, expected, actual []byte) {
+	t.Helper()
+	assert.Check(t, is.Equal(string(expected), string(actual)))
+}
+
+func TestNewMessageTemplate(t *testing.T) {
+	mt := NewMessageTemplate(testMessage)
+
+	byteStringsEqual(t, testTemplate.from, mt.from)
+	byteStringsEqual(t, testTemplate.subject, mt.subject)
+	byteStringsEqual(t, testTemplate.textBody, mt.textBody)
+	byteStringsEqual(t, testTemplate.textFooter, mt.textFooter)
+	byteStringsEqual(t, testTemplate.htmlBody, mt.htmlBody)
+	byteStringsEqual(t, testTemplate.htmlFooter, mt.htmlFooter)
+}
+
 var testSubscriber *Subscriber = &Subscriber{
 	Email: "subscriber@foo.com",
 	Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
 }
 
 func TestMessage(t *testing.T) {
-	origMsg := &Message{
-		From:       "EListMan@foo.com",
-		Subject:    "This is a test",
-		TextBody:   "This is only a test.",
-		TextFooter: "\n\nUnsubscribe: " + UnsubscribeUrlTemplate,
 
-		// Ensure this is longer than 76 chars so we can see the quoted-printable
-		// encoding kicking in.
-		HtmlBody: `<!DOCTYPE html>` +
-			`<html><head><title>This is a test</title></head>` +
-			`<body><p>This is only a test.</p>`,
-		HtmlFooter: fmt.Sprintf(
-			"\n\n<p><a href=\"%s\">Unsubscribe</a></p></body></html>",
-			UnsubscribeUrlTemplate,
-		),
-	}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		mt := NewMessageTemplate(origMsg)
+	t.Run("EmitsMultipartMessage", func(t *testing.T) {
+		mt := NewMessageTemplate(testMessage)
 		buf := &strings.Builder{}
 		sub := *testSubscriber
 		sub.SetUnsubscribeInfo(
