@@ -4,7 +4,9 @@ package email
 
 import (
 	"errors"
+	"mime/multipart"
 	"net/mail"
+	"net/textproto"
 	"strings"
 	"testing"
 
@@ -213,18 +215,23 @@ func newTestSubscriber() *Subscriber {
 	return &sub
 }
 
-var textContent string = string(testTemplate.textBody) +
-	"\r\n" +
+var instantiatedTextFooter = []byte("\r\n" +
+	"Unsubscribe: https://foo.com/email/unsubscribe/" +
+	"subscriber@foo.com/00000000-1111-2222-3333-444444444444\r\n" +
+	"This footer is over 76 characters wide, " +
+	"but will be quoted-printable encoded by EmitMessage.")
+var encodedTextFooter = []byte("\r\n" +
 	"Unsubscribe: https://foo.com/email/unsubscribe/" +
 	"subscriber@foo.com/00000000-=\r\n" +
 	"1111-2222-3333-444444444444\r\n" +
 	"This footer is over 76 characters wide, " +
 	"but will be quoted-printable encode=\r\n" +
-	"d by EmitMessage."
+	"d by EmitMessage.")
 
-var textOnlyMsg string = "Content-Type: " + textContentType + "\r\n" +
+var textOnlyContent = "Content-Type: " + textContentType + "\r\n" +
 	string(contentEncodingQuotedPrintable) +
-	textContent
+	string(testTemplate.textBody) +
+	string(encodedTextFooter)
 
 func TestEmitTextOnly(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *ErrWriter, *Subscriber) {
@@ -240,7 +247,7 @@ func TestEmitTextOnly(t *testing.T) {
 		testTemplate.emitTextOnly(w, sub)
 
 		assert.NilError(t, w.err)
-		assert.Equal(t, textOnlyMsg, sb.String())
+		assert.Equal(t, textOnlyContent, sb.String())
 	})
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
@@ -252,6 +259,76 @@ func TestEmitTextOnly(t *testing.T) {
 		testTemplate.emitTextOnly(w, sub)
 
 		assert.Error(t, w.err, "writeQuotedPrintable error")
+	})
+}
+
+var textPart string = "Content-Transfer-Encoding: quoted-printable\r\n" +
+	"Content-Type: " + textContentType + "\r\n" +
+	"\r\n" +
+	string(testTemplate.textBody) +
+	string(encodedTextFooter)
+
+func TestEmitPart(t *testing.T) {
+	setup := func() (
+		*strings.Builder,
+		textproto.MIMEHeader,
+		*multipart.Writer,
+	) {
+		sb := &strings.Builder{}
+		w := &writer{buf: sb}
+		h := textproto.MIMEHeader{}
+		h.Add("Content-Transfer-Encoding", "quoted-printable")
+		return sb, h, multipart.NewWriter(w)
+	}
+
+	setupErrWriter := func(errorMsg string) (
+		*ErrWriter, textproto.MIMEHeader, *multipart.Writer,
+	) {
+		sb, h, _ := setup()
+		ew := &ErrWriter{buf: sb}
+		ew.err = errors.New(errorMsg)
+		return ew, h, multipart.NewWriter(ew)
+	}
+
+	contentType := textContentType
+	body := testTemplate.textBody
+	footer := instantiatedTextFooter
+
+	t.Run("Succeeds", func(t *testing.T) {
+		sb, h, mpw := setup()
+
+		err := emitPart(mpw, h, contentType, body, footer)
+
+		assert.NilError(t, err)
+		boundary := "--" + mpw.Boundary() + "\r\n"
+		assert.Equal(t, boundary+string(textPart), sb.String())
+	})
+
+	t.Run("ReturnsCreatePartError", func(t *testing.T) {
+		ew, h, mpw := setupErrWriter("CreatePart error")
+		ew.errorOn = "--" + mpw.Boundary()
+
+		err := emitPart(mpw, h, contentType, body, footer)
+
+		assert.Error(t, err, "CreatePart error")
+	})
+
+	t.Run("ReturnsWriteError", func(t *testing.T) {
+		ew, h, mpw := setupErrWriter("Write error")
+		ew.errorOn = "This is only a test." // appears in body
+
+		err := emitPart(mpw, h, contentType, body, footer)
+
+		assert.Error(t, err, "Write error")
+	})
+
+	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
+		ew, h, mpw := setupErrWriter("writeQuotedPrintable error")
+		ew.errorOn = "Unsubscribe: " // appears in footer
+
+		err := emitPart(mpw, h, contentType, body, footer)
+
+		assert.Error(t, err, "writeQuotedPrintable error")
 	})
 }
 
