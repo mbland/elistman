@@ -131,16 +131,17 @@ func (mt *MessageTemplate) emitMultipart(w *writer, sub *Subscriber) {
 	h := textproto.MIMEHeader{}
 	h.Add("Content-Transfer-Encoding", "quoted-printable")
 
-	if w.err == nil {
-		tf := sub.FillInUnsubscribeUrl(mt.textFooter)
-		w.err = emitPart(mpw, h, textContentType, mt.textBody, tf)
-	}
-	if w.err == nil {
-		hf := sub.FillInUnsubscribeUrl(mt.htmlFooter)
-		w.err = emitPart(mpw, h, htmlContentType, mt.htmlBody, hf)
-	}
-	if w.err == nil {
-		w.err = mpw.Close()
+	tb := mt.textBody
+	tf := sub.FillInUnsubscribeUrl(mt.textFooter)
+	hb := mt.htmlBody
+	hf := sub.FillInUnsubscribeUrl(mt.htmlFooter)
+
+	if err := emitPart(mpw, h, textContentType, tb, tf); err != nil {
+		w.err = err
+	} else if err = emitPart(mpw, h, htmlContentType, hb, hf); err != nil {
+		w.err = err
+	} else if err = mpw.Close(); err != nil {
+		w.err = err
 	}
 }
 
