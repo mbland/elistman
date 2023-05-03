@@ -327,7 +327,14 @@ This software is made available as [Open Source software][oss-def] under the
 - [DMARC GUIDE | DMARC: What is DMARC?][]
 - [Packing multiple binaries in a Golang package][]
 - [One-Click List-Unsubscribe Header – RFC 8058][]
+- [The Use of URLs as Meta-Syntax for Core Mail List Commands and their
+  Transport through Message Header Fields - RFC 2369][RFC 2369]
+- [Signaling One-Click Functionality for List Email Headers - RFC 8058][RFC
+  8058]
 - [List-Unsubscribe header critical for sustained email delivery][]
+- [The Email Marketers Guide to Using List-Unsubscribe][]
+- [List Unsubscribe Header in Email][]
+- [Prevent mail to Gmail users from being blocked or sent to spam][]
 - [Stack Overflow: Post parameter in path or in body][]
 - [How to Verify Email Address Without Sending an Email][]
 - [25, 2525, 465, 587, and Other Numbers: All About SMTP Ports][]
@@ -419,7 +426,12 @@ This software is made available as [Open Source software][oss-def] under the
 [DMARC GUIDE | DMARC: What is DMARC?]: https://dmarcguide.globalcyberalliance.org/#/dmarc/
 [Packing multiple binaries in a Golang package]: https://ieftimov.com/posts/golang-package-multiple-binaries/
 [One-Click List-Unsubscribe Header – RFC 8058]: https://certified-senders.org/wp-content/uploads/2017/07/CSA_one-click_list-unsubscribe.pdf
+[RFC 2369]: https://www.rfc-editor.org/rfc/rfc2369
+[RFC 8058]: https://www.rfc-editor.org/rfc/rfc8058
 [List-Unsubscribe header critical for sustained email delivery]: https://www.postmastery.com/list-unsubscribe-header-critical-for-sustained-email-delivery/
+[The Email Marketers Guide to Using List-Unsubscribe]: https://www.litmus.com/blog/the-ultimate-guide-to-list-unsubscribe/
+[List Unsubscribe Header in Email]: https://mailtrap.io/blog/list-unsubscribe-header/
+[Prevent mail to Gmail users from being blocked or sent to spam]: https://support.google.com/mail/answer/81126
 [Stack Overflow: Post parameter in path or in body]: https://stackoverflow.com/questions/42390564/post-parameter-in-path-or-in-body
 [How to Verify Email Address Without Sending an Email]: https://mailtrap.io/blog/verify-email-address-without-sending/
 [25, 2525, 465, 587, and Other Numbers: All About SMTP Ports]: https://mailtrap.io/blog/smtp-ports-25-465-587-used-for/
