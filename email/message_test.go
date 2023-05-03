@@ -395,8 +395,7 @@ func TestEmitPart(t *testing.T) {
 		*ErrWriter, textproto.MIMEHeader, *multipart.Writer,
 	) {
 		sb, h, _ := setup()
-		ew := &ErrWriter{buf: sb}
-		ew.err = errors.New(errorMsg)
+		ew := &ErrWriter{buf: sb, err: errors.New(errorMsg)}
 		return ew, h, multipart.NewWriter(ew)
 	}
 
@@ -508,6 +507,13 @@ func TestEmitMultipart(t *testing.T) {
 		return sb, &writer{buf: sb}, sub
 	}
 
+	setupWithError := func(errMsg string) (*writer, *ErrWriter, *Subscriber) {
+		sb, w, sub := setup()
+		ew := &ErrWriter{buf: sb, err: errors.New(errMsg)}
+		w.buf = ew
+		return w, ew, sub
+	}
+
 	t.Run("Succeeds", func(t *testing.T) {
 		sb, w, sub := setup()
 
@@ -518,6 +524,33 @@ func TestEmitMultipart(t *testing.T) {
 		assert.Equal(t, multipartContent(boundary), sb.String())
 		assertNextPart(t, pr, "text/plain", decodedTextContent)
 		assertNextPart(t, pr, "text/html", decodedHtmlContent)
+	})
+
+	t.Run("ReturnTextPartError", func(t *testing.T) {
+		w, ew, sub := setupWithError("text/plain part error")
+		ew.errorOn = "Content-Type: text/plain"
+
+		testTemplate.emitMultipart(w, sub)
+
+		assert.Error(t, w.err, "text/plain part error")
+	})
+
+	t.Run("ReturnHtmlPartError", func(t *testing.T) {
+		w, ew, sub := setupWithError("text/html part error")
+		ew.errorOn = "Content-Type: text/html"
+
+		testTemplate.emitMultipart(w, sub)
+
+		assert.Error(t, w.err, "text/html part error")
+	})
+
+	t.Run("ReturnCloseError", func(t *testing.T) {
+		w, ew, sub := setupWithError("multipart.Writer.Close error")
+		ew.errorOn = "--\r\n" // end of the final multipart boundary marker
+
+		testTemplate.emitMultipart(w, sub)
+
+		assert.Error(t, w.err, "multipart.Writer.Close error")
 	})
 }
 
