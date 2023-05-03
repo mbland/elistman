@@ -37,7 +37,7 @@ func newSnsHandlerFixture() *snsHandlerFixture {
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
 var testMail = `
   "mail": {
-    "timestamp": "1970-09-18T00:00:00.000Z",
+    "timestamp": "1970-09-18T12:45:00.000Z",
     "source": "no-reply@mike-bland.com",
     "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/mike-bland.com",
     "sendingAccountId": "123456789012",
@@ -100,7 +100,7 @@ func TestNewSesEventHandler(t *testing.T) {
 				` + testMail + `,
 				"open": {
 					"ipAddress": "127.0.0.1",
-					"timestamp": "1970-09-18T00:00:00.000Z",
+					"timestamp": "1970-09-18T12:45:00.000Z",
 					"userAgent": "doesn't matter"
 				}
 			}`
@@ -147,7 +147,7 @@ func TestNewSesEventHandler(t *testing.T) {
 				"eventType": "Delivery",
 				` + testMail + `,
 				"delivery": {
-					"timestamp": "1970-09-18T00:00:00.000Z",
+					"timestamp": "1970-09-18T12:45:00.000Z",
 					"processingTimeMillis": 27,
 					"recipients": [ "recipient@example.com" ],
 					"smtpResponse": "250 2.6.0 Message received",
@@ -180,7 +180,7 @@ func TestNewSesEventHandler(t *testing.T) {
 						"diagnosticCode":"smtp; 550 5.1.1 user unknown"
 					  }
 					],
-					"timestamp":"1970-09-18T00:00:00.000Z",
+					"timestamp":"1970-09-18T12:45:00.000Z",
 					"feedbackId":"deadbeef",
 					"reportingMTA":"dsn; mta.example.com"
 				}
@@ -210,12 +210,12 @@ func TestNewSesEventHandler(t *testing.T) {
 					"complainedRecipients":[
 					  { "emailAddress":"recipient@example.com" }
 					],
-					"timestamp":"1970-09-18T00:00:00.000Z",
+					"timestamp":"1970-09-18T12:45:00.000Z",
 					"feedbackId":"deadbeef",
 					"userAgent":"doesn't matter",
 					"complaintSubType":"OnAccountSuppressionList",
 					"complaintFeedbackType":"abuse",
-					"arrivalDate":"1970-09-18T00:00:00.000Z"
+					"arrivalDate":"1970-09-18T12:45:00.000Z"
 				  }
 			}`
 
