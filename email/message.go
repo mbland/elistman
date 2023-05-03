@@ -2,6 +2,7 @@ package email
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -75,6 +76,10 @@ func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
 	} else {
 		mt.emitMultipart(w, sub)
 	}
+
+	if w.err != nil {
+		w.err = fmt.Errorf("error emitting message to %s: %s", sub.Email, w.err)
+	}
 	return w.err
 }
 
@@ -94,6 +99,8 @@ func (w *writer) Write(b []byte) (n int, err error) {
 	if w.err == nil {
 		n, err = w.buf.Write(b)
 		w.err = err
+	} else {
+		n = len(b)
 	}
 	return
 }

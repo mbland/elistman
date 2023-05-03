@@ -57,6 +57,25 @@ func TestWriter(t *testing.T) {
 
 		assert.Equal(t, sb.String(), msg+"\r\n")
 	})
+
+	t.Run("ReturnsInputLenAfterErrToAvoidIoErrShortWrite", func(t *testing.T) {
+		// From: https://pkg.go.dev/io#pkg-variables
+		//
+		// > ErrShortWrite means that a write accepted fewer bytes than
+		// > requested but failed to return an explicit error.
+		//
+		// This bug was originally surfaced by TestEmitMessage/
+		// ReturnsWriteErrors.
+		sb, w := setup()
+		w.err = errors.New("make subsequent callers think Write succeeded")
+		const msg = "Hello, World!"
+
+		n, err := w.Write([]byte(msg))
+
+		assert.NilError(t, err)
+		assert.Equal(t, "", sb.String())
+		assert.Equal(t, len(msg), n)
+	})
 }
 
 func TestConvertToCrlf(t *testing.T) {
@@ -554,27 +573,93 @@ func TestEmitMultipart(t *testing.T) {
 	})
 }
 
-func TestMessage(t *testing.T) {
+const testUnsubHeaderValue = "<mailto:" + testUnsubEmail +
+	"?subject=subscriber@foo.com%20" + testUid + ">, " +
+	"<" + testUnsubBaseUrl + "subscriber@foo.com/" + testUid + ">"
+
+const expectedHeaders = "From: EListMan@foo.com\r\n" +
+	"To: subscriber@foo.com\r\n" +
+	"Subject: This is a test\r\n" +
+	"List-Unsubscribe: " + testUnsubHeaderValue + "\r\n" +
+	"List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n" +
+	"MIME-Version: 1.0\r\n"
+
+type testHeader struct {
+	mail.Header
+}
+
+func (th *testHeader) assert(t *testing.T, name string, expected string) {
+	t.Helper()
+
+	if actual := th.Get(name); actual != expected {
+		t.Errorf("expected %s header: %s, actual: %s", name, expected, actual)
+	}
+}
+
+func assertMessageHeaders(t *testing.T, msg *mail.Message, content string) {
+	t.Helper()
+
+	th := testHeader{msg.Header}
+	th.assert(t, "From", testMessage.From)
+	th.assert(t, "To", testSubscriber.Email)
+	th.assert(t, "Subject", testMessage.Subject)
+	th.assert(t, "List-Unsubscribe", testUnsubHeaderValue)
+	th.assert(t, "List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+	th.assert(t, "MIME-Version", "1.0")
+}
+
+func TestEmitMessage(t *testing.T) {
+	setup := func() (*strings.Builder, *writer, *Subscriber) {
+		sb := &strings.Builder{}
+		sub := newTestSubscriber()
+		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		return sb, &writer{buf: sb}, sub
+	}
+
+	setupWithError := func(errMsg string) (*writer, *ErrWriter, *Subscriber) {
+		sb, w, sub := setup()
+		ew := &ErrWriter{buf: sb, err: errors.New(errMsg)}
+		w.buf = ew
+		return w, ew, sub
+	}
+
 	t.Run("EmitsPlaintextMessage", func(t *testing.T) {
-		t.Skip("unimplemented")
+		sb, w, sub := setup()
+		textTemplate := *testTemplate
+		textTemplate.htmlBody = []byte{}
+
+		err := textTemplate.EmitMessage(w, sub)
+
+		assert.NilError(t, err)
+		content := sb.String()
+		msg, qpr := parseTextMessage(t, content)
+		assert.Equal(t, expectedHeaders+textOnlyContent, content)
+		assertMessageHeaders(t, msg, content)
+		assertDecodedContent(t, qpr, decodedTextContent)
 	})
 
 	t.Run("EmitsMultipartMessage", func(t *testing.T) {
-		t.Skip("pause")
-		mt := NewMessageTemplate(testMessage)
-		buf := &strings.Builder{}
-		sub := *testSubscriber
-		sub.SetUnsubscribeInfo(
-			"unsubscribe@foo.com", "https://foo.com/email/unsubscribe/",
-		)
+		sb, w, sub := setup()
 
-		err := mt.EmitMessage(buf, &sub)
-		assert.NilError(t, err)
+		err := testTemplate.EmitMessage(w, sub)
 
-		msg := buf.String()
-		_, err = mail.ReadMessage(strings.NewReader(msg))
 		assert.NilError(t, err)
-		assert.Assert(t, strings.HasSuffix(msg, "\r\n"))
-		assert.Equal(t, msg, "")
+		content := sb.String()
+		msg, boundary, pr := parseMultipartMessageAndBoundary(t, content)
+		assert.Equal(t, expectedHeaders+multipartContent(boundary), content)
+		assertMessageHeaders(t, msg, content)
+		assertNextPart(t, pr, "text/plain", decodedTextContent)
+		assertNextPart(t, pr, "text/html", decodedHtmlContent)
+	})
+
+	t.Run("ReturnsWriteErrors", func(t *testing.T) {
+		w, ew, sub := setupWithError("write MIME-Version error")
+		ew.errorOn = "MIME-Version"
+
+		err := testTemplate.EmitMessage(w, sub)
+
+		expected := "error emitting message to " + sub.Email +
+			": write MIME-Version error"
+		assert.Error(t, err, expected)
 	})
 }
