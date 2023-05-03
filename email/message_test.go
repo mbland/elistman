@@ -302,7 +302,7 @@ func assertDecodedContent(t *testing.T, content io.Reader, expected string) {
 	}
 }
 
-func parseAndAssertDecodedContent(t *testing.T, content, decoded string) {
+func parseAndAssertDecodedTextContent(t *testing.T, content, decoded string) {
 	t.Helper()
 
 	msg := parseMessage(t, content)
@@ -331,7 +331,7 @@ func TestEmitTextOnly(t *testing.T) {
 
 		assert.NilError(t, w.err)
 		assert.Equal(t, textOnlyContent, sb.String())
-		parseAndAssertDecodedContent(t, sb.String(), decodedTextContent)
+		parseAndAssertDecodedTextContent(t, sb.String(), decodedTextContent)
 	})
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
@@ -352,11 +352,11 @@ var textPart string = "Content-Transfer-Encoding: quoted-printable\r\n" +
 	string(testTemplate.textBody) +
 	string(encodedTextFooter)
 
-func newPartReader(content, boundary string) *multipart.Reader {
-	return multipart.NewReader(strings.NewReader(content), boundary)
+func newPartReader(content io.Reader, boundary string) *multipart.Reader {
+	return multipart.NewReader(content, boundary)
 }
 
-func checkNextPart(
+func assertNextPart(
 	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
 ) {
 	t.Helper()
@@ -415,8 +415,9 @@ func TestEmitPart(t *testing.T) {
 		assert.Equal(t, boundaryMarker+string(textPart), sb.String())
 
 		assert.NilError(t, mpw.Close()) // ensure end boundary written
-		partReader := newPartReader(sb.String(), mpw.Boundary())
-		checkNextPart(t, partReader, "text/plain", decodedTextContent)
+		contentReader := strings.NewReader(sb.String())
+		partReader := newPartReader(contentReader, mpw.Boundary())
+		assertNextPart(t, partReader, "text/plain", decodedTextContent)
 	})
 
 	t.Run("ReturnsCreatePartError", func(t *testing.T) {
@@ -486,6 +487,20 @@ func multipartContent(boundary string) string {
 var decodedHtmlContent = string(convertToCrlf(testMessage.HtmlBody)) +
 	string(instantiatedHtmlFooter)
 
+func parseMultipartMessageAndBoundary(
+	t *testing.T, content string,
+) (msg *mail.Message, boundary string, partReader *multipart.Reader) {
+	t.Helper()
+
+	msg = parseMessage(t, content)
+	params := assertContentTypeAndGetParams(
+		t, textproto.MIMEHeader(msg.Header), "multipart/alternative",
+	)
+	boundary = params["boundary"]
+	partReader = newPartReader(msg.Body, boundary)
+	return
+}
+
 func TestEmitMultipart(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *Subscriber) {
 		sb := &strings.Builder{}
@@ -500,16 +515,10 @@ func TestEmitMultipart(t *testing.T) {
 		testTemplate.emitMultipart(w, sub)
 
 		assert.NilError(t, w.err)
-		msg := parseMessage(t, sb.String())
-		params := assertContentTypeAndGetParams(
-			t, textproto.MIMEHeader(msg.Header), "multipart/alternative",
-		)
-		boundary := params["boundary"]
+		_, boundary, pr := parseMultipartMessageAndBoundary(t, sb.String())
 		assert.Equal(t, multipartContent(boundary), sb.String())
-
-		partReader := newPartReader(sb.String(), boundary)
-		checkNextPart(t, partReader, "text/plain", decodedTextContent)
-		checkNextPart(t, partReader, "text/html", decodedHtmlContent)
+		assertNextPart(t, pr, "text/plain", decodedTextContent)
+		assertNextPart(t, pr, "text/html", decodedHtmlContent)
 	})
 }
 
