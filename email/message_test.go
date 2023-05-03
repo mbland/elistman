@@ -302,18 +302,20 @@ func assertDecodedContent(t *testing.T, content io.Reader, expected string) {
 	}
 }
 
-func parseAndAssertDecodedTextContent(t *testing.T, content, decoded string) {
+func parseTextMessage(
+	t *testing.T, content string,
+) (msg *mail.Message, qpReader *quotedprintable.Reader) {
 	t.Helper()
 
-	msg := parseMessage(t, content)
+	msg = parseMessage(t, content)
 	header := textproto.MIMEHeader(msg.Header)
 	assertContentType(t, header, "text/plain", charsetUtf8)
 
 	const cte = "Content-Transfer-Encoding"
 	assertValue(t, cte, "quoted-printable", header.Get(cte))
 
-	qpReader := quotedprintable.NewReader(msg.Body)
-	assertDecodedContent(t, qpReader, decoded)
+	qpReader = quotedprintable.NewReader(msg.Body)
+	return
 }
 
 func TestEmitTextOnly(t *testing.T) {
@@ -331,7 +333,8 @@ func TestEmitTextOnly(t *testing.T) {
 
 		assert.NilError(t, w.err)
 		assert.Equal(t, textOnlyContent, sb.String())
-		parseAndAssertDecodedTextContent(t, sb.String(), decodedTextContent)
+		_, qpr := parseTextMessage(t, sb.String())
+		assertDecodedContent(t, qpr, decodedTextContent)
 	})
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
