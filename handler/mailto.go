@@ -103,7 +103,7 @@ func (h *mailtoHandler) bounceIfDmarcFails(
 ) (bounceMessageId string, err error) {
 	if ev.DmarcVerdict == "FAIL" && ev.DmarcPolicy == "REJECT" {
 		bounceMessageId, err = h.Bouncer.Bounce(
-			ctx, h.EmailDomain, ev.Recipients, ev.Timestamp,
+			ctx, h.EmailDomain, ev.MessageId, ev.Recipients, ev.Timestamp,
 		)
 	}
 	return

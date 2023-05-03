@@ -18,7 +18,8 @@ type Mailer interface {
 type Bouncer interface {
 	Bounce(
 		ctx context.Context,
-		emailDomain string,
+		emailDomain,
+		messageId string,
 		recipients []string,
 		timestamp time.Time,
 	) (string, error)
@@ -69,19 +70,43 @@ func (mailer *SesMailer) Send(
 	return
 }
 
+// https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
 func (mailer *SesMailer) Bounce(
 	ctx context.Context,
-	emailDomain string,
+	emailDomain,
+	messageId string,
 	recipients []string,
 	timestamp time.Time,
 ) (bounceMessageId string, err error) {
-	// https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda-example-functions.html
-	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#SES.SendBounce
-	// https://docs.aws.amazon.com/ses/latest/APIReference/API_SendBounce.html
-	// https://docs.aws.amazon.com/ses/latest/APIReference/API_MessageDsn.html
-	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/#MessageDsn
-	// https://docs.aws.amazon.com/sdk-for-go/api/service/ses/sesiface/
-	bounceMessageId = "fake bounce message ID"
+	sender := "mailer-daemon@" + emailDomain
+	recipientInfo := make([]types.BouncedRecipientInfo, len(recipients))
+	reportingMta := "dns; " + emailDomain
+	arrivalDate := timestamp.Truncate(time.Second)
+	explanation := "Unauthenticated email is not accepted due to " +
+		"the sending domain's DMARC policy."
+
+	for i, recipient := range recipients {
+		recipientInfo[i].Recipient = &recipient
+		recipientInfo[i].BounceType = types.BounceTypeContentRejected
+	}
+
+	input := &ses.SendBounceInput{
+		BounceSender:      &sender,
+		OriginalMessageId: &messageId,
+		MessageDsn: &types.MessageDsn{
+			ReportingMta: &reportingMta,
+			ArrivalDate:  &arrivalDate,
+		},
+		Explanation:              &explanation,
+		BouncedRecipientInfoList: recipientInfo,
+	}
+	var output *ses.SendBounceOutput
+
+	if output, err = mailer.Client.SendBounce(ctx, input); err != nil {
+		err = fmt.Errorf("sending bounce failed: %s", err)
+	} else {
+		bounceMessageId = *output.MessageId
+	}
 	return
 }
 

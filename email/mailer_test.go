@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"gotest.tools/assert"
 )
 
@@ -56,7 +58,9 @@ func TestSend(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, testMsgId, msgId)
+
 		input := testSes.rawEmailInput
+		assert.Assert(t, input != nil)
 		assert.DeepEqual(t, []string{recipient}, input.Destinations)
 		assert.Equal(t, mailer.ConfigSet, *input.ConfigurationSetName)
 		assert.DeepEqual(t, testMsg, input.RawMessage.Data)
@@ -70,5 +74,55 @@ func TestSend(t *testing.T) {
 
 		assert.Equal(t, "", msgId)
 		assert.Error(t, err, "send failed: SendRawEmail error")
+	})
+}
+
+func TestBounce(t *testing.T) {
+	setup := func() (*TestSes, *SesMailer, context.Context) {
+		testSes := &TestSes{
+			bounceInput:  &ses.SendBounceInput{},
+			bounceOutput: &ses.SendBounceOutput{},
+		}
+		mailer := &SesMailer{Client: testSes}
+		return testSes, mailer, context.Background()
+	}
+
+	emailDomain := "foo.com"
+	messageId := "deadbeef"
+	recipients := []string{"plugh@foo.com"}
+	timestamp, _ := time.Parse(time.RFC1123Z, "Fri, 18 Sep 1970 12:45:00 +0000")
+
+	t.Run("Succeeds", func(t *testing.T) {
+		testSes, mailer, ctx := setup()
+		testBouncedMessageId := "0123456789"
+		testSes.bounceOutput.MessageId = &testBouncedMessageId
+
+		bouncedId, err := mailer.Bounce(
+			ctx, emailDomain, messageId, recipients, timestamp,
+		)
+
+		assert.NilError(t, err)
+		assert.Equal(t, testBouncedMessageId, bouncedId)
+
+		input := testSes.bounceInput
+		assert.Assert(t, input != nil)
+		assert.Equal(t, len(recipients), len(input.BouncedRecipientInfoList))
+		bouncedRecipient := input.BouncedRecipientInfoList[0]
+		assert.Equal(t, recipients[0], *bouncedRecipient.Recipient)
+		assert.Equal(
+			t, types.BounceTypeContentRejected, bouncedRecipient.BounceType,
+		)
+	})
+
+	t.Run("ReturnsErrorIfSendBounceFails", func(t *testing.T) {
+		testSes, mailer, ctx := setup()
+		testSes.bounceErr = errors.New("SendBounce error")
+
+		bouncedId, err := mailer.Bounce(
+			ctx, emailDomain, messageId, recipients, timestamp,
+		)
+
+		assert.Equal(t, "", bouncedId)
+		assert.Error(t, err, "sending bounce failed: SendBounce error")
 	})
 }

@@ -90,6 +90,7 @@ var testRedirects = RedirectPaths{
 
 type testBouncer struct {
 	EmailDomain     string
+	MessageId       string
 	Recipients      []string
 	Timestamp       time.Time
 	ReturnMessageId string
@@ -98,11 +99,13 @@ type testBouncer struct {
 
 func (b *testBouncer) Bounce(
 	ctx context.Context,
-	emailDomain string,
+	emailDomain,
+	messageId string,
 	recipients []string,
 	timestamp time.Time,
 ) (string, error) {
 	b.EmailDomain = emailDomain
+	b.MessageId = messageId
 	b.Recipients = recipients
 	b.Timestamp = timestamp
 	if b.Error != nil {

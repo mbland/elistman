@@ -115,6 +115,7 @@ func TestBounceIfDmarcFails(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, "0x123456789", bounceMessageId)
 		assert.Equal(t, testEmailDomain, f.bouncer.EmailDomain)
+		assert.Equal(t, "deadbeef", f.bouncer.MessageId)
 		assert.DeepEqual(t, f.event.Recipients, f.bouncer.Recipients)
 		assert.Equal(t, f.event.Timestamp, f.bouncer.Timestamp)
 	})
