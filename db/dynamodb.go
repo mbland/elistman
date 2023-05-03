@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
@@ -16,13 +15,6 @@ import (
 type DynamoDb struct {
 	Client    *dynamodb.Client
 	TableName string
-}
-
-func NewDynamoDb(awsConfig *aws.Config, tableName string) *DynamoDb {
-	return &DynamoDb{
-		Client:    dynamodb.NewFromConfig(*awsConfig),
-		TableName: tableName,
-	}
 }
 
 var DynamoDBPrimaryKey string = "email"
