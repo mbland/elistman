@@ -355,10 +355,6 @@ var textPart string = "Content-Transfer-Encoding: quoted-printable\r\n" +
 	string(testTemplate.textBody) +
 	string(encodedTextFooter)
 
-func newPartReader(content io.Reader, boundary string) *multipart.Reader {
-	return multipart.NewReader(content, boundary)
-}
-
 func assertNextPart(
 	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
 ) {
@@ -419,7 +415,7 @@ func TestEmitPart(t *testing.T) {
 
 		assert.NilError(t, mpw.Close()) // ensure end boundary written
 		contentReader := strings.NewReader(sb.String())
-		partReader := newPartReader(contentReader, mpw.Boundary())
+		partReader := multipart.NewReader(contentReader, mpw.Boundary())
 		assertNextPart(t, partReader, "text/plain", decodedTextContent)
 	})
 
@@ -500,7 +496,7 @@ func parseMultipartMessageAndBoundary(
 		t, textproto.MIMEHeader(msg.Header), "multipart/alternative",
 	)
 	boundary = params["boundary"]
-	partReader = newPartReader(msg.Body, boundary)
+	partReader = multipart.NewReader(msg.Body, boundary)
 	return
 }
 
