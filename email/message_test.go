@@ -242,40 +242,78 @@ var textOnlyContent = "Content-Type: " + textContentType + "\r\n" +
 var decodedTextContent = string(convertToCrlf(testMessage.TextBody)) +
 	string(instantiatedTextFooter)
 
-func parseContentAndMediaType(
-	t *testing.T, content string,
-) (msg *mail.Message, mediaType string, params map[string]string) {
+func parseMessage(t *testing.T, content string) (msg *mail.Message) {
 	t.Helper()
 	var err error
 
 	if msg, err = mail.ReadMessage(strings.NewReader(content)); err != nil {
-		t.Fatalf("couldn't parse headers from content: %s\n%s", err, content)
-	} else if ct := msg.Header.Get("Content-Type"); ct == "" {
-		t.Fatalf("no Content-Type header\n%s", content)
-	} else if mediaType, params, err = mime.ParseMediaType(ct); err != nil {
-		t.Fatalf("couldn't parse media type from: %s", ct)
+		t.Fatalf("couldn't parse message from content: %s\n%s", err, content)
 	}
 	return
 }
 
-func parseAndCheckDecoded(
-	t *testing.T, content, expectedMediaType, expectedDecoded string,
+func assertValue(t *testing.T, name, expected, actual string) {
+	t.Helper()
+
+	if expected != actual {
+		t.Fatalf("expected %s: %s, actual: %s", name, expected, actual)
+	}
+}
+
+func assertContentTypeAndGetParams(
+	t *testing.T, headers textproto.MIMEHeader, expectedMediaType string,
+) (params map[string]string) {
+	t.Helper()
+
+	var mediaType string
+	var err error
+
+	if ct := headers.Get("Content-Type"); ct == "" {
+		t.Fatalf("no Content-Type header in: %+v", headers)
+	} else if mediaType, params, err = mime.ParseMediaType(ct); err != nil {
+		t.Fatalf("couldn't parse media type from: %s: %s", ct, err)
+	} else {
+		assertValue(t, "media type", expectedMediaType, mediaType)
+	}
+	return
+}
+
+func assertContentType(
+	t *testing.T,
+	headers textproto.MIMEHeader,
+	expectedMediaType string,
+	expectedParams map[string]string,
 ) {
 	t.Helper()
 
-	msg, mediaType, params := parseContentAndMediaType(t, content)
-	assert.Equal(t, expectedMediaType, mediaType)
-	assert.DeepEqual(t, charsetUtf8, params)
-	assert.Equal(
-		t, "quoted-printable", msg.Header.Get("Content-Transfer-Encoding"),
-	)
+	params := assertContentTypeAndGetParams(t, headers, expectedMediaType)
+	const assertMsg = "unexpected Content-Type params"
+	assert.Assert(t, is.DeepEqual(expectedParams, params), assertMsg)
+}
+
+func assertDecodedContent(t *testing.T, content io.Reader, expected string) {
+	t.Helper()
+
+	if decoded, err := io.ReadAll(content); err != nil {
+		t.Errorf("couldn't read and decode content: %s", err)
+	} else {
+		actual := string(decoded)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func parseAndAssertDecodedContent(t *testing.T, content, decoded string) {
+	t.Helper()
+
+	msg := parseMessage(t, content)
+	header := textproto.MIMEHeader(msg.Header)
+	assertContentType(t, header, "text/plain", charsetUtf8)
+
+	const cte = "Content-Transfer-Encoding"
+	assertValue(t, cte, "quoted-printable", header.Get(cte))
 
 	qpReader := quotedprintable.NewReader(msg.Body)
-	if decoded, err := io.ReadAll(qpReader); err != nil {
-		t.Errorf("couldn't read quoted-printable body: %s\n%s", err, content)
-	} else {
-		assert.Equal(t, expectedDecoded, string(decoded))
-	}
+	assertDecodedContent(t, qpReader, decoded)
 }
 
 func TestEmitTextOnly(t *testing.T) {
@@ -293,7 +331,7 @@ func TestEmitTextOnly(t *testing.T) {
 
 		assert.NilError(t, w.err)
 		assert.Equal(t, textOnlyContent, sb.String())
-		parseAndCheckDecoded(t, sb.String(), "text/plain", decodedTextContent)
+		parseAndAssertDecodedContent(t, sb.String(), decodedTextContent)
 	})
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
@@ -314,44 +352,31 @@ var textPart string = "Content-Transfer-Encoding: quoted-printable\r\n" +
 	string(testTemplate.textBody) +
 	string(encodedTextFooter)
 
-func newPartReader(content io.Reader, boundary string) *multipart.Reader {
-	return multipart.NewReader(content, boundary)
+func newPartReader(content, boundary string) *multipart.Reader {
+	return multipart.NewReader(strings.NewReader(content), boundary)
 }
 
 func checkNextPart(
-	t *testing.T,
-	reader *multipart.Reader,
-	expectedMediaType, expectedDecoded string,
+	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
 ) {
 	t.Helper()
 
 	var part *multipart.Part
-	var mediaType string
-	var params map[string]string
 	var err error
 
 	if part, err = reader.NextPart(); err != nil {
 		t.Fatalf("couldn't parse message part: %s", err)
-	} else if ct := part.Header.Get("Content-Type"); ct == "" {
-		t.Fatalf("no Content-Type header in: %+v", part.Header)
-	} else if mediaType, params, err = mime.ParseMediaType(ct); err != nil {
-		t.Fatalf("couldn't parse media type from: %s", ct)
 	}
-
-	assert.Equal(t, expectedMediaType, mediaType, "unexpected media type")
-	assert.DeepEqual(t, charsetUtf8, params)
+	assertContentType(t, part.Header, mediaType, charsetUtf8)
 
 	// Per: https://pkg.go.dev/mime/multipart#Reader.NextPart
 	//
 	// > As a special case, if the "Content-Transfer-Encoding" header has a
 	// > value of "quoted-printable", that header is instead hidden and the body
 	// > is transparently decoded during Read calls.
-
-	if decoded, err := io.ReadAll(part); err != nil {
-		t.Fatalf("couldn't read body: %s", err)
-	} else {
-		assert.Equal(t, expectedDecoded, string(decoded))
-	}
+	const cte = "Content-Transfer-Encoding"
+	assertValue(t, cte, "", part.Header.Get(cte))
+	assertDecodedContent(t, part, decoded)
 }
 
 func TestEmitPart(t *testing.T) {
@@ -389,10 +414,8 @@ func TestEmitPart(t *testing.T) {
 		boundaryMarker := "--" + mpw.Boundary() + "\r\n"
 		assert.Equal(t, boundaryMarker+string(textPart), sb.String())
 
-		assert.NilError(t, mpw.Close()) // necessary before newPartReader
-		partReader := newPartReader(
-			strings.NewReader(sb.String()), mpw.Boundary(),
-		)
+		assert.NilError(t, mpw.Close()) // ensure end boundary written
+		partReader := newPartReader(sb.String(), mpw.Boundary())
 		checkNextPart(t, partReader, "text/plain", decodedTextContent)
 	})
 
@@ -477,12 +500,14 @@ func TestEmitMultipart(t *testing.T) {
 		testTemplate.emitMultipart(w, sub)
 
 		assert.NilError(t, w.err)
-		_, mediaType, params := parseContentAndMediaType(t, sb.String())
-		assert.Equal(t, "multipart/alternative", mediaType)
+		msg := parseMessage(t, sb.String())
+		params := assertContentTypeAndGetParams(
+			t, textproto.MIMEHeader(msg.Header), "multipart/alternative",
+		)
 		boundary := params["boundary"]
 		assert.Equal(t, multipartContent(boundary), sb.String())
 
-		partReader := newPartReader(strings.NewReader(sb.String()), boundary)
+		partReader := newPartReader(sb.String(), boundary)
 		checkNextPart(t, partReader, "text/plain", decodedTextContent)
 		checkNextPart(t, partReader, "text/html", decodedHtmlContent)
 	})
