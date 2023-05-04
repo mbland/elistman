@@ -20,6 +20,13 @@ type Subscriber struct {
 	Timestamp time.Time
 }
 
+type SubscriberState string
+
+const (
+	SubscriberStatePending  SubscriberState = "pending"
+	SubscriberStateVerified SubscriberState = "verified"
+)
+
 func NewSubscriber(email string) *Subscriber {
 	return &Subscriber{
 		Email:     email,

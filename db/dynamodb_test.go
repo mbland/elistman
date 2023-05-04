@@ -4,19 +4,36 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
 
+const testEmail = "foo@bar.com"
+const testTimeStr = "Fri, 18 Sep 1970 12:45:00 +0000"
+
+var testUid uuid.UUID = uuid.MustParse("00000000-1111-2222-3333-444444444444")
+
+var testTimestamp time.Time
+
+func init() {
+	var err error
+	testTimestamp, err = time.Parse(time.RFC1123Z, testTimeStr)
+
+	if err != nil {
+		panic("failed to parse testTimestamp: " + err.Error())
+	}
+}
+
 func TestGetAttribute(t *testing.T) {
-	testEmail := "mbland@acm.org"
 	attrs := dbAttributes{
 		"email":      &dbString{Value: testEmail},
-		"unexpected": &dbBool{Value: false},
+		"unexpected": &types.AttributeValueMemberBOOL{Value: false},
 	}
 
 	parseString := func(attr *dbString) (string, error) {
@@ -61,13 +78,11 @@ func TestGetAttribute(t *testing.T) {
 
 func TestParseSubscriber(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		testEmail := "mbland@acm.org"
-		testUid := uuid.New()
 		testTime := time.Now().Truncate(time.Second)
 		attrs := dbAttributes{
 			"email":     &dbString{Value: testEmail},
 			"uid":       &dbString{Value: testUid.String()},
-			"verified":  &dbBool{Value: true},
+			"verified":  &dbString{Value: "Y"},
 			"timestamp": &dbString{Value: testTime.Format(timeFmt)},
 		}
 
@@ -82,11 +97,35 @@ func TestParseSubscriber(t *testing.T) {
 	t.Run("ErrorsIfGettingAttributesFail", func(t *testing.T) {
 		subscriber, err := ParseSubscriber(dbAttributes{})
 
-		assert.Assert(t, is.Nil(subscriber))
+		assert.Check(t, is.Nil(subscriber))
 		assert.ErrorContains(t, err, "failed to parse subscriber: ")
 		assert.ErrorContains(t, err, "attribute 'email' not in: ")
 		assert.ErrorContains(t, err, "attribute 'uid' not in: ")
-		assert.ErrorContains(t, err, "attribute 'verified' not in: ")
 		assert.ErrorContains(t, err, "attribute 'timestamp' not in: ")
+
+		const errFmt = "has neither '%s' or '%s' attributes"
+		expected := fmt.Sprintf(
+			errFmt, SubscriberStatePending, SubscriberStateVerified,
+		)
+		assert.ErrorContains(t, err, expected)
+	})
+
+	t.Run("ErrorsIfContainsBothPendingAndVerified", func(t *testing.T) {
+		attrs := dbAttributes{
+			"email":     &dbString{Value: "foo@bar.com"},
+			"uid":       &dbString{Value: testUid.String()},
+			"pending":   &dbString{Value: "Y"},
+			"verified":  &dbString{Value: "Y"},
+			"timestamp": &dbString{Value: testTimestamp.Format(timeFmt)},
+		}
+
+		subscriber, err := ParseSubscriber(attrs)
+		assert.Check(t, is.Nil(subscriber))
+
+		const errFmt = "contains both '%s' and '%s' attributes"
+		expected := fmt.Sprintf(
+			errFmt, SubscriberStatePending, SubscriberStateVerified,
+		)
+		assert.ErrorContains(t, err, expected)
 	})
 }

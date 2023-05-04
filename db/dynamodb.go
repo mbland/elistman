@@ -89,7 +89,6 @@ func (db *DynamoDb) DeleteTable(ctx context.Context) error {
 
 type (
 	dbString     = types.AttributeValueMemberS
-	dbBool       = types.AttributeValueMemberBOOL
 	dbAttributes = map[string]types.AttributeValue
 )
 
@@ -106,20 +105,38 @@ type dbParser struct {
 func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 	p := dbParser{attrs}
 	s := &Subscriber{}
-	errs := make([]error, 4)
+	errs := make([]error, 0, 4)
+	addErr := func(e error) {
+		errs = append(errs, e)
+	}
 
 	if s.Email, err = p.GetString("email"); err != nil {
-		errs = append(errs, err)
+		addErr(err)
 	}
 	if s.Uid, err = p.GetUid("uid"); err != nil {
-		errs = append(errs, err)
-	}
-	if s.Verified, err = p.GetBool("verified"); err != nil {
-		errs = append(errs, err)
+		addErr(err)
 	}
 	if s.Timestamp, err = p.GetTime("timestamp"); err != nil {
-		errs = append(errs, err)
+		addErr(err)
 	}
+
+	_, pending := attrs[string(SubscriberStatePending)]
+	_, verified := attrs[string(SubscriberStateVerified)]
+
+	if pending && verified {
+		const errFmt = "contains both '%s' and '%s' attributes"
+		addErr(
+			fmt.Errorf(errFmt, SubscriberStatePending, SubscriberStateVerified),
+		)
+	} else if !(pending || verified) {
+		const errFmt = "has neither '%s' or '%s' attributes"
+		addErr(
+			fmt.Errorf(errFmt, SubscriberStatePending, SubscriberStateVerified),
+		)
+	} else {
+		s.Verified = verified
+	}
+
 	if err = errors.Join(errs...); err != nil {
 		err = errors.New("failed to parse subscriber: " + err.Error())
 	} else {
@@ -130,12 +147,6 @@ func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 
 func (p *dbParser) GetString(name string) (value string, err error) {
 	return getAttribute(name, p.attrs, func(attr *dbString) (string, error) {
-		return attr.Value, nil
-	})
-}
-
-func (p *dbParser) GetBool(name string) (value bool, err error) {
-	return getAttribute(name, p.attrs, func(attr *dbBool) (bool, error) {
 		return attr.Value, nil
 	})
 }
@@ -188,11 +199,16 @@ func (db *DynamoDb) Get(
 }
 
 func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
+	stateKey := string(SubscriberStatePending)
+
+	if record.Verified {
+		stateKey = string(SubscriberStateVerified)
+	}
 	input := &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
-			"email":    &dbString{Value: record.Email},
-			"uid":      &dbString{Value: record.Uid.String()},
-			"verified": &dbBool{Value: record.Verified},
+			"email":  &dbString{Value: record.Email},
+			"uid":    &dbString{Value: record.Uid.String()},
+			stateKey: &dbString{Value: "Y"},
 			"timestamp": &dbString{
 				Value: record.Timestamp.Format(timeFmt),
 			},
