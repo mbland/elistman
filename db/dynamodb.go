@@ -17,17 +17,17 @@ type DynamoDb struct {
 	TableName string
 }
 
-var DynamoDBPrimaryKey string = "email"
+var DynamoDbPrimaryKey string = "email"
 
 var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	AttributeDefinitions: []types.AttributeDefinition{
 		{
-			AttributeName: &DynamoDBPrimaryKey,
+			AttributeName: &DynamoDbPrimaryKey,
 			AttributeType: types.ScalarAttributeTypeS,
 		},
 	},
 	KeySchema: []types.KeySchemaElement{
-		{AttributeName: &DynamoDBPrimaryKey, KeyType: types.KeyTypeHash},
+		{AttributeName: &DynamoDbPrimaryKey, KeyType: types.KeyTypeHash},
 	},
 	BillingMode: types.BillingModePayPerRequest,
 }
