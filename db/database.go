@@ -35,3 +35,7 @@ func NewSubscriber(email string) *Subscriber {
 		Timestamp: time.Now().Truncate(time.Second),
 	}
 }
+
+type StartKey interface {
+	isDbStartKey()
+}

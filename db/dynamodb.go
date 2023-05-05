@@ -19,6 +19,12 @@ type DynamoDb struct {
 
 var DynamoDbPrimaryKey string = "email"
 
+// Sparse Global Secondary Index for records containing a "pending" attribute.
+var DynamoDbPendingIndexName string = string(SubscriberPending)
+
+// Sparse Global Secondary Index for records containing a "verified" attribute.
+var DynamoDbVerifiedIndexName string = string(SubscriberVerified)
+
 var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	AttributeDefinitions: []types.AttributeDefinition{
 		{
@@ -228,5 +234,47 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	if _, err = db.Client.DeleteItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to delete %s: %s", email, err)
 	}
+	return
+}
+
+type dynamoDbStartKey struct {
+	attrs dbAttributes
+}
+
+func (*dynamoDbStartKey) isDbStartKey() {}
+
+func newScanInput(
+	tableName string, state SubscriberState, startKey StartKey,
+) (input *dynamodb.ScanInput, err error) {
+	var dbStartKey *dynamoDbStartKey
+	var ok bool
+
+	if startKey == nil {
+		dbStartKey = &dynamoDbStartKey{}
+	} else if dbStartKey, ok = startKey.(*dynamoDbStartKey); !ok {
+		err = fmt.Errorf("not a *db.dynamoDbStartKey: %T", startKey)
+		return
+	}
+
+	indexName := string(state)
+	input = &dynamodb.ScanInput{
+		TableName:         &tableName,
+		IndexName:         &indexName,
+		ExclusiveStartKey: dbStartKey.attrs,
+	}
+	return
+}
+
+func processScanOutput(
+	output *dynamodb.ScanOutput,
+) (subs []*Subscriber, nextStartKey StartKey, err error) {
+	nextStartKey = &dynamoDbStartKey{output.LastEvaluatedKey}
+	subs = make([]*Subscriber, len(output.Items))
+	errs := make([]error, len(subs))
+
+	for i, item := range output.Items {
+		subs[i], errs[i] = ParseSubscriber(item)
+	}
+	err = errors.Join(errs...)
 	return
 }

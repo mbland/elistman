@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"gotest.tools/assert"
@@ -127,5 +128,136 @@ func TestParseSubscriber(t *testing.T) {
 			errFmt, SubscriberStatePending, SubscriberStateVerified,
 		)
 		assert.ErrorContains(t, err, expected)
+	})
+}
+
+const testStartKeyValue = "foo@bar.com"
+
+var testStartKeyAttrs dbAttributes = dbAttributes{
+	"primary": &dbString{Value: testStartKeyValue},
+}
+var testStartKey *dynamoDbStartKey = &dynamoDbStartKey{testStartKeyAttrs}
+
+type BogusDbStartKey struct{}
+
+func (*BogusDbStartKey) isDbStartKey() {}
+
+func TestNewScanInput(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		t.Run("WithNilStartKey", func(t *testing.T) {
+			input, err := newScanInput(
+				"subscribers", SubscriberStateVerified, nil,
+			)
+
+			assert.NilError(t, err)
+			assert.Equal(t, "subscribers", *input.TableName)
+			assert.Equal(t, DynamoDbVerifiedIndexName, *input.IndexName)
+			assert.Assert(t, is.Nil(input.ExclusiveStartKey))
+		})
+
+		t.Run("WithExistingStartKey", func(t *testing.T) {
+			input, err := newScanInput(
+				"subscribers", SubscriberStatePending, testStartKey,
+			)
+
+			assert.NilError(t, err)
+			assert.Equal(t, "subscribers", *input.TableName)
+			assert.Equal(t, DynamoDbPendingIndexName, *input.IndexName)
+			assert.Assert(t, is.Contains(input.ExclusiveStartKey, "primary"))
+
+			actualKey := input.ExclusiveStartKey["primary"].(*dbString)
+			assert.Equal(t, testStartKeyValue, actualKey.Value)
+		})
+	})
+
+	t.Run("ErrorsIfInvalidStartKey", func(t *testing.T) {
+		input, err := newScanInput(
+			"subscribers", SubscriberStateVerified, &BogusDbStartKey{},
+		)
+
+		assert.Assert(t, is.Nil(input))
+		assert.Error(t, err, "not a *db.dynamoDbStartKey: *db.BogusDbStartKey")
+	})
+}
+
+func newSubscriberRecord(sub *Subscriber) dbAttributes {
+	record := dbAttributes{
+		"email":     &dbString{Value: sub.Email},
+		"uid":       &dbString{Value: sub.Uid.String()},
+		"timestamp": &dbString{Value: sub.Timestamp.Format(timeFmt)},
+	}
+	var state SubscriberState
+
+	if sub.Verified {
+		state = SubscriberStateVerified
+	} else {
+		state = SubscriberStatePending
+	}
+	record[string(state)] = &dbString{Value: "Y"}
+	return record
+}
+
+var testPendingSubscribers []*Subscriber = []*Subscriber{
+	{"quux@test.com", testUid, false, testTimestamp},
+	{"xyzzy@test.com", testUid, false, testTimestamp},
+	{"plugh@test.com", testUid, false, testTimestamp},
+}
+
+var testVerifiedSubscribers []*Subscriber = []*Subscriber{
+	{"foo@test.com", testUid, true, testTimestamp},
+	{"bar@test.com", testUid, true, testTimestamp},
+	{"baz@test.com", testUid, true, testTimestamp},
+}
+
+func TestProcessScanOutput(t *testing.T) {
+	setup := func() *dynamodb.ScanOutput {
+		return &dynamodb.ScanOutput{
+			LastEvaluatedKey: testStartKey.attrs,
+			Items: []dbAttributes{
+				newSubscriberRecord(testVerifiedSubscribers[0]),
+				newSubscriberRecord(testVerifiedSubscribers[1]),
+				newSubscriberRecord(testVerifiedSubscribers[2]),
+			},
+		}
+	}
+	t.Run("Succeeds", func(t *testing.T) {
+		output := setup()
+
+		subs, nextStartKey, err := processScanOutput(output)
+
+		assert.NilError(t, err)
+
+		dbStartKey, ok := nextStartKey.(*dynamoDbStartKey)
+		if !ok {
+			t.Fatalf("start key is not *dynamoDbStartKey: %T", nextStartKey)
+		}
+		assert.Assert(t, is.Contains(dbStartKey.attrs, "primary"))
+		actualKey := dbStartKey.attrs["primary"].(*dbString)
+		assert.Equal(t, testStartKeyValue, actualKey.Value)
+
+		expectedSubs := []*Subscriber{
+			testVerifiedSubscribers[0],
+			testVerifiedSubscribers[1],
+			testVerifiedSubscribers[2],
+		}
+		assert.DeepEqual(t, expectedSubs, subs)
+	})
+
+	t.Run("ReturnsParseSubscriberErrors", func(t *testing.T) {
+		output := setup()
+		for _, record := range output.Items {
+			record[string(SubscriberStatePending)] = &dbString{Value: "Y"}
+		}
+
+		subs, _, err := processScanOutput(output)
+
+		assert.DeepEqual(t, []*Subscriber{nil, nil, nil}, subs)
+		expectedErr := fmt.Sprintf(
+			"failed to parse subscriber: "+
+				"contains both '%s' and '%s' attributes",
+			SubscriberStatePending,
+			SubscriberStateVerified,
+		)
+		assert.ErrorContains(t, err, expectedErr)
 	})
 }
