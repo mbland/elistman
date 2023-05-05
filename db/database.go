@@ -12,6 +12,9 @@ type Database interface {
 	Get(ctx context.Context, email string) (*Subscriber, error)
 	Put(ctx context.Context, subscriber *Subscriber) error
 	Delete(ctx context.Context, email string) error
+	GetSubscribersInState(
+		context.Context, SubscriberStatus, StartKey,
+	) ([]*Subscriber, StartKey, error)
 }
 
 type Subscriber struct {

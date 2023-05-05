@@ -130,9 +130,13 @@ var testStartKeyAttrs dbAttributes = dbAttributes{
 }
 var testStartKey *dynamoDbStartKey = &dynamoDbStartKey{testStartKeyAttrs}
 
-type BogusDbStartKey struct{}
+func TestDynamoDbStartKey(t *testing.T) {
+	t.Run("IsDbStartKeyDoesNothingButMatchTheInterface", func(t *testing.T) {
+		startKey := &dynamoDbStartKey{}
 
-func (*BogusDbStartKey) isDbStartKey() {}
+		startKey.isDbStartKey()
+	})
+}
 
 func TestNewScanInput(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
@@ -178,12 +182,6 @@ func newSubscriberRecord(sub *Subscriber) dbAttributes {
 		"uid":              &dbString{Value: sub.Uid.String()},
 		string(sub.Status): toDynamoDbTimestamp(sub.Timestamp),
 	}
-}
-
-var testVerifiedSubscribers []*Subscriber = []*Subscriber{
-	{"foo@test.com", testUid, SubscriberVerified, testTimestamp},
-	{"bar@test.com", testUid, SubscriberVerified, testTimestamp},
-	{"baz@test.com", testUid, SubscriberVerified, testTimestamp},
 }
 
 func TestProcessScanOutput(t *testing.T) {

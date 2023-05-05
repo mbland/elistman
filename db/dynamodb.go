@@ -22,9 +22,15 @@ var DynamoDbPrimaryKey string = "email"
 
 // Sparse Global Secondary Index for records containing a "pending" attribute.
 var DynamoDbPendingIndexName string = string(SubscriberPending)
+var DynamoDbPendingIndexPartitionKey string = string(SubscriberPending)
 
 // Sparse Global Secondary Index for records containing a "verified" attribute.
 var DynamoDbVerifiedIndexName string = string(SubscriberVerified)
+var DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
+
+var DynamoDbIndexProjection *types.Projection = &types.Projection{
+	ProjectionType: types.ProjectionTypeAll,
+}
 
 var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	AttributeDefinitions: []types.AttributeDefinition{
@@ -32,11 +38,41 @@ var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 			AttributeName: &DynamoDbPrimaryKey,
 			AttributeType: types.ScalarAttributeTypeS,
 		},
+		{
+			AttributeName: &DynamoDbPendingIndexPartitionKey,
+			AttributeType: types.ScalarAttributeTypeN,
+		},
+		{
+			AttributeName: &DynamoDbVerifiedIndexPartitionKey,
+			AttributeType: types.ScalarAttributeTypeN,
+		},
 	},
 	KeySchema: []types.KeySchemaElement{
 		{AttributeName: &DynamoDbPrimaryKey, KeyType: types.KeyTypeHash},
 	},
 	BillingMode: types.BillingModePayPerRequest,
+	GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+		{
+			IndexName: &DynamoDbPendingIndexName,
+			KeySchema: []types.KeySchemaElement{
+				{
+					AttributeName: &DynamoDbPendingIndexPartitionKey,
+					KeyType:       types.KeyTypeHash,
+				},
+			},
+			Projection: DynamoDbIndexProjection,
+		},
+		{
+			IndexName: &DynamoDbVerifiedIndexName,
+			KeySchema: []types.KeySchemaElement{
+				{
+					AttributeName: &DynamoDbVerifiedIndexPartitionKey,
+					KeyType:       types.KeyTypeHash,
+				},
+			},
+			Projection: DynamoDbIndexProjection,
+		},
+	},
 }
 
 func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
@@ -212,7 +248,7 @@ func (db *DynamoDb) Get(
 
 func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
 	input := &dynamodb.PutItemInput{
-		Item: map[string]types.AttributeValue{
+		Item: dbAttributes{
 			"email":               &dbString{Value: record.Email},
 			"uid":                 &dbString{Value: record.Uid.String()},
 			string(record.Status): toDynamoDbTimestamp(record.Timestamp),
@@ -240,6 +276,23 @@ type dynamoDbStartKey struct {
 }
 
 func (*dynamoDbStartKey) isDbStartKey() {}
+
+func (db *DynamoDb) GetSubscribersInState(
+	ctx context.Context, state SubscriberStatus, startKey StartKey,
+) (subs []*Subscriber, nextStartKey StartKey, err error) {
+	const errFmt = "failed to get %s subscribers: %s"
+	var input *dynamodb.ScanInput
+	var output *dynamodb.ScanOutput
+
+	if input, err = newScanInput(db.TableName, state, startKey); err != nil {
+		err = fmt.Errorf(errFmt, state, err)
+	} else if output, err = db.Client.Scan(ctx, input); err != nil {
+		err = fmt.Errorf(errFmt, state, err)
+	} else {
+		subs, nextStartKey, err = processScanOutput(output)
+	}
+	return
+}
 
 func newScanInput(
 	tableName string, state SubscriberStatus, startKey StartKey,
