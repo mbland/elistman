@@ -6,30 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/google/uuid"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
-
-const testEmail = "foo@bar.com"
-const testTimeStr = "Fri, 18 Sep 1970 12:45:00 +0000"
-
-var testUid uuid.UUID = uuid.MustParse("00000000-1111-2222-3333-444444444444")
-
-var testTimestamp time.Time
-
-func init() {
-	var err error
-	testTimestamp, err = time.Parse(time.RFC1123Z, testTimeStr)
-
-	if err != nil {
-		panic("failed to parse testTimestamp: " + err.Error())
-	}
-}
 
 func TestGetAttribute(t *testing.T) {
 	attrs := dbAttributes{
@@ -79,19 +61,17 @@ func TestGetAttribute(t *testing.T) {
 
 func TestParseSubscriber(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		testTime := time.Now().Truncate(time.Second)
 		attrs := dbAttributes{
-			"email":     &dbString{Value: testEmail},
-			"uid":       &dbString{Value: testUid.String()},
-			"verified":  &dbString{Value: "Y"},
-			"timestamp": &dbString{Value: testTime.Format(timeFmt)},
+			"email":    &dbString{Value: testEmail},
+			"uid":      &dbString{Value: testUid.String()},
+			"verified": toDynamoDbTimestamp(testTimestamp),
 		}
 
 		subscriber, err := ParseSubscriber(attrs)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, subscriber, &Subscriber{
-			testEmail, testUid, true, testTime,
+			testEmail, testUid, SubscriberVerified, testTimestamp,
 		})
 	})
 
@@ -102,32 +82,44 @@ func TestParseSubscriber(t *testing.T) {
 		assert.ErrorContains(t, err, "failed to parse subscriber: ")
 		assert.ErrorContains(t, err, "attribute 'email' not in: ")
 		assert.ErrorContains(t, err, "attribute 'uid' not in: ")
-		assert.ErrorContains(t, err, "attribute 'timestamp' not in: ")
 
 		const errFmt = "has neither '%s' or '%s' attributes"
 		expected := fmt.Sprintf(
-			errFmt, SubscriberStatePending, SubscriberStateVerified,
+			errFmt, SubscriberPending, SubscriberVerified,
 		)
 		assert.ErrorContains(t, err, expected)
 	})
 
 	t.Run("ErrorsIfContainsBothPendingAndVerified", func(t *testing.T) {
 		attrs := dbAttributes{
-			"email":     &dbString{Value: "foo@bar.com"},
-			"uid":       &dbString{Value: testUid.String()},
-			"pending":   &dbString{Value: "Y"},
-			"verified":  &dbString{Value: "Y"},
-			"timestamp": &dbString{Value: testTimestamp.Format(timeFmt)},
+			"email":    &dbString{Value: "foo@bar.com"},
+			"uid":      &dbString{Value: testUid.String()},
+			"pending":  toDynamoDbTimestamp(testTimestamp),
+			"verified": toDynamoDbTimestamp(testTimestamp),
 		}
 
 		subscriber, err := ParseSubscriber(attrs)
+
 		assert.Check(t, is.Nil(subscriber))
 
 		const errFmt = "contains both '%s' and '%s' attributes"
 		expected := fmt.Sprintf(
-			errFmt, SubscriberStatePending, SubscriberStateVerified,
+			errFmt, SubscriberPending, SubscriberVerified,
 		)
 		assert.ErrorContains(t, err, expected)
+	})
+
+	t.Run("ErrorsIfTimestampIsNotAnInteger", func(t *testing.T) {
+		attrs := dbAttributes{
+			"email":    &dbString{Value: testEmail},
+			"uid":      &dbString{Value: testUid.String()},
+			"verified": &dbNumber{Value: "not an int"},
+		}
+
+		subscriber, err := ParseSubscriber(attrs)
+
+		assert.Check(t, is.Nil(subscriber))
+		assert.ErrorContains(t, err, "failed to parse 'verified' from: ")
 	})
 }
 
@@ -146,7 +138,7 @@ func TestNewScanInput(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		t.Run("WithNilStartKey", func(t *testing.T) {
 			input, err := newScanInput(
-				"subscribers", SubscriberStateVerified, nil,
+				"subscribers", SubscriberVerified, nil,
 			)
 
 			assert.NilError(t, err)
@@ -157,7 +149,7 @@ func TestNewScanInput(t *testing.T) {
 
 		t.Run("WithExistingStartKey", func(t *testing.T) {
 			input, err := newScanInput(
-				"subscribers", SubscriberStatePending, testStartKey,
+				"subscribers", SubscriberPending, testStartKey,
 			)
 
 			assert.NilError(t, err)
@@ -172,7 +164,7 @@ func TestNewScanInput(t *testing.T) {
 
 	t.Run("ErrorsIfInvalidStartKey", func(t *testing.T) {
 		input, err := newScanInput(
-			"subscribers", SubscriberStateVerified, &BogusDbStartKey{},
+			"subscribers", SubscriberVerified, &BogusDbStartKey{},
 		)
 
 		assert.Assert(t, is.Nil(input))
@@ -181,32 +173,17 @@ func TestNewScanInput(t *testing.T) {
 }
 
 func newSubscriberRecord(sub *Subscriber) dbAttributes {
-	record := dbAttributes{
-		"email":     &dbString{Value: sub.Email},
-		"uid":       &dbString{Value: sub.Uid.String()},
-		"timestamp": &dbString{Value: sub.Timestamp.Format(timeFmt)},
+	return dbAttributes{
+		"email":            &dbString{Value: sub.Email},
+		"uid":              &dbString{Value: sub.Uid.String()},
+		string(sub.Status): toDynamoDbTimestamp(sub.Timestamp),
 	}
-	var state SubscriberState
-
-	if sub.Verified {
-		state = SubscriberStateVerified
-	} else {
-		state = SubscriberStatePending
-	}
-	record[string(state)] = &dbString{Value: "Y"}
-	return record
-}
-
-var testPendingSubscribers []*Subscriber = []*Subscriber{
-	{"quux@test.com", testUid, false, testTimestamp},
-	{"xyzzy@test.com", testUid, false, testTimestamp},
-	{"plugh@test.com", testUid, false, testTimestamp},
 }
 
 var testVerifiedSubscribers []*Subscriber = []*Subscriber{
-	{"foo@test.com", testUid, true, testTimestamp},
-	{"bar@test.com", testUid, true, testTimestamp},
-	{"baz@test.com", testUid, true, testTimestamp},
+	{"foo@test.com", testUid, SubscriberVerified, testTimestamp},
+	{"bar@test.com", testUid, SubscriberVerified, testTimestamp},
+	{"baz@test.com", testUid, SubscriberVerified, testTimestamp},
 }
 
 func TestProcessScanOutput(t *testing.T) {
@@ -245,8 +222,9 @@ func TestProcessScanOutput(t *testing.T) {
 
 	t.Run("ReturnsParseSubscriberErrors", func(t *testing.T) {
 		output := setup()
+		const statusKey string = string(SubscriberPending)
 		for _, record := range output.Items {
-			record[string(SubscriberStatePending)] = &dbString{Value: "Y"}
+			record[statusKey] = toDynamoDbTimestamp(testTimestamp)
 		}
 
 		subs, _, err := processScanOutput(output)
@@ -255,8 +233,8 @@ func TestProcessScanOutput(t *testing.T) {
 		expectedErr := fmt.Sprintf(
 			"failed to parse subscriber: "+
 				"contains both '%s' and '%s' attributes",
-			SubscriberStatePending,
-			SubscriberStateVerified,
+			SubscriberPending,
+			SubscriberVerified,
 		)
 		assert.ErrorContains(t, err, expectedErr)
 	})

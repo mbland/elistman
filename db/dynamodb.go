@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -95,10 +96,9 @@ func (db *DynamoDb) DeleteTable(ctx context.Context) error {
 
 type (
 	dbString     = types.AttributeValueMemberS
+	dbNumber     = types.AttributeValueMemberN
 	dbAttributes = map[string]types.AttributeValue
 )
-
-var timeFmt = time.RFC3339
 
 func subscriberKey(email string) dbAttributes {
 	return dbAttributes{"email": &dbString{Value: email}}
@@ -111,7 +111,7 @@ type dbParser struct {
 func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 	p := dbParser{attrs}
 	s := &Subscriber{}
-	errs := make([]error, 0, 4)
+	errs := make([]error, 0, 3)
 	addErr := func(e error) {
 		errs = append(errs, e)
 	}
@@ -122,25 +122,23 @@ func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 	if s.Uid, err = p.GetUid("uid"); err != nil {
 		addErr(err)
 	}
-	if s.Timestamp, err = p.GetTime("timestamp"); err != nil {
-		addErr(err)
-	}
 
-	_, pending := attrs[string(SubscriberStatePending)]
-	_, verified := attrs[string(SubscriberStateVerified)]
+	_, pending := attrs[string(SubscriberPending)]
+	_, verified := attrs[string(SubscriberVerified)]
+
+	s.Status = SubscriberPending
+	if verified {
+		s.Status = SubscriberVerified
+	}
 
 	if pending && verified {
 		const errFmt = "contains both '%s' and '%s' attributes"
-		addErr(
-			fmt.Errorf(errFmt, SubscriberStatePending, SubscriberStateVerified),
-		)
+		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
 	} else if !(pending || verified) {
 		const errFmt = "has neither '%s' or '%s' attributes"
-		addErr(
-			fmt.Errorf(errFmt, SubscriberStatePending, SubscriberStateVerified),
-		)
-	} else {
-		s.Verified = verified
+		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
+	} else if s.Timestamp, err = p.GetTime(string(s.Status)); err != nil {
+		addErr(err)
 	}
 
 	if err = errors.Join(errs...); err != nil {
@@ -163,9 +161,17 @@ func (p *dbParser) GetUid(name string) (value uuid.UUID, err error) {
 	})
 }
 
+func toDynamoDbTimestamp(t time.Time) *dbNumber {
+	return &dbNumber{Value: strconv.FormatInt(t.Unix(), 10)}
+}
+
 func (p *dbParser) GetTime(name string) (value time.Time, err error) {
-	return getAttribute(name, p.attrs, func(attr *dbString) (time.Time, error) {
-		return time.Parse(timeFmt, attr.Value)
+	return getAttribute(name, p.attrs, func(attr *dbNumber) (time.Time, error) {
+		if ts, err := strconv.ParseInt(attr.Value, 10, 0); err != nil {
+			return time.Time{}, err
+		} else {
+			return time.Unix(ts, 0), nil
+		}
 	})
 }
 
@@ -205,19 +211,11 @@ func (db *DynamoDb) Get(
 }
 
 func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
-	stateKey := string(SubscriberStatePending)
-
-	if record.Verified {
-		stateKey = string(SubscriberStateVerified)
-	}
 	input := &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
-			"email":  &dbString{Value: record.Email},
-			"uid":    &dbString{Value: record.Uid.String()},
-			stateKey: &dbString{Value: "Y"},
-			"timestamp": &dbString{
-				Value: record.Timestamp.Format(timeFmt),
-			},
+			"email":               &dbString{Value: record.Email},
+			"uid":                 &dbString{Value: record.Uid.String()},
+			string(record.Status): toDynamoDbTimestamp(record.Timestamp),
 		},
 		TableName: &db.TableName,
 	}
@@ -244,7 +242,7 @@ type dynamoDbStartKey struct {
 func (*dynamoDbStartKey) isDbStartKey() {}
 
 func newScanInput(
-	tableName string, state SubscriberState, startKey StartKey,
+	tableName string, state SubscriberStatus, startKey StartKey,
 ) (input *dynamodb.ScanInput, err error) {
 	var dbStartKey *dynamoDbStartKey
 	var ok bool
