@@ -8,6 +8,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
@@ -23,9 +24,14 @@ func init() {
 }
 
 func TestValidateAddressSucceedsUsingLiveDnsService(t *testing.T) {
-	// When SesMailer is ready, replace TestSuppressor with it.
-	v := ProdAddressValidator{&TestSuppressor{}, net.DefaultResolver}
+	cfg, err := testutils.LoadDefaultAwsConfig()
+	assert.NilError(t, err)
+
+	mailer, logs := setupSesMailer(cfg, "unused-config-set")
+	v := ProdAddressValidator{mailer, net.DefaultResolver}
 	ctx := context.Background()
 
 	assert.NilError(t, v.ValidateAddress(ctx, goodEmailAddress))
+	const expectedEmptyLogs = ""
+	assert.Equal(t, expectedEmptyLogs, logs.Logs())
 }

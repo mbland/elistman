@@ -6,6 +6,11 @@ import (
 	"bytes"
 	"context"
 	"io"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/mbland/elistman/testutils"
 )
 
 type ErrWriter struct {
@@ -24,6 +29,19 @@ func (ew *ErrWriter) Write(b []byte) (int, error) {
 const testUnsubEmail = "unsubscribe@foo.com"
 const testUnsubBaseUrl = "https://foo.com/email/unsubscribe/"
 const testUid = "00000000-1111-2222-3333-444444444444"
+
+func setupSesMailer(
+	cfg aws.Config, configSet string,
+) (*SesMailer, *testutils.Logs) {
+	logs := &testutils.Logs{}
+	mailer := &SesMailer{
+		Client:    ses.NewFromConfig(cfg),
+		ClientV2:  sesv2.NewFromConfig(cfg),
+		ConfigSet: configSet,
+		Log:       logs.NewLogger(),
+	}
+	return mailer, logs
+}
 
 type TestSuppressor struct {
 	checkedEmail       string
