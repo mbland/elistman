@@ -5,7 +5,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,18 +17,14 @@ import (
 type mailtoHandlerFixture struct {
 	agent   *testAgent
 	bouncer *testBouncer
-	logs    *strings.Builder
+	logs    *testutils.Logs
 	handler *mailtoHandler
 	ctx     context.Context
 	event   *mailtoEvent
 }
 
-func (f *mailtoHandlerFixture) Logs() string {
-	return f.logs.String()
-}
-
 func newMailtoHandlerFixture() *mailtoHandlerFixture {
-	logs, logger := testutils.TestLogger()
+	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
 	bouncer := &testBouncer{}
 	bouncer.ReturnMessageId = "0x123456789"
@@ -79,7 +74,7 @@ func TestLogOutcome(t *testing.T) {
 
 	f.handler.logOutcome(f.event, "success")
 
-	testutils.AssertLogsContain(t, f, `unsubscribe [Id:"deadbeef" `+
+	f.logs.AssertContains(t, `unsubscribe [Id:"deadbeef" `+
 		`From:"mbland@acm.org,foo@bar.com" `+
 		`To:"`+testUnsubscribeAddress+`,baz@quux.com" `+
 		`Subject:"mbland@acm.org `+testValidUidStr+`"]: success`)
@@ -154,7 +149,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(t, f, `unsubscribe [Id:"deadbeef" `+
+		f.logs.AssertContains(t, `unsubscribe [Id:"deadbeef" `+
 			`From:"mbland@acm.org" `+
 			`To:"`+testUnsubscribeAddress+`" `+
 			`Subject:"mbland@acm.org `+testValidUidStr+`"]: success`)
@@ -168,9 +163,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(
-			t, f, "DMARC bounce failed: couldn't bounce",
-		)
+		f.logs.AssertContains(t, "DMARC bounce failed: couldn't bounce")
 	})
 
 	t.Run("BouncesOnDmarcFail", func(t *testing.T) {
@@ -181,9 +174,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(
-			t, f, "DMARC bounced with message ID: 0x123456789",
-		)
+		f.logs.AssertContains(t, "DMARC bounced with message ID: 0x123456789")
 	})
 
 	t.Run("IgnoresIfSpam", func(t *testing.T) {
@@ -192,7 +183,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(t, f, "marked as spam, ignored")
+		f.logs.AssertContains(t, "marked as spam, ignored")
 	})
 
 	t.Run("LogsParseErrors", func(t *testing.T) {
@@ -201,9 +192,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(
-			t, f, `failed to parse, ignoring: invalid uid: `,
-		)
+		f.logs.AssertContains(t, `failed to parse, ignoring: invalid uid: `)
 	})
 
 	t.Run("LogsIfUnsubscribeErrors", func(t *testing.T) {
@@ -212,7 +201,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(t, f, `error: agent failed`)
+		f.logs.AssertContains(t, `error: agent failed`)
 	})
 
 	t.Run("LogsIfUnsubscribeFails", func(t *testing.T) {
@@ -221,7 +210,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
-		testutils.AssertLogsContain(t, f, `failed: Invalid`)
+		f.logs.AssertContains(t, `failed: Invalid`)
 	})
 }
 
@@ -235,7 +224,7 @@ func TestMailtoHandlerHandleEvent(t *testing.T) {
 		Disposition: events.SimpleEmailStopRuleSet,
 	}
 	assert.DeepEqual(t, expected, response)
-	testutils.AssertLogsContain(t, f, "success")
+	f.logs.AssertContains(t, "success")
 	assert.Equal(t, "mbland@acm.org", f.agent.Email)
 	assert.Equal(t, testValidUid, f.agent.Uid)
 }

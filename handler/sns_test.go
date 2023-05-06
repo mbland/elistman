@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -17,17 +16,13 @@ import (
 
 type snsHandlerFixture struct {
 	agent   *testAgent
-	logs    *strings.Builder
+	logs    *testutils.Logs
 	handler *snsHandler
 	ctx     context.Context
 }
 
-func (f *snsHandlerFixture) Logs() string {
-	return f.logs.String()
-}
-
 func newSnsHandlerFixture() *snsHandlerFixture {
-	logs, logger := testutils.TestLogger()
+	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
 	ctx := context.Background()
 
@@ -282,18 +277,14 @@ func TestRecipientUpdater(t *testing.T) {
 
 type sesEventHandlerFixture struct {
 	agent *testAgent
-	logs  *strings.Builder
+	logs  *testutils.Logs
 	ctx   context.Context
-}
-
-func (f *sesEventHandlerFixture) Logs() string {
-	return f.logs.String()
 }
 
 func newSesEventHandlerFixture(
 	handler *baseSesEventHandler,
 ) *sesEventHandlerFixture {
-	logs, logger := testutils.TestLogger()
+	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
 
 	handler.Agent = agent
@@ -334,7 +325,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 			`[Id:"deadbeef" From:"no-reply@mike-bland.com" ` +
 			`To:"mbland@acm.org" Subject:"Latest blog post"]: LGTM: ` +
 			testBaseSesEventHandler.Details
-		testutils.AssertLogsContain(t, f, expected)
+		f.logs.AssertContains(t, expected)
 	})
 
 	t.Run("HandleEvent", func(t *testing.T) {
@@ -343,7 +334,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 
 			handler.HandleEvent(f.ctx)
 
-			testutils.AssertLogsContain(t, f, ": success: ")
+			f.logs.AssertContains(t, ": success: ")
 		})
 	})
 
@@ -358,10 +349,8 @@ func TestBaseSesEventHandler(t *testing.T) {
 
 		handler.updateRecipients(f.ctx, "testing", updater)
 
-		testutils.AssertLogsContain(
-			t, f, "updated mbland@acm.org due to: testing",
-		)
-		testutils.AssertLogsContain(t, f, "updated foo@bar.com due to: testing")
+		f.logs.AssertContains(t, "updated mbland@acm.org due to: testing")
+		f.logs.AssertContains(t, "updated foo@bar.com due to: testing")
 	})
 
 	t.Run("RemoveRecipients", func(t *testing.T) {
@@ -369,9 +358,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 
 		handler.removeRecipients(f.ctx, "testing")
 
-		testutils.AssertLogsContain(
-			t, f, "removed mbland@acm.org due to: testing",
-		)
+		f.logs.AssertContains(t, "removed mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 	})
 
@@ -380,9 +367,7 @@ func TestBaseSesEventHandler(t *testing.T) {
 
 		handler.restoreRecipients(f.ctx, "testing")
 
-		testutils.AssertLogsContain(
-			t, f, "restored mbland@acm.org due to: testing",
-		)
+		f.logs.AssertContains(t, "restored mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
 	})
 }
@@ -403,9 +388,7 @@ func TestBounceHandler(t *testing.T) {
 
 		handler.HandleEvent(f.ctx)
 
-		testutils.AssertLogsContain(
-			t, f, "not removing recipients: Transient/General",
-		)
+		f.logs.AssertContains(t, "not removing recipients: Transient/General")
 		assert.Assert(t, is.Nil(f.agent.Calls))
 	})
 
@@ -416,8 +399,8 @@ func TestBounceHandler(t *testing.T) {
 
 		handler.HandleEvent(f.ctx)
 
-		testutils.AssertLogsContain(
-			t, f, "removed mbland@acm.org due to: Permanent/General",
+		f.logs.AssertContains(
+			t, "removed mbland@acm.org due to: Permanent/General",
 		)
 		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 	})
@@ -441,9 +424,7 @@ func TestComplaintHandler(t *testing.T) {
 
 			handler.HandleEvent(f.ctx)
 
-			testutils.AssertLogsContain(
-				t, f, msgPrefix+"OnAccountSuppressionList",
-			)
+			f.logs.AssertContains(t, msgPrefix+"OnAccountSuppressionList")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 		})
 
@@ -453,7 +434,7 @@ func TestComplaintHandler(t *testing.T) {
 
 			handler.HandleEvent(f.ctx)
 
-			testutils.AssertLogsContain(t, f, msgPrefix+"abuse")
+			f.logs.AssertContains(t, msgPrefix+"abuse")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 		})
 
@@ -462,7 +443,7 @@ func TestComplaintHandler(t *testing.T) {
 
 			handler.HandleEvent(f.ctx)
 
-			testutils.AssertLogsContain(t, f, msgPrefix+"unknown")
+			f.logs.AssertContains(t, msgPrefix+"unknown")
 			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 		})
 	})
@@ -473,9 +454,7 @@ func TestComplaintHandler(t *testing.T) {
 
 		handler.HandleEvent(f.ctx)
 
-		testutils.AssertLogsContain(
-			t, f, "restored mbland@acm.org due to: not-spam",
-		)
+		f.logs.AssertContains(t, "restored mbland@acm.org due to: not-spam")
 		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
 	})
 }
@@ -495,7 +474,7 @@ func TestRejectHandler(t *testing.T) {
 
 		handler.HandleEvent(f.ctx)
 
-		testutils.AssertLogsContain(t, f, "Bad content")
+		f.logs.AssertContains(t, "Bad content")
 		assert.Assert(t, is.Nil(f.agent.Calls))
 	})
 }
@@ -506,7 +485,7 @@ func TestHandleSnsEvent(t *testing.T) {
 
 		f.handler.HandleEvent(f.ctx, &events.SNSEvent{})
 
-		assert.Equal(t, "", f.Logs())
+		assert.Equal(t, "", f.logs.Logs())
 	})
 
 	t.Run("LogsEventRecordParseError", func(t *testing.T) {
@@ -518,7 +497,7 @@ func TestHandleSnsEvent(t *testing.T) {
 
 		expected := "parsing SES event from SNS failed: " +
 			"unexpected end of JSON input: "
-		testutils.AssertLogsContain(t, f, expected)
+		f.logs.AssertContains(t, expected)
 	})
 
 	t.Run("SendEventSucceeds", func(t *testing.T) {
@@ -531,6 +510,6 @@ func TestHandleSnsEvent(t *testing.T) {
 			`[Id:"deadbeef" From:"mbland@acm.org" To:"foo@bar.com" ` +
 			`Subject:"This is an email sent to the list"]: success: ` +
 			event.Records[0].SNS.Message
-		testutils.AssertLogsContain(t, f, expected)
+		f.logs.AssertContains(t, expected)
 	})
 }

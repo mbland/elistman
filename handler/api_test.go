@@ -49,17 +49,13 @@ func TestInitResponseBodyTemplate(t *testing.T) {
 
 type apiHandlerFixture struct {
 	agent   *testAgent
-	logs    *strings.Builder
+	logs    *testutils.Logs
 	handler *apiHandler
 	ctx     context.Context
 }
 
-func (f *apiHandlerFixture) Logs() string {
-	return f.logs.String()
-}
-
 func newApiHandlerFixture() *apiHandlerFixture {
-	logs, logger := testutils.TestLogger()
+	logs := &testutils.Logs{}
 	agent := &testAgent{}
 	handler, err := newApiHandler(
 		testEmailDomain,
@@ -67,7 +63,7 @@ func newApiHandlerFixture() *apiHandlerFixture {
 		agent,
 		testRedirects,
 		ResponseTemplate,
-		logger,
+		logs.NewLogger(),
 	)
 
 	if err != nil {
@@ -143,7 +139,7 @@ func TestAddResponseBody(t *testing.T) {
 		assert.Equal(t, res.Headers["content-type"], "text/plain; charset=utf-8")
 		assert.Assert(t, is.Contains(res.Body, "This is only a test"))
 		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
-		testutils.AssertLogsContain(t, f, "ERROR adding HTML response body:")
+		f.logs.AssertContains(t, "ERROR adding HTML response body:")
 	})
 }
 
@@ -173,25 +169,25 @@ func TestLogApiResponse(t *testing.T) {
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
-		logs, logger := testutils.TestLogger()
+		logs := testutils.Logs{}
 		res := apiGatewayResponse(http.StatusOK)
 
-		logApiResponse(logger, req, res, nil)
+		logApiResponse(logs.NewLogger(), req, res, nil)
 
 		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 200`
-		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
+		logs.AssertContains(t, expectedMsg)
 	})
 
 	t.Run("WithError", func(t *testing.T) {
-		logs, logger := testutils.TestLogger()
+		logs, logger := testutils.NewLogs()
 		res := apiGatewayResponse(http.StatusInternalServerError)
 
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
 		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
-		assert.Assert(t, is.Contains(logs.String(), expectedMsg))
+		logs.AssertContains(t, expectedMsg)
 	})
 }
 
@@ -321,17 +317,17 @@ func TestLogOperationResult(t *testing.T) {
 	}
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		logs, logger := testutils.TestLogger()
+		logs, logger := testutils.NewLogs()
 
 		logOperationResult(logger, "deadbeef", op, ops.Subscribed, nil)
 
 		expected := "deadbeef: result: Verify: mbland@acm.org " +
 			testValidUidStr + ": Subscribed"
-		assert.Assert(t, is.Contains(logs.String(), expected))
+		logs.AssertContains(t, expected)
 	})
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		logs, logger := testutils.TestLogger()
+		logs, logger := testutils.NewLogs()
 
 		logOperationResult(
 			logger, "deadbeef", op, ops.Subscribed, errors.New("whoops..."),
@@ -339,7 +335,7 @@ func TestLogOperationResult(t *testing.T) {
 
 		expected := "deadbeef: ERROR: Verify: mbland@acm.org " +
 			testValidUidStr + ": Subscribed: whoops..."
-		assert.Assert(t, is.Contains(logs.String(), expected))
+		logs.AssertContains(t, expected)
 	})
 }
 
@@ -356,7 +352,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
-		testutils.AssertLogsContain(t, f, "deadbeef: result: Subscribe")
+		f.logs.AssertContains(t, "deadbeef: result: Subscribe")
 	})
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
@@ -373,7 +369,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Subscribed, result)
-		testutils.AssertLogsContain(t, f, "deadbeef: result: Verify")
+		f.logs.AssertContains(t, "deadbeef: result: Verify")
 	})
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
@@ -390,7 +386,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Unsubscribed, result)
-		testutils.AssertLogsContain(t, f, "deadbeef: result: Unsubscribe")
+		f.logs.AssertContains(t, "deadbeef: result: Unsubscribe")
 	})
 
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
@@ -403,7 +399,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
 		expectedLog := "deadbeef: ERROR: Undefined: Invalid: can't handle"
-		testutils.AssertLogsContain(t, f, expectedLog)
+		f.logs.AssertContains(t, expectedLog)
 	})
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
@@ -421,7 +417,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.DeepEqual(t, err, expected)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
 			"Invalid: not our fault..."
-		testutils.AssertLogsContain(t, f, expectedLog)
+		f.logs.AssertContains(t, expectedLog)
 	})
 }
 
@@ -527,7 +523,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
-		testutils.AssertLogsContain(t, f, "500: failed to base64 decode body")
+		f.logs.AssertContains(t, "500: failed to base64 decode body")
 	})
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
@@ -540,7 +536,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
-		testutils.AssertLogsContain(t, f, "502: db operation failed")
+		f.logs.AssertContains(t, "502: db operation failed")
 	})
 
 	t.Run("Succeeds", func(t *testing.T) {
@@ -551,6 +547,6 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
-		assert.Assert(t, strings.HasSuffix(f.logs.String(), " 303\n"))
+		assert.Assert(t, strings.HasSuffix(f.logs.Logs(), " 303\n"))
 	})
 }

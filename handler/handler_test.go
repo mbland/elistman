@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -117,19 +116,15 @@ func (b *testBouncer) Bounce(
 
 type handlerFixture struct {
 	agent   *testAgent
-	logs    *strings.Builder
+	logs    *testutils.Logs
 	bouncer *testBouncer
 	handler *Handler
 	ctx     context.Context
 	event   *Event
 }
 
-func (f *handlerFixture) Logs() string {
-	return f.logs.String()
-}
-
 func newHandlerFixture() *handlerFixture {
-	logs, logger := testutils.TestLogger()
+	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
 	bouncer := &testBouncer{}
 	ctx := context.Background()
@@ -341,7 +336,7 @@ func TestHandleEvent(t *testing.T) {
 		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
 		assert.Equal(t, testValidUid, f.agent.Uid)
-		testutils.AssertLogsContain(t, f, "success")
+		f.logs.AssertContains(t, "success")
 	})
 
 	t.Run("HandleSuccessfulSnsEvent", func(t *testing.T) {
@@ -353,10 +348,8 @@ func TestHandleEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(response))
-		testutils.AssertLogsContain(t, f, "Send")
-		testutils.AssertLogsContain(
-			t, f, `Subject:"This is an email sent to the list"`,
-		)
-		testutils.AssertLogsContain(t, f, "success")
+		f.logs.AssertContains(t, "Send")
+		f.logs.AssertContains(t, `Subject:"This is an email sent to the list"`)
+		f.logs.AssertContains(t, "success")
 	})
 }
