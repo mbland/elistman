@@ -249,6 +249,25 @@ func TestDynamoDb(t *testing.T) {
 		})
 	})
 
+	t.Run("UpdateTimeToLive", func(t *testing.T) {
+		t.Run("Succeeds", func(t *testing.T) {
+			ttlSpec, err := testDb.UpdateTimeToLive(ctx)
+
+			assert.NilError(t, err)
+			assert.Equal(t, string(SubscriberPending), *ttlSpec.AttributeName)
+			assert.Equal(t, true, *ttlSpec.Enabled)
+		})
+
+		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {
+			ttlSpec, err := badDb.UpdateTimeToLive(ctx)
+
+			assert.Assert(t, is.Nil(ttlSpec))
+			expectedErr := "failed to update Time To Live: " +
+				"operation error DynamoDB: UpdateTimeToLive"
+			assert.ErrorContains(t, err, expectedErr)
+		})
+	})
+
 	t.Run("GetFails", func(t *testing.T) {
 		t.Run("IfSubscriberDoesNotExist", func(t *testing.T) {
 			subscriber := newTestSubscriber()

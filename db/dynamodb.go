@@ -122,6 +122,27 @@ func (db *DynamoDb) DescribeTable(
 	return
 }
 
+func (db *DynamoDb) UpdateTimeToLive(
+	ctx context.Context,
+) (ttlSpec *types.TimeToLiveSpecification, err error) {
+	pendingAttr := string(SubscriberPending)
+	enabled := true
+	spec := &types.TimeToLiveSpecification{
+		AttributeName: &pendingAttr, Enabled: &enabled,
+	}
+	input := &dynamodb.UpdateTimeToLiveInput{
+		TableName: &db.TableName, TimeToLiveSpecification: spec,
+	}
+
+	var output *dynamodb.UpdateTimeToLiveOutput
+	if output, err = db.Client.UpdateTimeToLive(ctx, input); err != nil {
+		err = fmt.Errorf("failed to update Time To Live: %s", err)
+	} else {
+		ttlSpec = output.TimeToLiveSpecification
+	}
+	return
+}
+
 func (db *DynamoDb) DeleteTable(ctx context.Context) error {
 	input := &dynamodb.DeleteTableInput{TableName: &db.TableName}
 	if _, err := db.Client.DeleteTable(ctx, input); err != nil {
