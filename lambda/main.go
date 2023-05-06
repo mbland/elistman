@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/handler"
@@ -30,6 +31,7 @@ func buildHandler() (h *handler.Handler, err error) {
 
 	sesMailer := &email.SesMailer{
 		Client:    ses.NewFromConfig(cfg),
+		ClientV2:  sesv2.NewFromConfig(cfg),
 		ConfigSet: opts.ConfigurationSet,
 	}
 	h, err = handler.NewHandler(

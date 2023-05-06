@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"gotest.tools/assert"
 )
 
@@ -23,17 +24,36 @@ type TestSes struct {
 }
 
 func (ses *TestSes) SendRawEmail(
-	ctx context.Context, input *ses.SendRawEmailInput, _ ...func(*ses.Options),
+	_ context.Context, input *ses.SendRawEmailInput, _ ...func(*ses.Options),
 ) (*ses.SendRawEmailOutput, error) {
 	ses.rawEmailInput = input
 	return ses.rawEmailOutput, ses.rawEmailErr
 }
 
 func (ses *TestSes) SendBounce(
-	ctx context.Context, input *ses.SendBounceInput, _ ...func(*ses.Options),
+	_ context.Context, input *ses.SendBounceInput, _ ...func(*ses.Options),
 ) (*ses.SendBounceOutput, error) {
 	ses.bounceInput = input
 	return ses.bounceOutput, ses.bounceErr
+}
+
+type TestSesV2 struct {
+}
+
+func (ses *TestSesV2) GetSuppressedDestination(
+	_ context.Context,
+	input *sesv2.GetSuppressedDestinationInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.GetSuppressedDestinationOutput, error) {
+	return nil, nil
+}
+
+func (ses *TestSesV2) PutSuppressedDestination(
+	_ context.Context,
+	input *sesv2.PutSuppressedDestinationInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.PutSuppressedDestinationOutput, error) {
+	return nil, nil
 }
 
 func TestSend(t *testing.T) {
@@ -42,7 +62,8 @@ func TestSend(t *testing.T) {
 			rawEmailInput:  &ses.SendRawEmailInput{},
 			rawEmailOutput: &ses.SendRawEmailOutput{},
 		}
-		mailer := &SesMailer{testSes, "config-set-name"}
+		testSesV2 := &TestSesV2{}
+		mailer := &SesMailer{testSes, testSesV2, "config-set-name"}
 		return testSes, mailer, context.Background()
 	}
 

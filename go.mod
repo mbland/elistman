@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.21
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.6
 	github.com/aws/aws-sdk-go-v2/service/ses v1.15.8
+	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.17.6
 	github.com/google/uuid v1.3.0
 	golang.org/x/tools v0.8.0
 	gotest.tools v2.2.0+incompatible

@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 )
 
 type Mailer interface {
@@ -39,6 +40,7 @@ type Suppressor interface {
 
 type SesMailer struct {
 	Client    SesApi
+	ClientV2  SesV2Api
 	ConfigSet string
 }
 
@@ -50,6 +52,20 @@ type SesApi interface {
 	SendBounce(
 		context.Context, *ses.SendBounceInput, ...func(*ses.Options),
 	) (*ses.SendBounceOutput, error)
+}
+
+type SesV2Api interface {
+	GetSuppressedDestination(
+		context.Context,
+		*sesv2.GetSuppressedDestinationInput,
+		...func(*sesv2.Options),
+	) (*sesv2.GetSuppressedDestinationOutput, error)
+
+	PutSuppressedDestination(
+		context.Context,
+		*sesv2.PutSuppressedDestinationInput,
+		...func(*sesv2.Options),
+	) (*sesv2.PutSuppressedDestinationOutput, error)
 }
 
 func (mailer *SesMailer) Send(
