@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -114,15 +115,6 @@ func (b *testBouncer) Bounce(
 	return b.ReturnMessageId, nil
 }
 
-type LogFixture interface {
-	Logs() string
-}
-
-func assertLogsContain(t *testing.T, lf LogFixture, message string) {
-	t.Helper()
-	assert.Assert(t, is.Contains(lf.Logs(), message))
-}
-
 type handlerFixture struct {
 	agent   *testAgent
 	logs    *strings.Builder
@@ -137,7 +129,7 @@ func (f *handlerFixture) Logs() string {
 }
 
 func newHandlerFixture() *handlerFixture {
-	logs, logger := testLogger()
+	logs, logger := testutils.TestLogger()
 	agent := &testAgent{}
 	bouncer := &testBouncer{}
 	ctx := context.Background()
@@ -156,12 +148,6 @@ func newHandlerFixture() *handlerFixture {
 		panic(err.Error())
 	}
 	return &handlerFixture{agent, logs, bouncer, handler, ctx, &Event{}}
-}
-
-func testLogger() (*strings.Builder, *log.Logger) {
-	builder := &strings.Builder{}
-	logger := log.New(builder, "test logger: ", 0)
-	return builder, logger
 }
 
 func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
@@ -355,7 +341,7 @@ func TestHandleEvent(t *testing.T) {
 		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
 		assert.Equal(t, testValidUid, f.agent.Uid)
-		assertLogsContain(t, f, "success")
+		testutils.AssertLogsContain(t, f, "success")
 	})
 
 	t.Run("HandleSuccessfulSnsEvent", func(t *testing.T) {
@@ -367,8 +353,10 @@ func TestHandleEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(response))
-		assertLogsContain(t, f, "Send")
-		assertLogsContain(t, f, `Subject:"This is an email sent to the list"`)
-		assertLogsContain(t, f, "success")
+		testutils.AssertLogsContain(t, f, "Send")
+		testutils.AssertLogsContain(
+			t, f, `Subject:"This is an email sent to the list"`,
+		)
+		testutils.AssertLogsContain(t, f, "success")
 	})
 }

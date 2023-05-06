@@ -15,6 +15,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -58,7 +59,7 @@ func (f *apiHandlerFixture) Logs() string {
 }
 
 func newApiHandlerFixture() *apiHandlerFixture {
-	logs, logger := testLogger()
+	logs, logger := testutils.TestLogger()
 	agent := &testAgent{}
 	handler, err := newApiHandler(
 		testEmailDomain,
@@ -142,7 +143,7 @@ func TestAddResponseBody(t *testing.T) {
 		assert.Equal(t, res.Headers["content-type"], "text/plain; charset=utf-8")
 		assert.Assert(t, is.Contains(res.Body, "This is only a test"))
 		assert.Assert(t, is.Contains(res.Body, "200 OK - "+testSiteTitle))
-		assertLogsContain(t, f, "ERROR adding HTML response body:")
+		testutils.AssertLogsContain(t, f, "ERROR adding HTML response body:")
 	})
 }
 
@@ -172,7 +173,7 @@ func TestLogApiResponse(t *testing.T) {
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
-		logs, logger := testLogger()
+		logs, logger := testutils.TestLogger()
 		res := apiGatewayResponse(http.StatusOK)
 
 		logApiResponse(logger, req, res, nil)
@@ -183,7 +184,7 @@ func TestLogApiResponse(t *testing.T) {
 	})
 
 	t.Run("WithError", func(t *testing.T) {
-		logs, logger := testLogger()
+		logs, logger := testutils.TestLogger()
 		res := apiGatewayResponse(http.StatusInternalServerError)
 
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
@@ -320,7 +321,7 @@ func TestLogOperationResult(t *testing.T) {
 	}
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		logs, logger := testLogger()
+		logs, logger := testutils.TestLogger()
 
 		logOperationResult(logger, "deadbeef", op, ops.Subscribed, nil)
 
@@ -330,7 +331,7 @@ func TestLogOperationResult(t *testing.T) {
 	})
 
 	t.Run("SuccessfulResult", func(t *testing.T) {
-		logs, logger := testLogger()
+		logs, logger := testutils.TestLogger()
 
 		logOperationResult(
 			logger, "deadbeef", op, ops.Subscribed, errors.New("whoops..."),
@@ -355,7 +356,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
-		assertLogsContain(t, f, "deadbeef: result: Subscribe")
+		testutils.AssertLogsContain(t, f, "deadbeef: result: Subscribe")
 	})
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
@@ -372,7 +373,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Subscribed, result)
-		assertLogsContain(t, f, "deadbeef: result: Verify")
+		testutils.AssertLogsContain(t, f, "deadbeef: result: Verify")
 	})
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
@@ -389,7 +390,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Unsubscribed, result)
-		assertLogsContain(t, f, "deadbeef: result: Unsubscribe")
+		testutils.AssertLogsContain(t, f, "deadbeef: result: Unsubscribe")
 	})
 
 	t.Run("RaisesErrorIfCantHandleOpType", func(t *testing.T) {
@@ -402,7 +403,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.Equal(t, ops.Invalid, result)
 		assert.ErrorContains(t, err, "can't handle operation type: Undefined")
 		expectedLog := "deadbeef: ERROR: Undefined: Invalid: can't handle"
-		assertLogsContain(t, f, expectedLog)
+		testutils.AssertLogsContain(t, f, expectedLog)
 	})
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
@@ -420,7 +421,7 @@ func TestPerformOperation(t *testing.T) {
 		assert.DeepEqual(t, err, expected)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
 			"Invalid: not our fault..."
-		assertLogsContain(t, f, expectedLog)
+		testutils.AssertLogsContain(t, f, expectedLog)
 	})
 }
 
@@ -526,7 +527,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
-		assertLogsContain(t, f, "500: failed to base64 decode body")
+		testutils.AssertLogsContain(t, f, "500: failed to base64 decode body")
 	})
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
@@ -539,7 +540,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
-		assertLogsContain(t, f, "502: db operation failed")
+		testutils.AssertLogsContain(t, f, "502: db operation failed")
 	})
 
 	t.Run("Succeeds", func(t *testing.T) {
