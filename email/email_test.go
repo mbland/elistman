@@ -30,6 +30,8 @@ type TestSuppressor struct {
 	isSuppressedResult bool
 	suppressedEmail    string
 	suppressErr        error
+	unsuppressedEmail  string
+	unsuppressErr      error
 }
 
 func (ts *TestSuppressor) IsSuppressed(ctx context.Context, email string) bool {
@@ -40,4 +42,9 @@ func (ts *TestSuppressor) IsSuppressed(ctx context.Context, email string) bool {
 func (ts *TestSuppressor) Suppress(ctx context.Context, email string) error {
 	ts.suppressedEmail = email
 	return ts.suppressErr
+}
+
+func (ts *TestSuppressor) Unsuppress(ctx context.Context, email string) error {
+	ts.unsuppressedEmail = email
+	return ts.unsuppressErr
 }

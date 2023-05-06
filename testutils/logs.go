@@ -30,3 +30,7 @@ func (tl *Logs) AssertContains(t *testing.T, message string) {
 func (tl *Logs) Logs() string {
 	return tl.Builder.String()
 }
+
+func (tl *Logs) Reset() {
+	tl.Builder.Reset()
+}

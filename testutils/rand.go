@@ -14,3 +14,7 @@ func RandomString(n int) string {
 	}
 	return string(result)
 }
+
+func RandomEmail(n int, domain string) string {
+	return RandomString(n) + "@" + domain
+}

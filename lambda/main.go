@@ -33,6 +33,7 @@ func buildHandler() (h *handler.Handler, err error) {
 		Client:    ses.NewFromConfig(cfg),
 		ClientV2:  sesv2.NewFromConfig(cfg),
 		ConfigSet: opts.ConfigurationSet,
+		Log:       log.Default(),
 	}
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,

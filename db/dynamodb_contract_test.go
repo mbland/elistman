@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/mbland/elistman/testutils"
@@ -89,11 +88,10 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 func setupAwsDynamoDb(
 	tableName string,
 ) (dynDb *DynamoDb, teardown func() error, err error) {
-	config, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		err = fmt.Errorf("failed to configure DynamoDB: %s", err)
-	} else {
-		dynDb = &DynamoDb{dynamodb.NewFromConfig(config), tableName}
+	var cfg aws.Config
+
+	if cfg, err = testutils.LoadDefaultAwsConfig(); err == nil {
+		dynDb = &DynamoDb{dynamodb.NewFromConfig(cfg), tableName}
 		teardown = func() error { return nil }
 	}
 	return
