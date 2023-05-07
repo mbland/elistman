@@ -12,9 +12,47 @@ import (
 	"github.com/google/uuid"
 )
 
+type DynamoDbClient interface {
+	CreateTable(
+		context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options),
+	) (*dynamodb.CreateTableOutput, error)
+
+	DescribeTable(
+		context.Context,
+		*dynamodb.DescribeTableInput,
+		...func(*dynamodb.Options),
+	) (*dynamodb.DescribeTableOutput, error)
+
+	UpdateTimeToLive(
+		context.Context,
+		*dynamodb.UpdateTimeToLiveInput,
+		...func(*dynamodb.Options),
+	) (*dynamodb.UpdateTimeToLiveOutput, error)
+
+	DeleteTable(
+		context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options),
+	) (*dynamodb.DeleteTableOutput, error)
+
+	GetItem(
+		context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options),
+	) (*dynamodb.GetItemOutput, error)
+
+	PutItem(
+		context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options),
+	) (*dynamodb.PutItemOutput, error)
+
+	DeleteItem(
+		context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options),
+	) (*dynamodb.DeleteItemOutput, error)
+
+	Scan(
+		context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options),
+	) (*dynamodb.ScanOutput, error)
+}
+
 // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithItems.html
 type DynamoDb struct {
-	Client    *dynamodb.Client
+	Client    DynamoDbClient
 	TableName string
 }
 
