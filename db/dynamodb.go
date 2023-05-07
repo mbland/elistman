@@ -337,7 +337,7 @@ func (db *DynamoDb) ProcessSubscribersInState(
 	var next StartKey
 
 	for {
-		subs, next, err = db.GetSubscribersInState(ctx, status, next)
+		subs, next, err = db.getSubscribersInState(ctx, status, next)
 
 		if err != nil {
 			return
@@ -359,7 +359,7 @@ type dynamoDbStartKey struct {
 
 func (*dynamoDbStartKey) isDbStartKey() {}
 
-func (db *DynamoDb) GetSubscribersInState(
+func (db *DynamoDb) getSubscribersInState(
 	ctx context.Context, state SubscriberStatus, startKey StartKey,
 ) (subs []*Subscriber, nextStartKey StartKey, err error) {
 	const errFmt = "failed to get %s subscribers: %s"

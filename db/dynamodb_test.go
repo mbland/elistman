@@ -427,7 +427,7 @@ func TestGetSubscribersInState(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		dyndb, _ := setupDbWithSubscribers()
 
-		subs, next, err := dyndb.GetSubscribersInState(
+		subs, next, err := dyndb.getSubscribersInState(
 			ctx, SubscriberVerified, nil,
 		)
 
@@ -439,7 +439,7 @@ func TestGetSubscribersInState(t *testing.T) {
 	t.Run("FailsIfNewScanInputFails", func(t *testing.T) {
 		dyndb, _ := setupDbWithSubscribers()
 
-		subs, next, err := dyndb.GetSubscribersInState(
+		subs, next, err := dyndb.getSubscribersInState(
 			ctx, SubscriberVerified, &bogusDbStartKey{})
 
 		assert.Assert(t, is.Nil(subs))
@@ -453,7 +453,7 @@ func TestGetSubscribersInState(t *testing.T) {
 		dyndb, client := setupDbWithSubscribers()
 		client.scanErr = errors.New("scanning error")
 
-		subs, next, err := dyndb.GetSubscribersInState(
+		subs, next, err := dyndb.getSubscribersInState(
 			ctx, SubscriberVerified, nil,
 		)
 
@@ -472,7 +472,7 @@ func TestGetSubscribersInState(t *testing.T) {
 			string(status): toDynamoDbTimestamp(testTimestamp),
 		})
 
-		subs, _, err := dyndb.GetSubscribersInState(
+		subs, _, err := dyndb.getSubscribersInState(
 			ctx, SubscriberVerified, nil,
 		)
 
