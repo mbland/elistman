@@ -67,7 +67,7 @@ func TestParseSubscriber(t *testing.T) {
 			"verified": toDynamoDbTimestamp(testTimestamp),
 		}
 
-		subscriber, err := ParseSubscriber(attrs)
+		subscriber, err := parseSubscriber(attrs)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, subscriber, &Subscriber{
@@ -76,7 +76,7 @@ func TestParseSubscriber(t *testing.T) {
 	})
 
 	t.Run("ErrorsIfGettingAttributesFail", func(t *testing.T) {
-		subscriber, err := ParseSubscriber(dbAttributes{})
+		subscriber, err := parseSubscriber(dbAttributes{})
 
 		assert.Check(t, is.Nil(subscriber))
 		assert.ErrorContains(t, err, "failed to parse subscriber: ")
@@ -98,7 +98,7 @@ func TestParseSubscriber(t *testing.T) {
 			"verified": toDynamoDbTimestamp(testTimestamp),
 		}
 
-		subscriber, err := ParseSubscriber(attrs)
+		subscriber, err := parseSubscriber(attrs)
 
 		assert.Check(t, is.Nil(subscriber))
 
@@ -116,7 +116,7 @@ func TestParseSubscriber(t *testing.T) {
 			"verified": &dbNumber{Value: "not an int"},
 		}
 
-		subscriber, err := ParseSubscriber(attrs)
+		subscriber, err := parseSubscriber(attrs)
 
 		assert.Check(t, is.Nil(subscriber))
 		assert.ErrorContains(t, err, "failed to parse 'verified' from: ")

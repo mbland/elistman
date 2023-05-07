@@ -165,7 +165,7 @@ type dbParser struct {
 	attrs dbAttributes
 }
 
-func ParseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
+func parseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 	p := dbParser{attrs}
 	s := &Subscriber{}
 	errs := make([]error, 0, 3)
@@ -262,7 +262,7 @@ func (db *DynamoDb) Get(
 	} else if len(output.Item) == 0 {
 		err = fmt.Errorf("%s is not a subscriber", email)
 	} else {
-		subscriber, err = ParseSubscriber(output.Item)
+		subscriber, err = parseSubscriber(output.Item)
 	}
 	return
 }
@@ -345,7 +345,7 @@ func processScanOutput(
 	errs := make([]error, len(subs))
 
 	for i, item := range output.Items {
-		subs[i], errs[i] = ParseSubscriber(item)
+		subs[i], errs[i] = parseSubscriber(item)
 	}
 	err = errors.Join(errs...)
 	return
