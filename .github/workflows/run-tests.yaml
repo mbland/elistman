@@ -2,6 +2,9 @@ name: Run Tests
 
 on: [workflow_call, pull_request]
 
+env:
+  AWS_REGION: us-east-1
+
 jobs:
   ci:
     name: "Run Tests"
