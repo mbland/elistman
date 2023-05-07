@@ -187,7 +187,6 @@ func newSubscriberRecord(sub *Subscriber) dbAttributes {
 func TestProcessScanOutput(t *testing.T) {
 	setup := func() *dynamodb.ScanOutput {
 		return &dynamodb.ScanOutput{
-			LastEvaluatedKey: testStartKey.attrs,
 			Items: []dbAttributes{
 				newSubscriberRecord(testVerifiedSubscribers[0]),
 				newSubscriberRecord(testVerifiedSubscribers[1]),
@@ -195,27 +194,56 @@ func TestProcessScanOutput(t *testing.T) {
 			},
 		}
 	}
-	t.Run("Succeeds", func(t *testing.T) {
-		output := setup()
 
-		subs, nextStartKey, err := processScanOutput(output)
+	getDbStartKey := func(t *testing.T, startKey StartKey) *dynamoDbStartKey {
+		t.Helper()
+		var dbStartKey *dynamoDbStartKey
+		var ok bool
 
-		assert.NilError(t, err)
-
-		dbStartKey, ok := nextStartKey.(*dynamoDbStartKey)
-		if !ok {
-			t.Fatalf("start key is not *dynamoDbStartKey: %T", nextStartKey)
+		if dbStartKey, ok = startKey.(*dynamoDbStartKey); !ok {
+			t.Fatalf("start key is not *dynamoDbStartKey: %T", startKey)
 		}
-		assert.Assert(t, is.Contains(dbStartKey.attrs, "primary"))
-		actualKey := dbStartKey.attrs["primary"].(*dbString)
-		assert.Equal(t, testStartKeyValue, actualKey.Value)
+		return dbStartKey
+	}
 
+	checkDbStartKeyContains := func(
+		t *testing.T, startKey *dynamoDbStartKey, key, value string,
+	) {
+		t.Helper()
+
+		assert.Assert(t, is.Contains(startKey.attrs, key))
+		actualKey := startKey.attrs[key].(*dbString)
+		assert.Equal(t, value, actualKey.Value)
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
 		expectedSubs := []*Subscriber{
 			testVerifiedSubscribers[0],
 			testVerifiedSubscribers[1],
 			testVerifiedSubscribers[2],
 		}
-		assert.DeepEqual(t, expectedSubs, subs)
+
+		t.Run("WithoutNextStartKey", func(t *testing.T) {
+			output := setup()
+
+			subs, nextStartKey, err := processScanOutput(output)
+
+			assert.NilError(t, err)
+			assert.Assert(t, is.Nil(nextStartKey))
+			assert.DeepEqual(t, expectedSubs, subs)
+		})
+
+		t.Run("WithNextStartKey", func(t *testing.T) {
+			output := setup()
+			output.LastEvaluatedKey = testStartKey.attrs
+
+			subs, nextStartKey, err := processScanOutput(output)
+
+			assert.NilError(t, err)
+			startKey := getDbStartKey(t, nextStartKey)
+			checkDbStartKeyContains(t, startKey, "primary", testStartKeyValue)
+			assert.DeepEqual(t, expectedSubs, subs)
+		})
 	})
 
 	t.Run("ReturnsParseSubscriberErrors", func(t *testing.T) {

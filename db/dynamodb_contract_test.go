@@ -381,13 +381,7 @@ func TestDynamoDb(t *testing.T) {
 			)
 
 			assert.NilError(t, err)
-
-			var startKey *dynamoDbStartKey
-			var ok bool
-			if startKey, ok = next.(*dynamoDbStartKey); !ok {
-				t.Fatalf("nextStartKey not a *db.dynamoDbStartKey: %T", next)
-			}
-			assert.Equal(t, len(startKey.attrs), 0)
+			assert.Assert(t, is.Nil(next))
 
 			// The ordering here isn't necessarily guaranteed, but expected
 			// to be the same as insertion.

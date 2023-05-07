@@ -340,7 +340,10 @@ func newScanInput(
 func processScanOutput(
 	output *dynamodb.ScanOutput,
 ) (subs []*Subscriber, nextStartKey StartKey, err error) {
-	nextStartKey = &dynamoDbStartKey{output.LastEvaluatedKey}
+	if len(output.LastEvaluatedKey) != 0 {
+		nextStartKey = &dynamoDbStartKey{output.LastEvaluatedKey}
+	}
+
 	subs = make([]*Subscriber, len(output.Items))
 	errs := make([]error, len(subs))
 
