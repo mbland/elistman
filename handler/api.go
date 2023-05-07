@@ -261,10 +261,11 @@ func (h *apiHandler) performOperation(
 	}
 	logOperationResult(h.log, requestId, op, result, err)
 
-	if opErr, ok := err.(*ops.OperationErrorExternal); ok {
+	var opErr *ops.OperationErrorExternal
+	if errors.As(err, &opErr) {
 		err = &errorWithStatus{http.StatusBadGateway, opErr.Error()}
 	}
-	return result, err
+	return
 }
 
 func logOperationResult(

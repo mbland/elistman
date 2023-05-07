@@ -339,6 +339,11 @@ func TestLogOperationResult(t *testing.T) {
 	})
 }
 
+func wrappedOpErrExternal(msg string) error {
+	const errFmt = "wrapped to ensure using errors.As: %w"
+	return fmt.Errorf(errFmt, &ops.OperationErrorExternal{Message: msg})
+}
+
 func TestPerformOperation(t *testing.T) {
 	t.Run("SubscribeSucceeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
@@ -404,7 +409,7 @@ func TestPerformOperation(t *testing.T) {
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
+		f.agent.Error = wrappedOpErrExternal("not our fault...")
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -415,9 +420,9 @@ func TestPerformOperation(t *testing.T) {
 		assert.Equal(t, ops.Invalid, result)
 		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
 		assert.DeepEqual(t, err, expected)
-		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: " +
-			"Invalid: not our fault..."
+		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: Invalid: "
 		f.logs.AssertContains(t, expectedLog)
+		f.logs.AssertContains(t, "not our fault...")
 	})
 }
 
@@ -466,7 +471,7 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("ReturnsErrorIfOperationFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = &ops.OperationErrorExternal{Message: "not our fault..."}
+		f.agent.Error = wrappedOpErrExternal("not our fault...")
 
 		response, err := f.handler.handleApiRequest(
 			f.ctx, newUnsubscribeRequest(),
@@ -528,9 +533,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = &ops.OperationErrorExternal{
-			Message: "db operation failed",
-		}
+		f.agent.Error = wrappedOpErrExternal("db operation failed")
 
 		res := f.handler.HandleEvent(f.ctx, req)
 
