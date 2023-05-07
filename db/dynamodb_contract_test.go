@@ -117,6 +117,14 @@ func setupLocalDynamoDb(
 	if err == nil {
 		dynDb = &DynamoDb{dynamodb.NewFromConfig(*config), tableName}
 	}
+
+	// Wait a second for the container to become ready. This avoids errors like
+	// the following, which have occurred both locally and in the CI/CD
+	// pipeline:
+	//
+	//   operation error DynamoDB: CreateTable, exceeded maximum number of
+	//   attempts, 3
+	time.Sleep(1 * time.Second)
 	return
 }
 
