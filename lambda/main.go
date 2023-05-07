@@ -31,9 +31,7 @@ func buildHandler() (h *handler.Handler, err error) {
 
 	sesMailer := &email.SesMailer{
 		Client:    ses.NewFromConfig(cfg),
-		ClientV2:  sesv2.NewFromConfig(cfg),
 		ConfigSet: opts.ConfigurationSet,
-		Log:       log.Default(),
 	}
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
@@ -55,8 +53,11 @@ func buildHandler() (h *handler.Handler, err error) {
 				TableName: opts.SubscribersTableName,
 			},
 			Validator: &email.ProdAddressValidator{
-				Suppressor: sesMailer,
-				Resolver:   net.DefaultResolver,
+				Suppressor: &email.SesSuppressor{
+					Client: sesv2.NewFromConfig(cfg),
+					Log:    log.Default(),
+				},
+				Resolver: net.DefaultResolver,
 			},
 			Mailer: sesMailer,
 		},
