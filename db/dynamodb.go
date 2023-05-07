@@ -330,6 +330,29 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	return
 }
 
+func (db *DynamoDb) ProcessSubscribersInState(
+	ctx context.Context, status SubscriberStatus, processor SubscriberProcessor,
+) (err error) {
+	var subs []*Subscriber
+	var next StartKey
+
+	for {
+		subs, next, err = db.GetSubscribersInState(ctx, status, next)
+
+		if err != nil {
+			return
+		}
+		for _, sub := range subs {
+			if !processor.Process(sub) {
+				return
+			}
+		}
+		if next == nil {
+			return
+		}
+	}
+}
+
 type dynamoDbStartKey struct {
 	attrs dbAttributes
 }

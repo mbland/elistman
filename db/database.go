@@ -8,6 +8,25 @@ import (
 	"github.com/google/uuid"
 )
 
+// A SubscriberProcessor performs an operation on a Subscriber.
+//
+// Process should return true if processing should continue with the next
+// Subscriber, or false if processing should halt.
+type SubscriberProcessor interface {
+	Process(*Subscriber) bool
+}
+
+// SubscriberFunc is an adapter to allow processing of Subscriber
+// objects using plain functions.
+//
+// Inspired by: https://pkg.go.dev/net/http#HandlerFunc
+type SubscriberFunc func(sub *Subscriber) bool
+
+// SubscriberFunc calls and returns f(sub).
+func (f SubscriberFunc) Process(sub *Subscriber) bool {
+	return f(sub)
+}
+
 type Database interface {
 	Get(ctx context.Context, email string) (*Subscriber, error)
 	Put(ctx context.Context, subscriber *Subscriber) error
@@ -15,6 +34,9 @@ type Database interface {
 	GetSubscribersInState(
 		context.Context, SubscriberStatus, StartKey,
 	) ([]*Subscriber, StartKey, error)
+	ProcessSubscribersInState(
+		context.Context, SubscriberStatus, SubscriberProcessor,
+	) error
 }
 
 type Subscriber struct {

@@ -317,7 +317,7 @@ func TestDynamoDb(t *testing.T) {
 		})
 	})
 
-	t.Run("GetSubscribersInState", func(t *testing.T) {
+	t.Run("ProcessSubscribers", func(t *testing.T) {
 		emails := make(
 			[]string,
 			0,
@@ -358,7 +358,7 @@ func TestDynamoDb(t *testing.T) {
 		setup(t)
 		defer teardown()
 
-		t.Run("Succeeds", func(t *testing.T) {
+		t.Run("GetSubscribersInStateSucceeds", func(t *testing.T) {
 			subs, next, err := testDb.GetSubscribersInState(
 				ctx, SubscriberVerified, nil,
 			)
@@ -369,6 +369,21 @@ func TestDynamoDb(t *testing.T) {
 			// The ordering here isn't necessarily guaranteed, but expected
 			// to be the same as insertion.
 			assert.DeepEqual(t, testVerifiedSubscribers, subs)
+		})
+
+		t.Run("ProcessSubscribersInStateSucceeds", func(t *testing.T) {
+			subs := &[]*Subscriber{}
+			f := SubscriberFunc(func(s *Subscriber) bool {
+				*subs = append(*subs, s)
+				return true
+			})
+
+			err := testDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+			assert.NilError(t, err)
+			// The ordering here isn't necessarily guaranteed, but expected
+			// to be the same as insertion.
+			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
 		})
 	})
 }

@@ -22,6 +22,8 @@ import (
 // annoying, difficult, and/or nearly impossible without using this test double.
 type TestDynamoDbClient struct {
 	subscribers []dbAttributes
+	scanSize    int
+	scanCalls   int
 	scanErr     error
 }
 
@@ -85,6 +87,8 @@ func (client *TestDynamoDbClient) addSubscribers(subs []*Subscriber) {
 func (client *TestDynamoDbClient) Scan(
 	_ context.Context, input *dynamodb.ScanInput, _ ...func(*dynamodb.Options),
 ) (output *dynamodb.ScanOutput, err error) {
+	client.scanCalls++
+
 	err = client.scanErr
 	if err != nil {
 		return
@@ -92,13 +96,62 @@ func (client *TestDynamoDbClient) Scan(
 
 	items := make([]dbAttributes, 0, len(client.subscribers))
 
+	// Remember that our schema is to keep pending and verified subscribers
+	// partitioned across disjoin Global Secondary Indexes.
 	for _, sub := range client.subscribers {
 		if _, ok := sub[*input.IndexName]; ok {
 			items = append(items, sub)
 		}
 	}
 
-	output = &dynamodb.ScanOutput{Items: items}
+	// Simulating pagination is a little tricky. We use the following functions
+	// to trim the result set down to the scanSize after performing the full
+	// scan. This is an in-memory test double, so it's fast enough.
+	getEmail := func(attrs dbAttributes) (email string, err error) {
+		return (&dbParser{attrs}).GetString("email")
+	}
+	startScan := func(items []dbAttributes) ([]dbAttributes, error) {
+		var lastEmail string
+
+		if lastItem := input.ExclusiveStartKey; len(lastItem) == 0 {
+			return items, nil
+		} else if lastEmail, err = getEmail(lastItem); err != nil {
+			return items, nil
+		}
+		for i, sub := range items {
+			var email string
+			if email, err = getEmail(sub); err != nil {
+				return nil, err
+			} else if email == lastEmail {
+				return items[i+1:], nil
+			}
+		}
+		return items, nil
+	}
+	endScan := func(
+		items []dbAttributes, n int,
+	) (result []dbAttributes, lastKey dbAttributes, err error) {
+		if n == 0 || len(items) <= n {
+			result = items
+			return
+		}
+		items = items[:n]
+
+		if lastEmail, err := getEmail(items[len(items)-1]); err == nil {
+			result = items
+			lastKey = dbAttributes{"email": &dbString{Value: lastEmail}}
+		}
+		return
+	}
+
+	n := client.scanSize
+	var lastKey dbAttributes
+
+	if items, err = startScan(items); err != nil {
+		return
+	} else if items, lastKey, err = endScan(items, n); err == nil {
+		output = &dynamodb.ScanOutput{Items: items, LastEvaluatedKey: lastKey}
+	}
 	return
 }
 
@@ -359,20 +412,20 @@ func TestProcessScanOutput(t *testing.T) {
 	})
 }
 
+func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
+	client = &TestDynamoDbClient{}
+	dyndb = &DynamoDb{client, "subscribers-table"}
+
+	client.addSubscribers(testPendingSubscribers)
+	client.addSubscribers(testVerifiedSubscribers)
+	return
+}
+
 func TestGetSubscribersInState(t *testing.T) {
-	setup := func() (dyndb *DynamoDb, client *TestDynamoDbClient) {
-		client = &TestDynamoDbClient{}
-		dyndb = &DynamoDb{client, "subscribers-table"}
-
-		client.addSubscribers(testPendingSubscribers)
-		client.addSubscribers(testVerifiedSubscribers)
-		return
-	}
-
 	ctx := context.Background()
 
 	t.Run("Succeeds", func(t *testing.T) {
-		dyndb, _ := setup()
+		dyndb, _ := setupDbWithSubscribers()
 
 		subs, next, err := dyndb.GetSubscribersInState(
 			ctx, SubscriberVerified, nil,
@@ -384,7 +437,7 @@ func TestGetSubscribersInState(t *testing.T) {
 	})
 
 	t.Run("FailsIfNewScanInputFails", func(t *testing.T) {
-		dyndb, _ := setup()
+		dyndb, _ := setupDbWithSubscribers()
 
 		subs, next, err := dyndb.GetSubscribersInState(
 			ctx, SubscriberVerified, &bogusDbStartKey{})
@@ -397,7 +450,7 @@ func TestGetSubscribersInState(t *testing.T) {
 	})
 
 	t.Run("FailsIfScanFails", func(t *testing.T) {
-		dyndb, client := setup()
+		dyndb, client := setupDbWithSubscribers()
 		client.scanErr = errors.New("scanning error")
 
 		subs, next, err := dyndb.GetSubscribersInState(
@@ -411,7 +464,7 @@ func TestGetSubscribersInState(t *testing.T) {
 	})
 
 	t.Run("FailsIfProcessScanOutputFails", func(t *testing.T) {
-		dyndb, client := setup()
+		dyndb, client := setupDbWithSubscribers()
 		status := SubscriberVerified
 		client.addSubscriberRecord(dbAttributes{
 			"email":        &dbString{Value: "bad-uid@foo.com"},
@@ -429,5 +482,69 @@ func TestGetSubscribersInState(t *testing.T) {
 		expectedErr := "failed to parse subscriber: " +
 			"failed to parse 'uid' from: "
 		assert.ErrorContains(t, err, expectedErr)
+	})
+}
+
+func TestProcessSubscribersInState(t *testing.T) {
+	ctx := context.Background()
+
+	setup := func() (
+		dyndb *DynamoDb,
+		client *TestDynamoDbClient,
+		subs *[]*Subscriber,
+		f SubscriberFunc,
+	) {
+		dyndb, client = setupDbWithSubscribers()
+		subs = &[]*Subscriber{}
+		f = SubscriberFunc(func(s *Subscriber) bool {
+			*subs = append(*subs, s)
+			return true
+		})
+		return
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		t.Run("WithoutPagination", func(t *testing.T) {
+			dynDb, client, subs, f := setup()
+
+			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+			assert.NilError(t, err)
+			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
+			assert.Equal(t, client.scanCalls, 1)
+		})
+
+		t.Run("WithPagination", func(t *testing.T) {
+			dynDb, client, subs, f := setup()
+			client.scanSize = 1
+
+			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+			assert.NilError(t, err)
+			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
+			assert.Equal(t, client.scanCalls, len(testVerifiedSubscribers))
+		})
+
+		t.Run("WithoutProcessingAllSubscribers", func(t *testing.T) {
+			dynDb, _, subs, _ := setup()
+			f := SubscriberFunc(func(s *Subscriber) bool {
+				*subs = append(*subs, s)
+				return s.Email != testVerifiedSubscribers[1].Email
+			})
+
+			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+			assert.NilError(t, err)
+			assert.DeepEqual(t, testVerifiedSubscribers[:2], *subs)
+		})
+	})
+
+	t.Run("ReturnsGetSubscribersError", func(t *testing.T) {
+		dynDb, client, _, f := setup()
+		client.scanErr = errors.New("scanning error")
+
+		err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+		assert.ErrorContains(t, err, "scanning error")
 	})
 }
