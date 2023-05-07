@@ -333,46 +333,21 @@ func TestDynamoDb(t *testing.T) {
 			}
 		}
 
-		setupBogusSubscriber := func(t *testing.T) (teardown func()) {
-			t.Helper()
-
-			email := "bad-timestamp@foo.com"
-			bogus := dbAttributes{
-				"email":    &dbString{Value: email},
-				"uid":      &dbString{Value: "not a UUID"},
-				"verified": toDynamoDbTimestamp(testTimestamp),
-			}
-			input := &dynamodb.PutItemInput{
-				Item: bogus, TableName: &testDb.TableName,
-			}
-
-			if _, err := testDb.Client.PutItem(ctx, input); err != nil {
-				t.Fatalf("failed to put bogus subscriber: %s", err)
-			}
-
-			waitIfTestingAgainstAws()
-			return func() {
-				if err := testDb.Delete(ctx, email); err != nil {
-					t.Fatalf("failed to delete bogus subscriber: %s", err)
-				}
-			}
-		}
-
-		setup := func(t *testing.T) (teardown func()) {
+		setup := func(t *testing.T) {
 			putSubscribers(t, testPendingSubscribers)
 			putSubscribers(t, testVerifiedSubscribers)
 			waitIfTestingAgainstAws()
+		}
 
-			return func() {
-				for _, email := range emails {
-					if err := testDb.Delete(ctx, email); err != nil {
-						t.Fatalf("failed to delete subscriber: %s", email)
-					}
+		teardown := func() {
+			for _, email := range emails {
+				if err := testDb.Delete(ctx, email); err != nil {
+					t.Fatalf("failed to delete subscriber: %s", email)
 				}
 			}
 		}
 
-		teardown := setup(t)
+		setup(t)
 		defer teardown()
 
 		t.Run("Succeeds", func(t *testing.T) {
@@ -386,45 +361,6 @@ func TestDynamoDb(t *testing.T) {
 			// The ordering here isn't necessarily guaranteed, but expected
 			// to be the same as insertion.
 			assert.DeepEqual(t, testVerifiedSubscribers, subs)
-		})
-
-		t.Run("FailsIfNewScanInputFails", func(t *testing.T) {
-			subs, next, err := testDb.GetSubscribersInState(
-				ctx, SubscriberVerified, &BogusDbStartKey{})
-
-			assert.Assert(t, is.Nil(subs))
-			assert.Assert(t, is.Nil(next))
-			expectedErr := "failed to get verified subscribers: " +
-				"not a *db.dynamoDbStartKey: *db.BogusDbStartKey"
-			assert.Error(t, err, expectedErr)
-		})
-
-		t.Run("FailsIfScanFails", func(t *testing.T) {
-			subs, next, err := badDb.GetSubscribersInState(
-				ctx, SubscriberVerified, nil,
-			)
-
-			assert.Assert(t, is.Nil(subs))
-			assert.Assert(t, is.Nil(next))
-			expectedErr := "failed to get verified subscribers: " +
-				"operation error DynamoDB: Scan"
-			assert.ErrorContains(t, err, expectedErr)
-		})
-
-		t.Run("FailsIfProcessScanOutputFails", func(t *testing.T) {
-			teardown := setupBogusSubscriber(t)
-			defer teardown()
-
-			subs, _, err := testDb.GetSubscribersInState(
-				ctx, SubscriberVerified, nil,
-			)
-
-			expectedSubscribers := append(testVerifiedSubscribers, nil)
-			assert.DeepEqual(t, expectedSubscribers, subs)
-
-			expectedErr := "failed to parse subscriber: " +
-				"failed to parse 'uid' from: "
-			assert.ErrorContains(t, err, expectedErr)
 		})
 	})
 }

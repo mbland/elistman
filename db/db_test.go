@@ -35,7 +35,3 @@ var testVerifiedSubscribers []*Subscriber = []*Subscriber{
 	{"bar@test.com", testUid, SubscriberVerified, testTimestamp},
 	{"baz@test.com", testUid, SubscriberVerified, testTimestamp},
 }
-
-type BogusDbStartKey struct{}
-
-func (*BogusDbStartKey) isDbStartKey() {}

@@ -3,6 +3,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -12,6 +13,102 @@ import (
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
+
+// Most of the methods on TestDynamoDbClient are unimplemented, because
+// dynamodb_contract_test.go tests most of them.
+//
+// The exception to this is Scan(), which is the reason why the DynamoDbClient
+// interface exists. Testing all the cases of the code that relies on Scan() is
+// annoying, difficult, and/or nearly impossible without using this test double.
+type TestDynamoDbClient struct {
+	subscribers []dbAttributes
+	scanErr     error
+}
+
+func (client *TestDynamoDbClient) CreateTable(
+	context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options),
+) (_ *dynamodb.CreateTableOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) DescribeTable(
+	context.Context,
+	*dynamodb.DescribeTableInput,
+	...func(*dynamodb.Options),
+) (_ *dynamodb.DescribeTableOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) UpdateTimeToLive(
+	context.Context,
+	*dynamodb.UpdateTimeToLiveInput,
+	...func(*dynamodb.Options),
+) (_ *dynamodb.UpdateTimeToLiveOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) DeleteTable(
+	context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options),
+) (_ *dynamodb.DeleteTableOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) GetItem(
+	context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options),
+) (_ *dynamodb.GetItemOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) PutItem(
+	context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options),
+) (_ *dynamodb.PutItemOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) DeleteItem(
+	context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options),
+) (_ *dynamodb.DeleteItemOutput, _ error) {
+	return
+}
+
+func (client *TestDynamoDbClient) addSubscriberRecord(sub dbAttributes) {
+	client.subscribers = append(client.subscribers, sub)
+}
+
+func (client *TestDynamoDbClient) addSubscribers(subs []*Subscriber) {
+	for _, sub := range subs {
+		subRec := newSubscriberRecord(sub)
+		client.subscribers = append(client.subscribers, subRec)
+	}
+}
+
+func (client *TestDynamoDbClient) Scan(
+	_ context.Context, input *dynamodb.ScanInput, _ ...func(*dynamodb.Options),
+) (output *dynamodb.ScanOutput, err error) {
+	err = client.scanErr
+	if err != nil {
+		return
+	}
+
+	items := make([]dbAttributes, 0, len(client.subscribers))
+
+	for _, sub := range client.subscribers {
+		if _, ok := sub[*input.IndexName]; ok {
+			items = append(items, sub)
+		}
+	}
+
+	output = &dynamodb.ScanOutput{Items: items}
+	return
+}
+
+func newSubscriberRecord(sub *Subscriber) dbAttributes {
+	return dbAttributes{
+		"email":            &dbString{Value: sub.Email},
+		"uid":              &dbString{Value: sub.Uid.String()},
+		string(sub.Status): toDynamoDbTimestamp(sub.Timestamp),
+	}
+}
 
 func TestGetAttribute(t *testing.T) {
 	attrs := dbAttributes{
@@ -138,6 +235,10 @@ func TestDynamoDbStartKey(t *testing.T) {
 	})
 }
 
+type bogusDbStartKey struct{}
+
+func (*bogusDbStartKey) isDbStartKey() {}
+
 func TestNewScanInput(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		t.Run("WithNilStartKey", func(t *testing.T) {
@@ -168,20 +269,12 @@ func TestNewScanInput(t *testing.T) {
 
 	t.Run("ErrorsIfInvalidStartKey", func(t *testing.T) {
 		input, err := newScanInput(
-			"subscribers", SubscriberVerified, &BogusDbStartKey{},
+			"subscribers", SubscriberVerified, &bogusDbStartKey{},
 		)
 
 		assert.Assert(t, is.Nil(input))
-		assert.Error(t, err, "not a *db.dynamoDbStartKey: *db.BogusDbStartKey")
+		assert.Error(t, err, "not a *db.dynamoDbStartKey: *db.bogusDbStartKey")
 	})
-}
-
-func newSubscriberRecord(sub *Subscriber) dbAttributes {
-	return dbAttributes{
-		"email":            &dbString{Value: sub.Email},
-		"uid":              &dbString{Value: sub.Uid.String()},
-		string(sub.Status): toDynamoDbTimestamp(sub.Timestamp),
-	}
 }
 
 func TestProcessScanOutput(t *testing.T) {
@@ -262,6 +355,79 @@ func TestProcessScanOutput(t *testing.T) {
 			SubscriberPending,
 			SubscriberVerified,
 		)
+		assert.ErrorContains(t, err, expectedErr)
+	})
+}
+
+func TestGetSubscribersInState(t *testing.T) {
+	setup := func() (dyndb *DynamoDb, client *TestDynamoDbClient) {
+		client = &TestDynamoDbClient{}
+		dyndb = &DynamoDb{client, "subscribers-table"}
+
+		client.addSubscribers(testPendingSubscribers)
+		client.addSubscribers(testVerifiedSubscribers)
+		return
+	}
+
+	ctx := context.Background()
+
+	t.Run("Succeeds", func(t *testing.T) {
+		dyndb, _ := setup()
+
+		subs, next, err := dyndb.GetSubscribersInState(
+			ctx, SubscriberVerified, nil,
+		)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(next))
+		assert.DeepEqual(t, testVerifiedSubscribers, subs)
+	})
+
+	t.Run("FailsIfNewScanInputFails", func(t *testing.T) {
+		dyndb, _ := setup()
+
+		subs, next, err := dyndb.GetSubscribersInState(
+			ctx, SubscriberVerified, &bogusDbStartKey{})
+
+		assert.Assert(t, is.Nil(subs))
+		assert.Assert(t, is.Nil(next))
+		expectedErr := "failed to get verified subscribers: " +
+			"not a *db.dynamoDbStartKey: *db.bogusDbStartKey"
+		assert.Error(t, err, expectedErr)
+	})
+
+	t.Run("FailsIfScanFails", func(t *testing.T) {
+		dyndb, client := setup()
+		client.scanErr = errors.New("scanning error")
+
+		subs, next, err := dyndb.GetSubscribersInState(
+			ctx, SubscriberVerified, nil,
+		)
+
+		assert.Assert(t, is.Nil(subs))
+		assert.Assert(t, is.Nil(next))
+		expectedErr := "failed to get verified subscribers: scanning error"
+		assert.ErrorContains(t, err, expectedErr)
+	})
+
+	t.Run("FailsIfProcessScanOutputFails", func(t *testing.T) {
+		dyndb, client := setup()
+		status := SubscriberVerified
+		client.addSubscriberRecord(dbAttributes{
+			"email":        &dbString{Value: "bad-uid@foo.com"},
+			"uid":          &dbString{Value: "not a uid"},
+			string(status): toDynamoDbTimestamp(testTimestamp),
+		})
+
+		subs, _, err := dyndb.GetSubscribersInState(
+			ctx, SubscriberVerified, nil,
+		)
+
+		expectedSubscribers := append(testVerifiedSubscribers, nil)
+		assert.DeepEqual(t, expectedSubscribers, subs)
+
+		expectedErr := "failed to parse subscriber: " +
+			"failed to parse 'uid' from: "
 		assert.ErrorContains(t, err, expectedErr)
 	})
 }
