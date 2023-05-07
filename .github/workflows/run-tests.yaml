@@ -2,9 +2,6 @@ name: Run Tests
 
 on: [workflow_call, pull_request]
 
-env:
-  AWS_REGION: us-east-1
-
 jobs:
   ci:
     name: "Run Tests"
@@ -35,10 +32,10 @@ jobs:
       - name: Build
         run: go build -v -tags=all_tests ./...
 
-      - name: Run small tests and contract tests
+      - name: Run small tests and coverage tests
         run: |
           go test -covermode=count -coverprofile=coverage.out \
-            -tags=small_tests,contract_tests ./...
+            -tags=small_tests,coverage_tests ./...
 
       - name: Send test coverage to Coveralls.io
         uses: coverallsapp/github-action@v2

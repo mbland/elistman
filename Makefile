@@ -30,7 +30,7 @@ test: static-checks small-tests medium-tests contract-tests-aws
 
 coverage:
 	go test -covermode=count -coverprofile=coverage.out \
-	  -tags=small_tests,contract_tests ./...
+	  -tags=small_tests,coverage_tests ./...
 	go tool cover -html=coverage.out	
 
 sam-build: template.yml

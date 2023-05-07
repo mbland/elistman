@@ -1,4 +1,4 @@
-//go:build medium_tests || contract_tests || all_tests
+//go:build medium_tests || contract_tests || coverage_tests || all_tests
 
 package db
 
