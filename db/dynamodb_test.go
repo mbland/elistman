@@ -275,59 +275,8 @@ func TestParseSubscriber(t *testing.T) {
 
 const testStartKeyValue = "foo@bar.com"
 
-var testStartKeyAttrs dbAttributes = dbAttributes{
+var testStartKey dbAttributes = dbAttributes{
 	"primary": &dbString{Value: testStartKeyValue},
-}
-var testStartKey *dynamoDbStartKey = &dynamoDbStartKey{testStartKeyAttrs}
-
-func TestDynamoDbStartKey(t *testing.T) {
-	t.Run("IsDbStartKeyDoesNothingButMatchTheInterface", func(t *testing.T) {
-		startKey := &dynamoDbStartKey{}
-
-		startKey.isDbStartKey()
-	})
-}
-
-type bogusDbStartKey struct{}
-
-func (*bogusDbStartKey) isDbStartKey() {}
-
-func TestNewScanInput(t *testing.T) {
-	t.Run("Succeeds", func(t *testing.T) {
-		t.Run("WithNilStartKey", func(t *testing.T) {
-			input, err := newScanInput(
-				"subscribers", SubscriberVerified, nil,
-			)
-
-			assert.NilError(t, err)
-			assert.Equal(t, "subscribers", *input.TableName)
-			assert.Equal(t, DynamoDbVerifiedIndexName, *input.IndexName)
-			assert.Assert(t, is.Nil(input.ExclusiveStartKey))
-		})
-
-		t.Run("WithExistingStartKey", func(t *testing.T) {
-			input, err := newScanInput(
-				"subscribers", SubscriberPending, testStartKey,
-			)
-
-			assert.NilError(t, err)
-			assert.Equal(t, "subscribers", *input.TableName)
-			assert.Equal(t, DynamoDbPendingIndexName, *input.IndexName)
-			assert.Assert(t, is.Contains(input.ExclusiveStartKey, "primary"))
-
-			actualKey := input.ExclusiveStartKey["primary"].(*dbString)
-			assert.Equal(t, testStartKeyValue, actualKey.Value)
-		})
-	})
-
-	t.Run("ErrorsIfInvalidStartKey", func(t *testing.T) {
-		input, err := newScanInput(
-			"subscribers", SubscriberVerified, &bogusDbStartKey{},
-		)
-
-		assert.Assert(t, is.Nil(input))
-		assert.Error(t, err, "not a *db.dynamoDbStartKey: *db.bogusDbStartKey")
-	})
 }
 
 func TestProcessScanOutput(t *testing.T) {
@@ -341,24 +290,13 @@ func TestProcessScanOutput(t *testing.T) {
 		}
 	}
 
-	getDbStartKey := func(t *testing.T, startKey StartKey) *dynamoDbStartKey {
-		t.Helper()
-		var dbStartKey *dynamoDbStartKey
-		var ok bool
-
-		if dbStartKey, ok = startKey.(*dynamoDbStartKey); !ok {
-			t.Fatalf("start key is not *dynamoDbStartKey: %T", startKey)
-		}
-		return dbStartKey
-	}
-
 	checkDbStartKeyContains := func(
-		t *testing.T, startKey *dynamoDbStartKey, key, value string,
+		t *testing.T, startKey dbAttributes, key, value string,
 	) {
 		t.Helper()
 
-		assert.Assert(t, is.Contains(startKey.attrs, key))
-		actualKey := startKey.attrs[key].(*dbString)
+		assert.Assert(t, is.Contains(startKey, key))
+		actualKey := startKey[key].(*dbString)
 		assert.Equal(t, value, actualKey.Value)
 	}
 
@@ -381,13 +319,12 @@ func TestProcessScanOutput(t *testing.T) {
 
 		t.Run("WithNextStartKey", func(t *testing.T) {
 			output := setup()
-			output.LastEvaluatedKey = testStartKey.attrs
+			output.LastEvaluatedKey = testStartKey
 
-			subs, nextStartKey, err := processScanOutput(output)
+			subs, nextKey, err := processScanOutput(output)
 
 			assert.NilError(t, err)
-			startKey := getDbStartKey(t, nextStartKey)
-			checkDbStartKeyContains(t, startKey, "primary", testStartKeyValue)
+			checkDbStartKeyContains(t, nextKey, "primary", testStartKeyValue)
 			assert.DeepEqual(t, expectedSubs, subs)
 		})
 	})
@@ -434,19 +371,6 @@ func TestGetSubscribersInState(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(next))
 		assert.DeepEqual(t, testVerifiedSubscribers, subs)
-	})
-
-	t.Run("FailsIfNewScanInputFails", func(t *testing.T) {
-		dyndb, _ := setupDbWithSubscribers()
-
-		subs, next, err := dyndb.getSubscribersInState(
-			ctx, SubscriberVerified, &bogusDbStartKey{})
-
-		assert.Assert(t, is.Nil(subs))
-		assert.Assert(t, is.Nil(next))
-		expectedErr := "failed to get verified subscribers: " +
-			"not a *db.dynamoDbStartKey: *db.bogusDbStartKey"
-		assert.Error(t, err, expectedErr)
 	})
 
 	t.Run("FailsIfScanFails", func(t *testing.T) {

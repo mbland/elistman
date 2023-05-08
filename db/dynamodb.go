@@ -334,7 +334,7 @@ func (db *DynamoDb) ProcessSubscribersInState(
 	ctx context.Context, status SubscriberStatus, processor SubscriberProcessor,
 ) (err error) {
 	var subs []*Subscriber
-	var next StartKey
+	var next dbAttributes
 
 	for {
 		subs, next, err = db.getSubscribersInState(ctx, status, next)
@@ -353,58 +353,29 @@ func (db *DynamoDb) ProcessSubscribersInState(
 	}
 }
 
-type dynamoDbStartKey struct {
-	attrs dbAttributes
-}
-
-func (*dynamoDbStartKey) isDbStartKey() {}
-
 func (db *DynamoDb) getSubscribersInState(
-	ctx context.Context, state SubscriberStatus, startKey StartKey,
-) (subs []*Subscriber, nextStartKey StartKey, err error) {
-	const errFmt = "failed to get %s subscribers: %s"
-	var input *dynamodb.ScanInput
+	ctx context.Context, state SubscriberStatus, startKey dbAttributes,
+) (subs []*Subscriber, nextStartKey dbAttributes, err error) {
+	indexName := string(state)
+	input := &dynamodb.ScanInput{
+		TableName:         &db.TableName,
+		IndexName:         &indexName,
+		ExclusiveStartKey: startKey,
+	}
 	var output *dynamodb.ScanOutput
 
-	if input, err = newScanInput(db.TableName, state, startKey); err != nil {
-		err = fmt.Errorf(errFmt, state, err)
-	} else if output, err = db.Client.Scan(ctx, input); err != nil {
-		err = fmt.Errorf(errFmt, state, err)
+	if output, err = db.Client.Scan(ctx, input); err != nil {
+		err = fmt.Errorf("failed to get %s subscribers: %s", state, err)
 	} else {
 		subs, nextStartKey, err = processScanOutput(output)
 	}
 	return
 }
 
-func newScanInput(
-	tableName string, state SubscriberStatus, startKey StartKey,
-) (input *dynamodb.ScanInput, err error) {
-	var dbStartKey *dynamoDbStartKey
-	var ok bool
-
-	if startKey == nil {
-		dbStartKey = &dynamoDbStartKey{}
-	} else if dbStartKey, ok = startKey.(*dynamoDbStartKey); !ok {
-		err = fmt.Errorf("not a *db.dynamoDbStartKey: %T", startKey)
-		return
-	}
-
-	indexName := string(state)
-	input = &dynamodb.ScanInput{
-		TableName:         &tableName,
-		IndexName:         &indexName,
-		ExclusiveStartKey: dbStartKey.attrs,
-	}
-	return
-}
-
 func processScanOutput(
 	output *dynamodb.ScanOutput,
-) (subs []*Subscriber, nextStartKey StartKey, err error) {
-	if len(output.LastEvaluatedKey) != 0 {
-		nextStartKey = &dynamoDbStartKey{output.LastEvaluatedKey}
-	}
-
+) (subs []*Subscriber, nextStartKey dbAttributes, err error) {
+	nextStartKey = output.LastEvaluatedKey
 	subs = make([]*Subscriber, len(output.Items))
 	errs := make([]error, len(subs))
 
