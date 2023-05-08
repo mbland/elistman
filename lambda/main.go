@@ -36,7 +36,7 @@ func buildHandler() (h *handler.Handler, err error) {
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
 		opts.EmailSiteTitle,
-		&ops.ProdAgent{
+		&ops.DecoyAgent{
 			SenderAddress: fmt.Sprintf(
 				"%s <%s@%s>",
 				opts.SenderName,
