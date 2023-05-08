@@ -273,82 +273,6 @@ func TestParseSubscriber(t *testing.T) {
 	})
 }
 
-const testStartKeyValue = "foo@bar.com"
-
-var testStartKey dbAttributes = dbAttributes{
-	"primary": &dbString{Value: testStartKeyValue},
-}
-
-func TestProcessScanOutput(t *testing.T) {
-	setup := func() *dynamodb.ScanOutput {
-		return &dynamodb.ScanOutput{
-			Items: []dbAttributes{
-				newSubscriberRecord(testVerifiedSubscribers[0]),
-				newSubscriberRecord(testVerifiedSubscribers[1]),
-				newSubscriberRecord(testVerifiedSubscribers[2]),
-			},
-		}
-	}
-
-	checkDbStartKeyContains := func(
-		t *testing.T, startKey dbAttributes, key, value string,
-	) {
-		t.Helper()
-
-		assert.Assert(t, is.Contains(startKey, key))
-		actualKey := startKey[key].(*dbString)
-		assert.Equal(t, value, actualKey.Value)
-	}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		expectedSubs := []*Subscriber{
-			testVerifiedSubscribers[0],
-			testVerifiedSubscribers[1],
-			testVerifiedSubscribers[2],
-		}
-
-		t.Run("WithoutNextStartKey", func(t *testing.T) {
-			output := setup()
-
-			subs, nextStartKey, err := processScanOutput(output)
-
-			assert.NilError(t, err)
-			assert.Assert(t, is.Nil(nextStartKey))
-			assert.DeepEqual(t, expectedSubs, subs)
-		})
-
-		t.Run("WithNextStartKey", func(t *testing.T) {
-			output := setup()
-			output.LastEvaluatedKey = testStartKey
-
-			subs, nextKey, err := processScanOutput(output)
-
-			assert.NilError(t, err)
-			checkDbStartKeyContains(t, nextKey, "primary", testStartKeyValue)
-			assert.DeepEqual(t, expectedSubs, subs)
-		})
-	})
-
-	t.Run("ReturnsParseSubscriberErrors", func(t *testing.T) {
-		output := setup()
-		const statusKey string = string(SubscriberPending)
-		for _, record := range output.Items {
-			record[statusKey] = toDynamoDbTimestamp(testTimestamp)
-		}
-
-		subs, _, err := processScanOutput(output)
-
-		assert.DeepEqual(t, []*Subscriber{nil, nil, nil}, subs)
-		expectedErr := fmt.Sprintf(
-			"failed to parse subscriber: "+
-				"contains both '%s' and '%s' attributes",
-			SubscriberPending,
-			SubscriberVerified,
-		)
-		assert.ErrorContains(t, err, expectedErr)
-	})
-}
-
 func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
 	client = &TestDynamoDbClient{}
 	dyndb = &DynamoDb{client, "subscribers-table"}
@@ -373,7 +297,7 @@ func TestGetSubscribersInState(t *testing.T) {
 		assert.DeepEqual(t, testVerifiedSubscribers, subs)
 	})
 
-	t.Run("FailsIfScanFails", func(t *testing.T) {
+	t.Run("ReturnsErrorIfScanFails", func(t *testing.T) {
 		dyndb, client := setupDbWithSubscribers()
 		client.scanErr = errors.New("scanning error")
 
@@ -387,7 +311,7 @@ func TestGetSubscribersInState(t *testing.T) {
 		assert.ErrorContains(t, err, expectedErr)
 	})
 
-	t.Run("FailsIfProcessScanOutputFails", func(t *testing.T) {
+	t.Run("ReturnsErrorIfParsingSubscribersFails", func(t *testing.T) {
 		dyndb, client := setupDbWithSubscribers()
 		status := SubscriberVerified
 		client.addSubscriberRecord(dbAttributes{

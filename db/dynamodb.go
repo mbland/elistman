@@ -366,15 +366,9 @@ func (db *DynamoDb) getSubscribersInState(
 
 	if output, err = db.Client.Scan(ctx, input); err != nil {
 		err = fmt.Errorf("failed to get %s subscribers: %s", state, err)
-	} else {
-		subs, nextStartKey, err = processScanOutput(output)
+		return
 	}
-	return
-}
 
-func processScanOutput(
-	output *dynamodb.ScanOutput,
-) (subs []*Subscriber, nextStartKey dbAttributes, err error) {
 	nextStartKey = output.LastEvaluatedKey
 	subs = make([]*Subscriber, len(output.Items))
 	errs := make([]error, len(subs))
