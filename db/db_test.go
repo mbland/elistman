@@ -6,23 +6,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/testutils"
 )
 
-const testEmail = "foo@bar.com"
-const testTimeStr = "Fri, 18 Sep 1970 12:45:00 +0000"
+const testEmail = testutils.TestEmail
+const testTimeStr = testutils.TestTimeStr
 
-var testUid uuid.UUID = uuid.MustParse("00000000-1111-2222-3333-444444444444")
+var testUid uuid.UUID = testutils.TestUid
 
-var testTimestamp time.Time
-
-func init() {
-	var err error
-	testTimestamp, err = time.Parse(TimestampFormat, testTimeStr)
-
-	if err != nil {
-		panic("failed to parse testTimestamp: " + err.Error())
-	}
-}
+var testTimestamp time.Time = testutils.TestTimestamp
 
 var testPendingSubscribers []*Subscriber = []*Subscriber{
 	{"quux@test.com", testUid, SubscriberPending, testTimestamp},
