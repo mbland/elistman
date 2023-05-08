@@ -331,51 +331,26 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 }
 
 func (db *DynamoDb) ProcessSubscribersInState(
-	ctx context.Context, status SubscriberStatus, processor SubscriberProcessor,
+	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) (err error) {
-	var subs []*Subscriber
-	var next dbAttributes
+	index := string(status)
+	input := &dynamodb.ScanInput{TableName: &db.TableName, IndexName: &index}
+	var output *dynamodb.ScanOutput
 
 	for {
-		subs, next, err = db.getSubscribersInState(ctx, status, next)
-
-		if err != nil {
+		if output, err = db.Client.Scan(ctx, input); err != nil {
+			err = fmt.Errorf("failed to get %s subscribers: %s", status, err)
 			return
 		}
-		for _, sub := range subs {
-			if !processor.Process(sub) {
+		for _, item := range output.Items {
+			var sub *Subscriber
+			if sub, err = parseSubscriber(item); err != nil || !sp.Process(sub) {
 				return
 			}
 		}
-		if next == nil {
+		if output.LastEvaluatedKey == nil {
 			return
 		}
+		input.ExclusiveStartKey = output.LastEvaluatedKey
 	}
-}
-
-func (db *DynamoDb) getSubscribersInState(
-	ctx context.Context, state SubscriberStatus, startKey dbAttributes,
-) (subs []*Subscriber, nextStartKey dbAttributes, err error) {
-	indexName := string(state)
-	input := &dynamodb.ScanInput{
-		TableName:         &db.TableName,
-		IndexName:         &indexName,
-		ExclusiveStartKey: startKey,
-	}
-	var output *dynamodb.ScanOutput
-
-	if output, err = db.Client.Scan(ctx, input); err != nil {
-		err = fmt.Errorf("failed to get %s subscribers: %s", state, err)
-		return
-	}
-
-	nextStartKey = output.LastEvaluatedKey
-	subs = make([]*Subscriber, len(output.Items))
-	errs := make([]error, len(subs))
-
-	for i, item := range output.Items {
-		subs[i], errs[i] = parseSubscriber(item)
-	}
-	err = errors.Join(errs...)
-	return
 }

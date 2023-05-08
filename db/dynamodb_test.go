@@ -282,57 +282,6 @@ func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
 	return
 }
 
-func TestGetSubscribersInState(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Succeeds", func(t *testing.T) {
-		dyndb, _ := setupDbWithSubscribers()
-
-		subs, next, err := dyndb.getSubscribersInState(
-			ctx, SubscriberVerified, nil,
-		)
-
-		assert.NilError(t, err)
-		assert.Assert(t, is.Nil(next))
-		assert.DeepEqual(t, testVerifiedSubscribers, subs)
-	})
-
-	t.Run("ReturnsErrorIfScanFails", func(t *testing.T) {
-		dyndb, client := setupDbWithSubscribers()
-		client.scanErr = errors.New("scanning error")
-
-		subs, next, err := dyndb.getSubscribersInState(
-			ctx, SubscriberVerified, nil,
-		)
-
-		assert.Assert(t, is.Nil(subs))
-		assert.Assert(t, is.Nil(next))
-		expectedErr := "failed to get verified subscribers: scanning error"
-		assert.ErrorContains(t, err, expectedErr)
-	})
-
-	t.Run("ReturnsErrorIfParsingSubscribersFails", func(t *testing.T) {
-		dyndb, client := setupDbWithSubscribers()
-		status := SubscriberVerified
-		client.addSubscriberRecord(dbAttributes{
-			"email":        &dbString{Value: "bad-uid@foo.com"},
-			"uid":          &dbString{Value: "not a uid"},
-			string(status): toDynamoDbTimestamp(testTimestamp),
-		})
-
-		subs, _, err := dyndb.getSubscribersInState(
-			ctx, SubscriberVerified, nil,
-		)
-
-		expectedSubscribers := append(testVerifiedSubscribers, nil)
-		assert.DeepEqual(t, expectedSubscribers, subs)
-
-		expectedErr := "failed to parse subscriber: " +
-			"failed to parse 'uid' from: "
-		assert.ErrorContains(t, err, expectedErr)
-	})
-}
-
 func TestProcessSubscribersInState(t *testing.T) {
 	ctx := context.Background()
 
@@ -387,12 +336,30 @@ func TestProcessSubscribersInState(t *testing.T) {
 		})
 	})
 
-	t.Run("ReturnsGetSubscribersError", func(t *testing.T) {
-		dynDb, client, _, f := setup()
-		client.scanErr = errors.New("scanning error")
+	t.Run("ReturnsError", func(t *testing.T) {
+		t.Run("IfScanFails", func(t *testing.T) {
+			dynDb, client, _, f := setup()
+			client.scanErr = errors.New("scanning error")
 
-		err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
 
-		assert.ErrorContains(t, err, "scanning error")
+			assert.ErrorContains(t, err, "scanning error")
+		})
+
+		t.Run("IfParseSubscriberFails", func(t *testing.T) {
+			dynDb, client, _, f := setup()
+			status := SubscriberVerified
+			client.addSubscriberRecord(dbAttributes{
+				"email":        &dbString{Value: "bad-uid@foo.com"},
+				"uid":          &dbString{Value: "not a uid"},
+				string(status): toDynamoDbTimestamp(testTimestamp),
+			})
+
+			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+
+			expectedErr := "failed to parse subscriber: " +
+				"failed to parse 'uid' from: "
+			assert.ErrorContains(t, err, expectedErr)
+		})
 	})
 }
