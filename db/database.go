@@ -74,6 +74,10 @@ func (sub *Subscriber) String() string {
 	return sb.String()
 }
 
-type StartKey interface {
-	isDbStartKey()
+const ErrSubscriberNotFound = dbError("is not a subscriber")
+
+type dbError string
+
+func (e dbError) Error() string {
+	return string(e)
 }

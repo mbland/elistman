@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"testing"
@@ -191,8 +192,7 @@ func TestDynamoDb(t *testing.T) {
 		assert.NilError(t, getErr)
 		assert.NilError(t, deleteErr)
 		assert.DeepEqual(t, subscriber, retrievedSubscriber)
-		expected := subscriber.Email + " is not a subscriber"
-		assert.ErrorContains(t, getAfterDeleteErr, expected)
+		assert.Assert(t, errors.Is(getAfterDeleteErr, ErrSubscriberNotFound))
 	})
 
 	t.Run("DescribeTable", func(t *testing.T) {
@@ -281,8 +281,7 @@ func TestDynamoDb(t *testing.T) {
 			retrieved, err := testDb.Get(ctx, subscriber.Email)
 
 			assert.Assert(t, is.Nil(retrieved))
-			expected := subscriber.Email + " is not a subscriber"
-			assert.ErrorContains(t, err, expected)
+			assert.Assert(t, errors.Is(err, ErrSubscriberNotFound))
 		})
 
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {

@@ -298,7 +298,7 @@ func (db *DynamoDb) Get(
 	if output, err = db.Client.GetItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to get %s: %s", email, err)
 	} else if len(output.Item) == 0 {
-		err = fmt.Errorf("%s is not a subscriber", email)
+		err = ErrSubscriberNotFound
 	} else {
 		subscriber, err = parseSubscriber(output.Item)
 	}
