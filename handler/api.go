@@ -264,9 +264,8 @@ func (h *apiHandler) performOperation(
 	}
 	logOperationResult(h.log, requestId, op, result, err)
 
-	var opErr *ops.OperationErrorExternal
-	if errors.As(err, &opErr) {
-		err = &errorWithStatus{http.StatusBadGateway, opErr.Error()}
+	if errors.Is(err, ops.ErrExternal) {
+		err = &errorWithStatus{http.StatusBadGateway, err.Error()}
 	}
 	return
 }

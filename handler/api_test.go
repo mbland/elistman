@@ -143,6 +143,26 @@ func TestAddResponseBody(t *testing.T) {
 	})
 }
 
+// newOpsErrExternal returns an error wrapping ops.ErrExternal.
+//
+// Returning a wrapped error ensures that the code under test uses errors.Is to
+// detect the presence of ops.ErrExternal instead of a type assertion.
+func newOpsErrExternal(msg string) error {
+	return fmt.Errorf("%w: %s", ops.ErrExternal, msg)
+}
+
+// newBadGatewayError returns an errorWithStatus with http.StatusBadGateway.
+//
+// apiHandler.performOperation returns such a value when it detects a wrapped
+// ops.ErrExternal error. For that reason, this test helper uses the
+// newOpsErrExternal test helper to generate the error message for the returned
+// object.
+func newBadGatewayError(msg string) error {
+	return &errorWithStatus{
+		http.StatusBadGateway, newOpsErrExternal(msg).Error(),
+	}
+}
+
 func TestErrorResponse(t *testing.T) {
 	f := newApiHandlerFixture()
 
@@ -154,8 +174,9 @@ func TestErrorResponse(t *testing.T) {
 	})
 
 	t.Run("ReturnStatusFromError", func(t *testing.T) {
-		err := wrapErr(
-			&errorWithStatus{http.StatusBadGateway, "not our fault..."},
+		err := fmt.Errorf(
+			"wrapped to ensure errorResponse uses errors.As: %w",
+			newBadGatewayError("not our fault..."),
 		)
 
 		res := f.handler.errorResponse(err)
@@ -341,15 +362,6 @@ func TestLogOperationResult(t *testing.T) {
 	})
 }
 
-// wrapErr wraps an error to ensure it's handled using errors.Is or errors.As.
-func wrapErr(err error) error {
-	return fmt.Errorf("wrapped to ensure using errors.Is or errors.As: %w", err)
-}
-
-func newOpErrExternal(msg string) error {
-	return wrapErr(&ops.OperationErrorExternal{Message: msg})
-}
-
 func TestPerformOperation(t *testing.T) {
 	t.Run("SubscribeSucceeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
@@ -415,7 +427,7 @@ func TestPerformOperation(t *testing.T) {
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = newOpErrExternal("not our fault...")
+		f.agent.Error = newOpsErrExternal("not our fault...")
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -424,8 +436,7 @@ func TestPerformOperation(t *testing.T) {
 		)
 
 		assert.Equal(t, ops.Invalid, result)
-		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
-		assert.DeepEqual(t, expected, err)
+		assert.DeepEqual(t, newBadGatewayError("not our fault..."), err)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: Invalid: "
 		f.logs.AssertContains(t, expectedLog)
 		f.logs.AssertContains(t, "not our fault...")
@@ -477,14 +488,13 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("ReturnsErrorIfOperationFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = newOpErrExternal("not our fault...")
+		f.agent.Error = newOpsErrExternal("not our fault...")
 
 		response, err := f.handler.handleApiRequest(
 			f.ctx, newUnsubscribeRequest(),
 		)
 
-		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
-		assert.DeepEqual(t, expected, err)
+		assert.DeepEqual(t, newBadGatewayError("not our fault..."), err)
 		assert.Assert(t, is.Nil(response))
 	})
 
@@ -539,13 +549,14 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = newOpErrExternal("db operation failed")
+		const errMsg = "db operation failed"
+		f.agent.Error = newOpsErrExternal(errMsg)
 
 		res := f.handler.HandleEvent(f.ctx, req)
 
 		assert.Assert(t, res != nil)
 		assert.Equal(t, http.StatusBadGateway, res.StatusCode)
-		f.logs.AssertContains(t, "502: db operation failed")
+		f.logs.AssertContains(t, "502: "+newBadGatewayError(errMsg).Error())
 	})
 
 	t.Run("Succeeds", func(t *testing.T) {
