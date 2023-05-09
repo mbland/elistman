@@ -127,7 +127,9 @@ func (h *apiHandler) errorResponse(err error) *events.APIGatewayV2HTTPResponse {
 		StatusCode: http.StatusInternalServerError,
 		Headers:    map[string]string{},
 	}
-	if apiErr, ok := err.(*errorWithStatus); ok {
+
+	var apiErr *errorWithStatus
+	if errors.As(err, &apiErr) {
 		res.StatusCode = apiErr.HttpStatus
 	}
 

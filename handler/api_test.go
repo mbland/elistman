@@ -154,7 +154,9 @@ func TestErrorResponse(t *testing.T) {
 	})
 
 	t.Run("ReturnStatusFromError", func(t *testing.T) {
-		err := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
+		err := wrapErr(
+			&errorWithStatus{http.StatusBadGateway, "not our fault..."},
+		)
 
 		res := f.handler.errorResponse(err)
 
@@ -423,7 +425,7 @@ func TestPerformOperation(t *testing.T) {
 
 		assert.Equal(t, ops.Invalid, result)
 		expected := &errorWithStatus{http.StatusBadGateway, "not our fault..."}
-		assert.DeepEqual(t, err, expected)
+		assert.DeepEqual(t, expected, err)
 		expectedLog := "deadbeef: ERROR: Subscribe: mbland@acm.org: Invalid: "
 		f.logs.AssertContains(t, expectedLog)
 		f.logs.AssertContains(t, "not our fault...")
