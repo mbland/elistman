@@ -129,43 +129,6 @@ func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	return
 }
 
-func (db *DynamoDb) WaitForTable(
-	ctx context.Context, maxAttempts int, sleep func(),
-) error {
-	if maxAttempts <= 0 {
-		const errFmt = "maxAttempts to wait for DB table must be >= 0, got: %d"
-		return fmt.Errorf(errFmt, maxAttempts)
-	}
-
-	for current := 0; ; {
-		td, err := db.DescribeTable(ctx)
-
-		if err == nil && td.TableStatus == types.TableStatusActive {
-			return nil
-		} else if current++; current == maxAttempts {
-			const errFmt = "db table %s not active after " +
-				"%d attempts to check; last error: %s"
-			return fmt.Errorf(errFmt, db.TableName, maxAttempts, err)
-		}
-		sleep()
-	}
-}
-
-func (db *DynamoDb) DescribeTable(
-	ctx context.Context,
-) (td *types.TableDescription, err error) {
-	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
-	output, descErr := db.Client.DescribeTable(ctx, input)
-
-	if descErr != nil {
-		const errFmt = "failed to describe db table %s: %s"
-		err = fmt.Errorf(errFmt, db.TableName, descErr)
-	} else {
-		td = output.Table
-	}
-	return
-}
-
 func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *types.TimeToLiveSpecification, err error) {

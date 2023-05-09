@@ -12,7 +12,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -20,8 +19,7 @@ import (
 
 var useAwsDb bool
 var dynamodbDockerVersion string
-var maxTableWaitAttempts int
-var durationBetweenAttempts time.Duration
+var maxTableWaitDuration time.Duration
 
 func init() {
 	flag.BoolVar(
@@ -36,17 +34,11 @@ func init() {
 		"1.21.0",
 		"Version of the amazon/dynamodb-local Docker image to test against",
 	)
-	flag.IntVar(
-		&maxTableWaitAttempts,
-		"dbwaitattempts",
-		12,
-		"Maximum times to wait for a new DynamoDB table to become active",
-	)
 	flag.DurationVar(
-		&durationBetweenAttempts,
-		"dbwaitattemptduration",
-		5*time.Second,
-		"Duration to wait between each DynamoDB table status check",
+		&maxTableWaitDuration,
+		"dbwaitduration",
+		1*time.Minute,
+		"Maximum duration to wait for DynamoDB table to become active",
 	)
 }
 
@@ -63,8 +55,6 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 	}
 
 	tableName := "elistman-database-test-" + testutils.RandomString(10)
-	maxAttempts := maxTableWaitAttempts
-	sleep := func() { time.Sleep(durationBetweenAttempts) }
 	doSetup := setupLocalDynamoDb
 	ctx := context.Background()
 
@@ -76,7 +66,7 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return
 	} else if err = dynDb.CreateTable(ctx); err != nil {
 		err = teardownDbWithError(err)
-	} else if err = dynDb.WaitForTable(ctx, maxAttempts, sleep); err != nil {
+	} else if err = waitForTable(ctx, dynDb); err != nil {
 		err = teardownDbWithError(err)
 	} else {
 		teardown = func() error {
@@ -147,6 +137,15 @@ func localDbConfig() (*aws.Config, string, error) {
 	return dbConfig, endpoint, nil
 }
 
+func waitForTable(ctx context.Context, dynDb *DynamoDb) error {
+	input := &dynamodb.DescribeTableInput{
+		TableName: aws.String(dynDb.TableName),
+	}
+	waiter := dynamodb.NewTableExistsWaiter(dynDb.Client)
+
+	return waiter.Wait(ctx, input, maxTableWaitDuration)
+}
+
 func newTestSubscriber() *Subscriber {
 	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
@@ -193,66 +192,6 @@ func TestDynamoDb(t *testing.T) {
 		assert.NilError(t, deleteErr)
 		assert.DeepEqual(t, subscriber, retrievedSubscriber)
 		assert.Assert(t, errors.Is(getAfterDeleteErr, ErrSubscriberNotFound))
-	})
-
-	t.Run("DescribeTable", func(t *testing.T) {
-		t.Run("Succeeds", func(t *testing.T) {
-			td, err := testDb.DescribeTable(ctx)
-
-			assert.NilError(t, err)
-			assert.Equal(t, types.TableStatusActive, td.TableStatus)
-		})
-
-		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {
-			td, err := badDb.DescribeTable(ctx)
-
-			assert.Assert(t, is.Nil(td))
-			errMsg := "failed to describe db table " + badDb.TableName
-			assert.ErrorContains(t, err, errMsg)
-			assert.ErrorContains(t, err, "ResourceNotFoundException")
-		})
-	})
-
-	t.Run("WaitForTable", func(t *testing.T) {
-		setup := func() (*int, func()) {
-			numSleeps := 0
-			return &numSleeps, func() { numSleeps++ }
-		}
-
-		t.Run("Succeeds", func(t *testing.T) {
-			numSleeps, sleep := setup()
-
-			err := testDb.WaitForTable(ctx, 1, sleep)
-
-			assert.NilError(t, err)
-			assert.Equal(t, 0, *numSleeps)
-		})
-
-		t.Run("ErrorsIfMaxAttemptsLessThanOne", func(t *testing.T) {
-			numSleeps, sleep := setup()
-
-			err := testDb.WaitForTable(ctx, 0, sleep)
-
-			msg := "maxAttempts to wait for DB table must be >= 0, got: 0"
-			assert.ErrorContains(t, err, msg)
-			assert.Equal(t, 0, *numSleeps)
-		})
-
-		t.Run("ErrorsIfTableDoesNotBecomeActive", func(t *testing.T) {
-			numSleeps, sleep := setup()
-			maxAttempts := 3
-
-			err := badDb.WaitForTable(ctx, maxAttempts, sleep)
-
-			msg := fmt.Sprintf(
-				"db table %s not active after %d attempts to check",
-				badDb.TableName,
-				maxAttempts,
-			)
-			assert.ErrorContains(t, err, msg)
-			assert.ErrorContains(t, err, "ResourceNotFoundException")
-			assert.Equal(t, maxAttempts-1, *numSleeps)
-		})
 	})
 
 	t.Run("UpdateTimeToLive", func(t *testing.T) {
