@@ -337,27 +337,25 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 
 func (db *DynamoDb) ProcessSubscribersInState(
 	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
-) (err error) {
+) error {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(db.TableName),
 		IndexName: aws.String(string(status)),
 	}
-	var output *dynamodb.ScanOutput
+	paginator := dynamodb.NewScanPaginator(db.Client, input)
 
-	for {
-		if output, err = db.Client.Scan(ctx, input); err != nil {
-			err = fmt.Errorf("failed to get %s subscribers: %s", status, err)
-			return
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+
+		if err != nil {
+			return fmt.Errorf("failed to get %s subscribers: %s", status, err)
 		}
+
 		for _, item := range output.Items {
-			var sub *Subscriber
-			if sub, err = parseSubscriber(item); err != nil || !sp.Process(sub) {
-				return
+			if s, err := parseSubscriber(item); err != nil || !sp.Process(s) {
+				return err
 			}
 		}
-		if output.LastEvaluatedKey == nil {
-			return
-		}
-		input.ExclusiveStartKey = output.LastEvaluatedKey
 	}
+	return nil
 }
