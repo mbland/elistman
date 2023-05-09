@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/agent"
 )
 
 type snsHandler struct {
-	Agent ops.SubscriptionAgent
+	Agent agent.SubscriptionAgent
 	Log   *log.Logger
 }
 
@@ -86,7 +86,7 @@ type baseSesEventHandler struct {
 	To        []string
 	Subject   string
 	Details   string
-	Agent     ops.SubscriptionAgent
+	Agent     agent.SubscriptionAgent
 	Log       *log.Logger
 }
 

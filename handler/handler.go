@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/email"
-	"github.com/mbland/elistman/ops"
 )
 
 type Handler struct {
@@ -18,7 +18,7 @@ type Handler struct {
 func NewHandler(
 	emailDomain string,
 	siteTitle string,
-	agent ops.SubscriptionAgent,
+	agent agent.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
 	unsubscribeUserName string,

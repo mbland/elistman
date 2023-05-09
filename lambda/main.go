@@ -13,10 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/handler"
-	"github.com/mbland/elistman/ops"
 )
 
 func buildHandler() (h *handler.Handler, err error) {
@@ -36,7 +36,7 @@ func buildHandler() (h *handler.Handler, err error) {
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
 		opts.EmailSiteTitle,
-		&ops.DecoyAgent{
+		&agent.DecoyAgent{
 			SenderAddress: fmt.Sprintf(
 				"%s <%s@%s>",
 				opts.SenderName,

@@ -1,4 +1,4 @@
-package ops
+package agent
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/ops"
 )
 
 type DecoyAgent struct {
@@ -19,20 +20,20 @@ type DecoyAgent struct {
 
 func (a *DecoyAgent) Subscribe(
 	ctx context.Context, email string,
-) (OperationResult, error) {
-	return VerifyLinkSent, nil
+) (ops.OperationResult, error) {
+	return ops.VerifyLinkSent, nil
 }
 
 func (a *DecoyAgent) Verify(
 	ctx context.Context, email string, uid uuid.UUID,
-) (OperationResult, error) {
-	return Subscribed, nil
+) (ops.OperationResult, error) {
+	return ops.Subscribed, nil
 }
 
 func (a *DecoyAgent) Unsubscribe(
 	ctx context.Context, email string, uid uuid.UUID,
-) (OperationResult, error) {
-	return Unsubscribed, nil
+) (ops.OperationResult, error) {
+	return ops.Unsubscribed, nil
 }
 
 func (a *DecoyAgent) Remove(ctx context.Context, email string) error {

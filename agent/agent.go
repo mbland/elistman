@@ -1,4 +1,4 @@
-package ops
+package agent
 
 import (
 	"context"
@@ -6,16 +6,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/ops"
 )
 
 type SubscriptionAgent interface {
-	Subscribe(ctx context.Context, email string) (OperationResult, error)
+	Subscribe(ctx context.Context, email string) (ops.OperationResult, error)
 	Verify(
 		ctx context.Context, email string, uid uuid.UUID,
-	) (OperationResult, error)
+	) (ops.OperationResult, error)
 	Unsubscribe(
 		ctx context.Context, email string, uid uuid.UUID,
-	) (OperationResult, error)
+	) (ops.OperationResult, error)
 	Remove(ctx context.Context, email string) error
 	Restore(ctx context.Context, email string) error
 }
@@ -31,20 +32,20 @@ type ProdAgent struct {
 
 func (a *ProdAgent) Subscribe(
 	ctx context.Context, email string,
-) (OperationResult, error) {
-	return VerifyLinkSent, nil
+) (ops.OperationResult, error) {
+	return ops.VerifyLinkSent, nil
 }
 
 func (a *ProdAgent) Verify(
 	ctx context.Context, email string, uid uuid.UUID,
-) (OperationResult, error) {
-	return Subscribed, nil
+) (ops.OperationResult, error) {
+	return ops.Subscribed, nil
 }
 
 func (a *ProdAgent) Unsubscribe(
 	ctx context.Context, email string, uid uuid.UUID,
-) (OperationResult, error) {
-	return Unsubscribed, nil
+) (ops.OperationResult, error) {
+	return ops.Unsubscribed, nil
 }
 
 func (a *ProdAgent) Remove(ctx context.Context, email string) error {

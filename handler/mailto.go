@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 )
@@ -13,7 +14,7 @@ import (
 type mailtoHandler struct {
 	EmailDomain     string
 	UnsubscribeAddr string
-	Agent           ops.SubscriptionAgent
+	Agent           agent.SubscriptionAgent
 	Bouncer         email.Bouncer
 	Log             *log.Logger
 }

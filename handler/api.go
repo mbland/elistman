@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/ops"
 )
 
@@ -18,7 +19,7 @@ type RedirectMap map[ops.OperationResult]string
 
 type apiHandler struct {
 	SiteTitle        string
-	Agent            ops.SubscriptionAgent
+	Agent            agent.SubscriptionAgent
 	Redirects        RedirectMap
 	responseTemplate *template.Template
 	log              *log.Logger
@@ -27,7 +28,7 @@ type apiHandler struct {
 func newApiHandler(
 	emailDomain string,
 	siteTitle string,
-	agent ops.SubscriptionAgent,
+	agent agent.SubscriptionAgent,
 	paths RedirectPaths,
 	responseTemplate string,
 	logger *log.Logger,
