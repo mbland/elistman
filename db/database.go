@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 )
 
 // A SubscriberProcessor performs an operation on a Subscriber.
@@ -74,10 +75,8 @@ func (sub *Subscriber) String() string {
 	return sb.String()
 }
 
-const ErrSubscriberNotFound = dbError("is not a subscriber")
-
-type dbError string
-
-func (e dbError) Error() string {
-	return string(e)
-}
+// ErrSubscriberNotFound indicates that an email address isn't subscribed.
+//
+// db.Database.Get will return this error when the underlying database request
+// succeeded, but there was no such Subscriber.
+const ErrSubscriberNotFound = ops.SentinelError("is not a subscriber")
