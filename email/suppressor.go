@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 )
@@ -80,7 +81,8 @@ func (mailer *SesSuppressor) IsSuppressed(ctx context.Context, email string) boo
 
 func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 	input := &sesv2.PutSuppressedDestinationInput{
-		EmailAddress: &email, Reason: types.SuppressionListReasonBounce,
+		EmailAddress: aws.String(email),
+		Reason:       types.SuppressionListReasonBounce,
 	}
 
 	_, err := mailer.Client.PutSuppressedDestination(ctx, input)
@@ -92,7 +94,9 @@ func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 }
 
 func (mailer *SesSuppressor) Unsuppress(ctx context.Context, email string) error {
-	input := &sesv2.DeleteSuppressedDestinationInput{EmailAddress: &email}
+	input := &sesv2.DeleteSuppressedDestinationInput{
+		EmailAddress: aws.String(email),
+	}
 
 	_, err := mailer.Client.DeleteSuppressedDestination(ctx, input)
 

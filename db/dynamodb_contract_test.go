@@ -260,8 +260,10 @@ func TestDynamoDb(t *testing.T) {
 			ttlSpec, err := testDb.UpdateTimeToLive(ctx)
 
 			assert.NilError(t, err)
-			assert.Equal(t, string(SubscriberPending), *ttlSpec.AttributeName)
-			assert.Equal(t, true, *ttlSpec.Enabled)
+			expectedAttrName := string(SubscriberPending)
+			actualAttrName := aws.ToString(ttlSpec.AttributeName)
+			assert.Equal(t, expectedAttrName, actualAttrName)
+			assert.Equal(t, true, aws.ToBool(ttlSpec.Enabled))
 		})
 
 		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {

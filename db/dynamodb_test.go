@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"gotest.tools/assert"
@@ -99,7 +100,7 @@ func (client *TestDynamoDbClient) Scan(
 	// Remember that our schema is to keep pending and verified subscribers
 	// partitioned across disjoin Global Secondary Indexes.
 	for _, sub := range client.subscribers {
-		if _, ok := sub[*input.IndexName]; ok {
+		if _, ok := sub[aws.ToString(input.IndexName)]; ok {
 			items = append(items, sub)
 		}
 	}

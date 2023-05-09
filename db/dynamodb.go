@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
@@ -56,15 +57,15 @@ type DynamoDb struct {
 	TableName string
 }
 
-var DynamoDbPrimaryKey string = "email"
+const DynamoDbPrimaryKey = "email"
 
 // Sparse Global Secondary Index for records containing a "pending" attribute.
-var DynamoDbPendingIndexName string = string(SubscriberPending)
-var DynamoDbPendingIndexPartitionKey string = string(SubscriberPending)
+const DynamoDbPendingIndexName = string(SubscriberPending)
+const DynamoDbPendingIndexPartitionKey = string(SubscriberPending)
 
 // Sparse Global Secondary Index for records containing a "verified" attribute.
-var DynamoDbVerifiedIndexName string = string(SubscriberVerified)
-var DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
+const DynamoDbVerifiedIndexName string = string(SubscriberVerified)
+const DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
 
 var DynamoDbIndexProjection *types.Projection = &types.Projection{
 	ProjectionType: types.ProjectionTypeAll,
@@ -73,39 +74,44 @@ var DynamoDbIndexProjection *types.Projection = &types.Projection{
 var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	AttributeDefinitions: []types.AttributeDefinition{
 		{
-			AttributeName: &DynamoDbPrimaryKey,
+			AttributeName: aws.String(DynamoDbPrimaryKey),
 			AttributeType: types.ScalarAttributeTypeS,
 		},
 		{
-			AttributeName: &DynamoDbPendingIndexPartitionKey,
+			AttributeName: aws.String(DynamoDbPendingIndexPartitionKey),
 			AttributeType: types.ScalarAttributeTypeN,
 		},
 		{
-			AttributeName: &DynamoDbVerifiedIndexPartitionKey,
+			AttributeName: aws.String(DynamoDbVerifiedIndexPartitionKey),
 			AttributeType: types.ScalarAttributeTypeN,
 		},
 	},
 	KeySchema: []types.KeySchemaElement{
-		{AttributeName: &DynamoDbPrimaryKey, KeyType: types.KeyTypeHash},
+		{
+			AttributeName: aws.String(DynamoDbPrimaryKey),
+			KeyType:       types.KeyTypeHash,
+		},
 	},
 	BillingMode: types.BillingModePayPerRequest,
 	GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
 		{
-			IndexName: &DynamoDbPendingIndexName,
+			IndexName: aws.String(DynamoDbPendingIndexName),
 			KeySchema: []types.KeySchemaElement{
 				{
-					AttributeName: &DynamoDbPendingIndexPartitionKey,
+					AttributeName: aws.String(DynamoDbPendingIndexPartitionKey),
 					KeyType:       types.KeyTypeHash,
 				},
 			},
 			Projection: DynamoDbIndexProjection,
 		},
 		{
-			IndexName: &DynamoDbVerifiedIndexName,
+			IndexName: aws.String(DynamoDbVerifiedIndexName),
 			KeySchema: []types.KeySchemaElement{
 				{
-					AttributeName: &DynamoDbVerifiedIndexPartitionKey,
-					KeyType:       types.KeyTypeHash,
+					AttributeName: aws.String(
+						DynamoDbVerifiedIndexPartitionKey,
+					),
+					KeyType: types.KeyTypeHash,
 				},
 			},
 			Projection: DynamoDbIndexProjection,
@@ -115,7 +121,7 @@ var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 
 func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	var input dynamodb.CreateTableInput = *DynamoDbCreateTableInput
-	input.TableName = &db.TableName
+	input.TableName = aws.String(db.TableName)
 
 	if _, err = db.Client.CreateTable(ctx, &input); err != nil {
 		err = fmt.Errorf("failed to create db table %s: %s", db.TableName, err)
@@ -148,7 +154,7 @@ func (db *DynamoDb) WaitForTable(
 func (db *DynamoDb) DescribeTable(
 	ctx context.Context,
 ) (td *types.TableDescription, err error) {
-	input := &dynamodb.DescribeTableInput{TableName: &db.TableName}
+	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
 	output, descErr := db.Client.DescribeTable(ctx, input)
 
 	if descErr != nil {
@@ -163,13 +169,12 @@ func (db *DynamoDb) DescribeTable(
 func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *types.TimeToLiveSpecification, err error) {
-	pendingAttr := string(SubscriberPending)
-	enabled := true
 	spec := &types.TimeToLiveSpecification{
-		AttributeName: &pendingAttr, Enabled: &enabled,
+		AttributeName: aws.String(string(SubscriberPending)),
+		Enabled:       aws.Bool(true),
 	}
 	input := &dynamodb.UpdateTimeToLiveInput{
-		TableName: &db.TableName, TimeToLiveSpecification: spec,
+		TableName: aws.String(db.TableName), TimeToLiveSpecification: spec,
 	}
 
 	var output *dynamodb.UpdateTimeToLiveOutput
@@ -182,7 +187,7 @@ func (db *DynamoDb) UpdateTimeToLive(
 }
 
 func (db *DynamoDb) DeleteTable(ctx context.Context) error {
-	input := &dynamodb.DeleteTableInput{TableName: &db.TableName}
+	input := &dynamodb.DeleteTableInput{TableName: aws.String(db.TableName)}
 	if _, err := db.Client.DeleteTable(ctx, input); err != nil {
 		return fmt.Errorf("failed to delete db table %s: %s", db.TableName, err)
 	}
@@ -291,7 +296,7 @@ func (db *DynamoDb) Get(
 	ctx context.Context, email string,
 ) (subscriber *Subscriber, err error) {
 	input := &dynamodb.GetItemInput{
-		Key: subscriberKey(email), TableName: &db.TableName,
+		Key: subscriberKey(email), TableName: aws.String(db.TableName),
 	}
 	var output *dynamodb.GetItemOutput
 
@@ -312,7 +317,7 @@ func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
 			"uid":                 &dbString{Value: record.Uid.String()},
 			string(record.Status): toDynamoDbTimestamp(record.Timestamp),
 		},
-		TableName: &db.TableName,
+		TableName: aws.String(db.TableName),
 	}
 	if _, err = db.Client.PutItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to put %s: %s", record.Email, err)
@@ -322,7 +327,7 @@ func (db *DynamoDb) Put(ctx context.Context, record *Subscriber) (err error) {
 
 func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	input := &dynamodb.DeleteItemInput{
-		Key: subscriberKey(email), TableName: &db.TableName,
+		Key: subscriberKey(email), TableName: aws.String(db.TableName),
 	}
 	if _, err = db.Client.DeleteItem(ctx, input); err != nil {
 		err = fmt.Errorf("failed to delete %s: %s", email, err)
@@ -333,8 +338,10 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 func (db *DynamoDb) ProcessSubscribersInState(
 	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) (err error) {
-	index := string(status)
-	input := &dynamodb.ScanInput{TableName: &db.TableName, IndexName: &index}
+	input := &dynamodb.ScanInput{
+		TableName: aws.String(db.TableName),
+		IndexName: aws.String(string(status)),
+	}
 	var output *dynamodb.ScanOutput
 
 	for {

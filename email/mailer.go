@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 )
@@ -45,7 +46,7 @@ func (mailer *SesMailer) Send(
 ) (messageId string, err error) {
 	sesMsg := &ses.SendRawEmailInput{
 		Destinations:         []string{recipient},
-		ConfigurationSetName: &mailer.ConfigSet,
+		ConfigurationSetName: aws.String(mailer.ConfigSet),
 		RawMessage:           &types.RawMessage{Data: msg},
 	}
 	var output *ses.SendRawEmailOutput
@@ -53,7 +54,7 @@ func (mailer *SesMailer) Send(
 	if output, err = mailer.Client.SendRawEmail(ctx, sesMsg); err != nil {
 		err = fmt.Errorf("send failed: %s", err)
 	} else {
-		messageId = *output.MessageId
+		messageId = aws.ToString(output.MessageId)
 	}
 	return
 }
@@ -66,26 +67,24 @@ func (mailer *SesMailer) Bounce(
 	recipients []string,
 	timestamp time.Time,
 ) (bounceMessageId string, err error) {
-	sender := "mailer-daemon@" + emailDomain
 	recipientInfo := make([]types.BouncedRecipientInfo, len(recipients))
-	reportingMta := "dns; " + emailDomain
-	arrivalDate := timestamp.Truncate(time.Second)
-	explanation := "Unauthenticated email is not accepted due to " +
-		"the sending domain's DMARC policy."
 
 	for i, recipient := range recipients {
-		recipientInfo[i].Recipient = &recipient
+		recipientInfo[i].Recipient = aws.String(recipient)
 		recipientInfo[i].BounceType = types.BounceTypeContentRejected
 	}
 
 	input := &ses.SendBounceInput{
-		BounceSender:      &sender,
-		OriginalMessageId: &messageId,
+		BounceSender:      aws.String("mailer-daemon@" + emailDomain),
+		OriginalMessageId: aws.String(messageId),
 		MessageDsn: &types.MessageDsn{
-			ReportingMta: &reportingMta,
-			ArrivalDate:  &arrivalDate,
+			ReportingMta: aws.String("dns; " + emailDomain),
+			ArrivalDate:  aws.Time(timestamp.Truncate(time.Second)),
 		},
-		Explanation:              &explanation,
+		Explanation: aws.String(
+			"Unauthenticated email is not accepted due to " +
+				"the sending domain's DMARC policy.",
+		),
 		BouncedRecipientInfoList: recipientInfo,
 	}
 	var output *ses.SendBounceOutput
@@ -93,7 +92,7 @@ func (mailer *SesMailer) Bounce(
 	if output, err = mailer.Client.SendBounce(ctx, input); err != nil {
 		err = fmt.Errorf("sending bounce failed: %s", err)
 	} else {
-		bounceMessageId = *output.MessageId
+		bounceMessageId = aws.ToString(output.MessageId)
 	}
 	return
 }

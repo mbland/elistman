@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"gotest.tools/assert"
@@ -52,7 +53,7 @@ func TestSend(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.rawEmailOutput.MessageId = &testMsgId
+		testSes.rawEmailOutput.MessageId = aws.String(testMsgId)
 
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
@@ -62,7 +63,9 @@ func TestSend(t *testing.T) {
 		input := testSes.rawEmailInput
 		assert.Assert(t, input != nil)
 		assert.DeepEqual(t, []string{recipient}, input.Destinations)
-		assert.Equal(t, mailer.ConfigSet, *input.ConfigurationSetName)
+		assert.Equal(
+			t, mailer.ConfigSet, aws.ToString(input.ConfigurationSetName),
+		)
 		assert.DeepEqual(t, testMsg, input.RawMessage.Data)
 	})
 
@@ -95,7 +98,7 @@ func TestBounce(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
 		testBouncedMessageId := "0123456789"
-		testSes.bounceOutput.MessageId = &testBouncedMessageId
+		testSes.bounceOutput.MessageId = aws.String(testBouncedMessageId)
 
 		bouncedId, err := mailer.Bounce(
 			ctx, emailDomain, messageId, recipients, timestamp,
@@ -108,7 +111,7 @@ func TestBounce(t *testing.T) {
 		assert.Assert(t, input != nil)
 		assert.Equal(t, len(recipients), len(input.BouncedRecipientInfoList))
 		bouncedRecipient := input.BouncedRecipientInfoList[0]
-		assert.Equal(t, recipients[0], *bouncedRecipient.Recipient)
+		assert.Equal(t, recipients[0], aws.ToString(bouncedRecipient.Recipient))
 		assert.Equal(
 			t, types.BounceTypeContentRejected, bouncedRecipient.BounceType,
 		)
