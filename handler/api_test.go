@@ -339,9 +339,13 @@ func TestLogOperationResult(t *testing.T) {
 	})
 }
 
-func wrappedOpErrExternal(msg string) error {
-	const errFmt = "wrapped to ensure using errors.As: %w"
-	return fmt.Errorf(errFmt, &ops.OperationErrorExternal{Message: msg})
+// wrapErr wraps an error to ensure it's handled using errors.Is or errors.As.
+func wrapErr(err error) error {
+	return fmt.Errorf("wrapped to ensure using errors.Is or errors.As: %w", err)
+}
+
+func newOpErrExternal(msg string) error {
+	return wrapErr(&ops.OperationErrorExternal{Message: msg})
 }
 
 func TestPerformOperation(t *testing.T) {
@@ -409,7 +413,7 @@ func TestPerformOperation(t *testing.T) {
 
 	t.Run("SetsErrorWithStatusIfExternalOpError", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = wrappedOpErrExternal("not our fault...")
+		f.agent.Error = newOpErrExternal("not our fault...")
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -471,7 +475,7 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("ReturnsErrorIfOperationFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = wrappedOpErrExternal("not our fault...")
+		f.agent.Error = newOpErrExternal("not our fault...")
 
 		response, err := f.handler.handleApiRequest(
 			f.ctx, newUnsubscribeRequest(),
@@ -533,7 +537,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfHandleApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.Error = wrappedOpErrExternal("db operation failed")
+		f.agent.Error = newOpErrExternal("db operation failed")
 
 		res := f.handler.HandleEvent(f.ctx, req)
 
