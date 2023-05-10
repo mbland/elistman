@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 )
 
 const (
@@ -63,7 +63,7 @@ type ParseError struct {
 
 // Inspired by the example from the "Customizing error tests with Is and As
 // methods" section of https://go.dev/blog/go1.13-errors.
-var ErrUserInput = errors.New("invalid user input")
+const ErrUserInput = ops.SentinelError("invalid user input")
 
 func (e *ParseError) Error() string {
 	return e.Type.String() + ": " + e.Message
