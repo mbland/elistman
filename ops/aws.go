@@ -9,11 +9,11 @@ import (
 
 // Inspired by:
 // https://aws.github.io/aws-sdk-go-v2/docs/handling-errors/#api-error-responses
-func AwsError(err error) error {
+func AwsError(prefix string, err error) error {
 	var apiErr smithy.APIError
 
 	if errors.As(err, &apiErr) && apiErr.ErrorFault() == smithy.FaultServer {
-		return fmt.Errorf("%w: %w", ErrExternal, err)
+		return fmt.Errorf("%w: %s: %s", ErrExternal, prefix, err)
 	}
-	return err
+	return fmt.Errorf("%s: %s", prefix, err)
 }

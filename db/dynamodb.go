@@ -125,9 +125,7 @@ func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	input.TableName = aws.String(db.TableName)
 
 	if _, err = db.Client.CreateTable(ctx, &input); err != nil {
-		err = ops.AwsError(
-			fmt.Errorf("failed to create db table %s: %w", db.TableName, err),
-		)
+		err = ops.AwsError("failed to create db table "+db.TableName, err)
 	}
 	return
 }
@@ -145,7 +143,7 @@ func (db *DynamoDb) UpdateTimeToLive(
 
 	var output *dynamodb.UpdateTimeToLiveOutput
 	if output, err = db.Client.UpdateTimeToLive(ctx, input); err != nil {
-		err = ops.AwsError(fmt.Errorf("failed to update Time To Live: %w", err))
+		err = ops.AwsError("failed to update Time To Live", err)
 	} else {
 		ttlSpec = output.TimeToLiveSpecification
 	}
@@ -155,9 +153,7 @@ func (db *DynamoDb) UpdateTimeToLive(
 func (db *DynamoDb) DeleteTable(ctx context.Context) (err error) {
 	input := &dynamodb.DeleteTableInput{TableName: aws.String(db.TableName)}
 	if _, err = db.Client.DeleteTable(ctx, input); err != nil {
-		err = ops.AwsError(
-			fmt.Errorf("failed to delete db table %s: %w", db.TableName, err),
-		)
+		err = ops.AwsError("failed to delete db table "+db.TableName, err)
 	}
 	return
 }
@@ -269,7 +265,7 @@ func (db *DynamoDb) Get(
 	var output *dynamodb.GetItemOutput
 
 	if output, err = db.Client.GetItem(ctx, input); err != nil {
-		err = ops.AwsError(fmt.Errorf("failed to get %s: %w", email, err))
+		err = ops.AwsError("failed to get "+email, err)
 	} else if len(output.Item) == 0 {
 		err = ErrSubscriberNotFound
 	} else {
@@ -288,7 +284,7 @@ func (db *DynamoDb) Put(ctx context.Context, sub *Subscriber) (err error) {
 		TableName: aws.String(db.TableName),
 	}
 	if _, err = db.Client.PutItem(ctx, input); err != nil {
-		err = ops.AwsError(fmt.Errorf("failed to put %s: %w", sub.Email, err))
+		err = ops.AwsError("failed to put "+sub.Email, err)
 	}
 	return
 }
@@ -298,7 +294,7 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 		Key: subscriberKey(email), TableName: aws.String(db.TableName),
 	}
 	if _, err = db.Client.DeleteItem(ctx, input); err != nil {
-		err = ops.AwsError(fmt.Errorf("failed to delete %s: %w", email, err))
+		err = ops.AwsError("failed to delete "+email, err)
 	}
 	return
 }
@@ -316,9 +312,8 @@ func (db *DynamoDb) ProcessSubscribersInState(
 		output, err := paginator.NextPage(ctx)
 
 		if err != nil {
-			return ops.AwsError(
-				fmt.Errorf("failed to get %s subscribers: %w", status, err),
-			)
+			prefix := fmt.Sprintf("failed to get %s subscribers", status)
+			return ops.AwsError(prefix, err)
 		}
 
 		for _, item := range output.Items {

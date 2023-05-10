@@ -2,6 +2,7 @@ package ops
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/smithy-go"
@@ -10,30 +11,36 @@ import (
 )
 
 func TestAwsError(t *testing.T) {
-	t.Run("ReturnsOriginalIfNotAPIError", func(t *testing.T) {
-		err := errors.New("Not an APIError")
+	t.Run("DoesNotWrapIfNotAPIError", func(t *testing.T) {
+		err := AwsError("test prefix", errors.New("Not an APIError"))
 
-		result := AwsError(err)
-
-		assert.Equal(t, err, result)
-		assert.Assert(t, !errors.Is(result, ErrExternal))
+		assert.Error(t, err, "test prefix: Not an APIError")
+		assert.Assert(t, !errors.Is(err, ErrExternal))
 	})
 
-	t.Run("ReturnsOriginalIfNotServerError", func(t *testing.T) {
-		err := &smithy.GenericAPIError{Fault: smithy.FaultClient}
+	t.Run("DoesNotWrapIfNotServerError", func(t *testing.T) {
+		apiErr := &smithy.GenericAPIError{
+			Message: "Not a server error", Fault: smithy.FaultClient,
+		}
 
-		result := AwsError(err)
+		err := AwsError("test prefix", apiErr)
 
-		assert.Equal(t, err, result)
-		assert.Assert(t, !errors.Is(result, ErrExternal))
+		assert.Error(t, err, "test prefix: api error : Not a server error")
+		assert.Assert(t, !errors.Is(err, ErrExternal))
 	})
 
 	t.Run("WrapsServerErrorWithErrExternal", func(t *testing.T) {
-		err := &smithy.GenericAPIError{Fault: smithy.FaultServer}
+		apiErr := &smithy.GenericAPIError{
+			Message: "Definitely a server error", Fault: smithy.FaultServer,
+		}
 
-		result := AwsError(err)
+		err := AwsError("test prefix", apiErr)
 
-		assert.Assert(t, err != result)
-		assert.Assert(t, testutils.ErrorIs(result, ErrExternal))
+		expected := fmt.Sprintf(
+			"%s: test prefix: api error : Definitely a server error",
+			ErrExternal,
+		)
+		assert.Error(t, err, expected)
+		assert.Assert(t, testutils.ErrorIs(err, ErrExternal))
 	})
 }

@@ -2,7 +2,6 @@ package email
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -53,7 +52,7 @@ func (mailer *SesMailer) Send(
 	var output *ses.SendRawEmailOutput
 
 	if output, err = mailer.Client.SendRawEmail(ctx, sesMsg); err != nil {
-		err = ops.AwsError(fmt.Errorf("send failed: %w", err))
+		err = ops.AwsError("send failed", err)
 	} else {
 		messageId = aws.ToString(output.MessageId)
 	}
@@ -91,7 +90,7 @@ func (mailer *SesMailer) Bounce(
 	var output *ses.SendBounceOutput
 
 	if output, err = mailer.Client.SendBounce(ctx, input); err != nil {
-		err = ops.AwsError(fmt.Errorf("sending bounce failed: %w", err))
+		err = ops.AwsError("sending bounce failed", err)
 	} else {
 		bounceMessageId = aws.ToString(output.MessageId)
 	}

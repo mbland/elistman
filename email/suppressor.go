@@ -3,7 +3,6 @@ package email
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -89,7 +88,7 @@ func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 	_, err := mailer.Client.PutSuppressedDestination(ctx, input)
 
 	if err != nil {
-		err = ops.AwsError(fmt.Errorf("failed to suppress %s: %w", email, err))
+		err = ops.AwsError("failed to suppress "+email, err)
 	}
 	return err
 }
@@ -102,9 +101,7 @@ func (mailer *SesSuppressor) Unsuppress(ctx context.Context, email string) error
 	_, err := mailer.Client.DeleteSuppressedDestination(ctx, input)
 
 	if err != nil {
-		err = ops.AwsError(
-			fmt.Errorf("failed to unsuppress %s: %w", email, err),
-		)
+		err = ops.AwsError("failed to unsuppress "+email, err)
 	}
 	return err
 }
