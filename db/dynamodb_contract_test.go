@@ -4,7 +4,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"testing"
@@ -150,11 +149,6 @@ func newTestSubscriber() *Subscriber {
 	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
 
-// errSubscriberNotFound is a predicate for assert.ErrorType.
-func errSubscriberNotFound(err error) bool {
-	return errors.Is(err, ErrSubscriberNotFound)
-}
-
 func TestDynamoDb(t *testing.T) {
 	testDb, teardown, err := setupDynamoDb()
 
@@ -196,7 +190,9 @@ func TestDynamoDb(t *testing.T) {
 		assert.NilError(t, getErr)
 		assert.NilError(t, deleteErr)
 		assert.DeepEqual(t, subscriber, retrievedSubscriber)
-		assert.ErrorType(t, getAfterDeleteErr, errSubscriberNotFound)
+		assert.Assert(
+			t, testutils.ErrorIs(getAfterDeleteErr, ErrSubscriberNotFound),
+		)
 	})
 
 	t.Run("UpdateTimeToLive", func(t *testing.T) {
@@ -227,7 +223,7 @@ func TestDynamoDb(t *testing.T) {
 			retrieved, err := testDb.Get(ctx, subscriber.Email)
 
 			assert.Assert(t, is.Nil(retrieved))
-			assert.ErrorType(t, err, errSubscriberNotFound)
+			assert.Assert(t, testutils.ErrorIs(err, ErrSubscriberNotFound))
 		})
 
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {

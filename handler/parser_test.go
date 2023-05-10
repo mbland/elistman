@@ -13,16 +13,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
 
 var nilSubject *parsedSubject = &parsedSubject{}
-
-// errUserInput is a predicate for assert.ErrorType.
-func errUserInput(err error) bool {
-	return errors.Is(err, ErrUserInput)
-}
 
 func TestUnknownEventOperationType(t *testing.T) {
 	unknownOp := Undefined - 1
@@ -97,7 +93,7 @@ func TestParamError(t *testing.T) {
 		op, err := paramError(Subscribe, errors.New("user input error"))
 		var parseErr *ParseError
 		assert.Assert(t, is.Nil(op))
-		assert.ErrorType(t, err, errUserInput)
+		assert.Assert(t, testutils.ErrorIs(err, ErrUserInput))
 		assert.Assert(t, !errors.As(err, &parseErr))
 	})
 }
@@ -433,7 +429,7 @@ func TestParseApiRequest(t *testing.T) {
 		})
 
 		assert.Assert(t, is.Nil(result))
-		assert.ErrorType(t, err, errUserInput)
+		assert.Assert(t, testutils.ErrorIs(err, ErrUserInput))
 		assert.ErrorContains(t, err, "invalid email parameter: foobar")
 	})
 
