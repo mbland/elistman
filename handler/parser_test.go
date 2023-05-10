@@ -19,6 +19,11 @@ import (
 
 var nilSubject *parsedSubject = &parsedSubject{}
 
+// errUserInput is a predicate for assert.ErrorType.
+func errUserInput(err error) bool {
+	return errors.Is(err, ErrUserInput)
+}
+
 func TestUnknownEventOperationType(t *testing.T) {
 	unknownOp := Undefined - 1
 	assert.Equal(t, "eventOperationType(-1)", unknownOp.String())
@@ -92,8 +97,8 @@ func TestParamError(t *testing.T) {
 		op, err := paramError(Subscribe, errors.New("user input error"))
 		var parseErr *ParseError
 		assert.Assert(t, is.Nil(op))
+		assert.ErrorType(t, err, errUserInput)
 		assert.Assert(t, !errors.As(err, &parseErr))
-		assert.Assert(t, errors.Is(err, ErrUserInput))
 	})
 }
 
@@ -428,7 +433,7 @@ func TestParseApiRequest(t *testing.T) {
 		})
 
 		assert.Assert(t, is.Nil(result))
-		assert.Assert(t, errors.Is(err, ErrUserInput))
+		assert.ErrorType(t, err, errUserInput)
 		assert.ErrorContains(t, err, "invalid email parameter: foobar")
 	})
 

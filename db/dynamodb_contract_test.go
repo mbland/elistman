@@ -150,6 +150,11 @@ func newTestSubscriber() *Subscriber {
 	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
 
+// errSubscriberNotFound is a predicate for assert.ErrorType.
+func errSubscriberNotFound(err error) bool {
+	return errors.Is(err, ErrSubscriberNotFound)
+}
+
 func TestDynamoDb(t *testing.T) {
 	testDb, teardown, err := setupDynamoDb()
 
@@ -191,7 +196,7 @@ func TestDynamoDb(t *testing.T) {
 		assert.NilError(t, getErr)
 		assert.NilError(t, deleteErr)
 		assert.DeepEqual(t, subscriber, retrievedSubscriber)
-		assert.Assert(t, errors.Is(getAfterDeleteErr, ErrSubscriberNotFound))
+		assert.ErrorType(t, getAfterDeleteErr, errSubscriberNotFound)
 	})
 
 	t.Run("UpdateTimeToLive", func(t *testing.T) {
@@ -222,7 +227,7 @@ func TestDynamoDb(t *testing.T) {
 			retrieved, err := testDb.Get(ctx, subscriber.Email)
 
 			assert.Assert(t, is.Nil(retrieved))
-			assert.Assert(t, errors.Is(err, ErrSubscriberNotFound))
+			assert.ErrorType(t, err, errSubscriberNotFound)
 		})
 
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
