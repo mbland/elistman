@@ -222,6 +222,52 @@ Where:
 The [Makefile](./Makefile) is very short and readable. Use it to run common
 tasks, or learn common commands from it to use as you please.
 
+For guidance on writing Go developer documentation, see [Go Doc Comments][].
+
+There are two ways to view the developer documentation in a web browser.
+
+### Viewing documentation with `godoc`
+
+[godoc][] is reportedly deprecated, but still works well. See:
+
+- [golang/go: x/tools/cmd/godoc: document as deprecated #49212](https://github.com/golang/go/issues/49212)
+- [349051: cmd/godoc: deprecate and point to cmd/pkgsite](https://go-review.googlesource.com/c/tools/+/349051)
+
+```sh
+# Install the godoc tool.
+$ go install -v golang.org/x/tools/cmd/godoc@latest
+
+# Serve documentation from the local directory at http://localhost:6060.
+$ godoc -http=:6060
+```
+
+You can then view the EListMan docs locally at:
+
+- <http://localhost:6060/pkg/github.com/mbland/elistman/>
+
+One of the nice features of `godoc` is that you can view documentation for
+unexported symbols by adding `?m=all` to the URL. For example:
+
+- <http://localhost:6060/pkg/github.com/mbland/elistman/?m=all>
+
+### Viewing documentation with `pkgsite`
+
+[pkgsite][] is the newer development documentation publishing system.
+
+```sh
+# Install the pkgsite tool.
+$ go install golang.org/x/pkgsite/cmd/pkgsite@latest
+
+# Serve documentation from the local directory at http://localhost:8080.
+$ pkgsite
+```
+
+You can then view the EListMan docs locally at:
+
+- <http://localhost:8080/github.com/mbland/elistman>
+
+Note that, unlike `godoc`, `pkgsite` doesn't provide an option to serve documentation for unexported symbols.
+
 ## Algorithms
 
 Unless otherwise noted, all responses will be [HTTP 303 See Other][], with the
@@ -235,10 +281,13 @@ target page specified in the [Location HTTP header][].
 1. An HTTP request from the API Gateway comes in, containing the email address
    of a potential subscriber.
 1. Validate the email address.
-   1. Parse the name as closely as possible to [RFC 5322 Section 3.2.3][].
+   1. Parse the name as closely as possible to [RFC 5322 Section 3.2.3][] via [net/mail.ParseAddress][].
    1. Reject any common aliases, like "no-reply" or "postmaster."
-   1. Check the MX record of the host, or find an A or AAAA record that accepts
-      connections on port 587 or 2525.
+   1. Check the MX records of the host by:
+      1. Doing a reverse lookup on each mail host's IP addresses.
+      1. Looking up the IP addresses of the hosts returned by the reverse lookup.
+      1. Confirming at least one reverse lookup host IP address matches a mail
+         host IP address.
    1. If it fails validation, return the `INVALID` page.
 1. Look for an existing DynamoDB record for the email address.
    1. If it exists and `SubscriberStatus` is `Verified`, return the
@@ -383,9 +432,13 @@ This software is made available as [Open Source software][oss-def] under the
 [Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
 [Receipt Rule Set]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-receipt-rules-console-walkthrough.html
 [Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
+[Go Doc Comments]: https://go.dev/doc/comment
+[godoc]: https://pkg.go.dev/golang.org/x/tools/cmd/godoc
+[pkgsite]: https://pkg.go.dev/golang.org/x/pkgsite/cmd/pkgsite
 [HTTP 303 See Other]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
 [Location HTTP Header]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
 [RFC 5322 Section 3.2.3]: https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3
+[net/mail.ParseAddress]: https://pkg.go.dev/net/mail#ParseAddress
 [oss-def]:     https://opensource.org/osd-annotated
 [HTTP 204 No Content]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204
 [Mozilla Public License 2.0]: https://www.mozilla.org/en-US/MPL/
