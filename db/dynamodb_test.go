@@ -11,6 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/smithy-go"
+	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -25,12 +28,19 @@ type TestDynamoDbClient struct {
 	subscribers []dbAttributes
 	scanSize    int
 	scanCalls   int
-	scanErr     error
+	serverErr   error
+}
+
+func (client *TestDynamoDbClient) SetServerError(msg string) {
+	client.serverErr = &smithy.GenericAPIError{
+		Message: msg, Fault: smithy.FaultServer,
+	}
 }
 
 func (client *TestDynamoDbClient) CreateTable(
 	context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.CreateTableOutput, _ error) {
+) (_ *dynamodb.CreateTableOutput, err error) {
+	err = client.serverErr
 	return
 }
 
@@ -39,7 +49,7 @@ func (client *TestDynamoDbClient) DescribeTable(
 	*dynamodb.DescribeTableInput,
 	...func(*dynamodb.Options),
 ) (_ *dynamodb.DescribeTableOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) UpdateTimeToLive(
@@ -47,31 +57,31 @@ func (client *TestDynamoDbClient) UpdateTimeToLive(
 	*dynamodb.UpdateTimeToLiveInput,
 	...func(*dynamodb.Options),
 ) (_ *dynamodb.UpdateTimeToLiveOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) DeleteTable(
 	context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options),
 ) (_ *dynamodb.DeleteTableOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) GetItem(
 	context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options),
 ) (_ *dynamodb.GetItemOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) PutItem(
 	context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options),
 ) (_ *dynamodb.PutItemOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) DeleteItem(
 	context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options),
 ) (_ *dynamodb.DeleteItemOutput, _ error) {
-	return
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) addSubscriberRecord(sub dbAttributes) {
@@ -90,7 +100,7 @@ func (client *TestDynamoDbClient) Scan(
 ) (output *dynamodb.ScanOutput, err error) {
 	client.scanCalls++
 
-	err = client.scanErr
+	err = client.serverErr
 	if err != nil {
 		return
 	}
@@ -162,6 +172,43 @@ func newSubscriberRecord(sub *Subscriber) dbAttributes {
 		"uid":              &dbString{Value: sub.Uid.String()},
 		string(sub.Status): toDynamoDbTimestamp(sub.Timestamp),
 	}
+}
+
+func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
+	client := &TestDynamoDbClient{}
+	dyndb := &DynamoDb{client, "subscribers-table"}
+	ctx := context.Background()
+
+	checkIsExternalError := func(t *testing.T, err error) {
+		t.Helper()
+		assert.Check(t, testutils.ErrorIs(err, ops.ErrExternal))
+	}
+
+	// All these methods are tested in dynamodb_contract_test, and none of those
+	// should result in external errors. So the TestDynamoDbClient
+	// implementations are empty except to return simulated external errors
+	// wrapped via ops.AwsError.
+	//
+	// The one exception is Scan(), which is tested more thoroughly below.
+	client.SetServerError("simulated server error")
+
+	err := dyndb.CreateTable(ctx)
+	checkIsExternalError(t, err)
+
+	_, err = dyndb.UpdateTimeToLive(ctx)
+	checkIsExternalError(t, err)
+
+	err = dyndb.DeleteTable(ctx)
+	checkIsExternalError(t, err)
+
+	_, err = dyndb.Get(ctx, testEmail)
+	checkIsExternalError(t, err)
+
+	err = dyndb.Put(ctx, newTestSubscriber())
+	checkIsExternalError(t, err)
+
+	err = dyndb.Delete(ctx, testEmail)
+	checkIsExternalError(t, err)
 }
 
 func TestGetAttribute(t *testing.T) {
@@ -340,11 +387,12 @@ func TestProcessSubscribersInState(t *testing.T) {
 	t.Run("ReturnsError", func(t *testing.T) {
 		t.Run("IfScanFails", func(t *testing.T) {
 			dynDb, client, _, f := setup()
-			client.scanErr = errors.New("scanning error")
+			client.SetServerError("scanning error")
 
 			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
 
 			assert.ErrorContains(t, err, "scanning error")
+			assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 		})
 
 		t.Run("IfParseSubscriberFails", func(t *testing.T) {
@@ -361,6 +409,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 			expectedErr := "failed to parse subscriber: " +
 				"failed to parse 'uid' from: "
 			assert.ErrorContains(t, err, expectedErr)
+			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
 		})
 	})
 }

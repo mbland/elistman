@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/mbland/elistman/ops"
 )
 
 type Mailer interface {
@@ -52,7 +53,7 @@ func (mailer *SesMailer) Send(
 	var output *ses.SendRawEmailOutput
 
 	if output, err = mailer.Client.SendRawEmail(ctx, sesMsg); err != nil {
-		err = fmt.Errorf("send failed: %s", err)
+		err = ops.AwsError(fmt.Errorf("send failed: %w", err))
 	} else {
 		messageId = aws.ToString(output.MessageId)
 	}
@@ -90,7 +91,7 @@ func (mailer *SesMailer) Bounce(
 	var output *ses.SendBounceOutput
 
 	if output, err = mailer.Client.SendBounce(ctx, input); err != nil {
-		err = fmt.Errorf("sending bounce failed: %s", err)
+		err = ops.AwsError(fmt.Errorf("sending bounce failed: %w", err))
 	} else {
 		bounceMessageId = aws.ToString(output.MessageId)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
+	"github.com/mbland/elistman/ops"
 )
 
 // Suppressor wraps methods for the [SES account-level suppression list].
@@ -88,7 +89,7 @@ func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 	_, err := mailer.Client.PutSuppressedDestination(ctx, input)
 
 	if err != nil {
-		err = fmt.Errorf("failed to suppress %s: %s", email, err)
+		err = ops.AwsError(fmt.Errorf("failed to suppress %s: %w", email, err))
 	}
 	return err
 }
@@ -101,7 +102,9 @@ func (mailer *SesSuppressor) Unsuppress(ctx context.Context, email string) error
 	_, err := mailer.Client.DeleteSuppressedDestination(ctx, input)
 
 	if err != nil {
-		err = fmt.Errorf("failed to unsuppress %s: %s", email, err)
+		err = ops.AwsError(
+			fmt.Errorf("failed to unsuppress %s: %w", email, err),
+		)
 	}
 	return err
 }

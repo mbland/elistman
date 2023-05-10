@@ -4,13 +4,15 @@ package email
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/aws/smithy-go"
+	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
@@ -71,12 +73,14 @@ func TestSend(t *testing.T) {
 
 	t.Run("ReturnsErrorIfSendFails", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.rawEmailErr = errors.New("SendRawEmail error")
-
+		testSes.rawEmailErr = &smithy.GenericAPIError{
+			Message: "SendRawEmail error", Fault: smithy.FaultServer,
+		}
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.Equal(t, "", msgId)
-		assert.Error(t, err, "send failed: SendRawEmail error")
+		assert.ErrorContains(t, err, "SendRawEmail error")
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})
 }
 
@@ -119,13 +123,16 @@ func TestBounce(t *testing.T) {
 
 	t.Run("ReturnsErrorIfSendBounceFails", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.bounceErr = errors.New("SendBounce error")
+		testSes.bounceErr = &smithy.GenericAPIError{
+			Message: "SendBounce error", Fault: smithy.FaultServer,
+		}
 
 		bouncedId, err := mailer.Bounce(
 			ctx, emailDomain, messageId, recipients, timestamp,
 		)
 
 		assert.Equal(t, "", bouncedId)
-		assert.Error(t, err, "sending bounce failed: SendBounce error")
+		assert.ErrorContains(t, err, "SendBounce error")
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})
 }
