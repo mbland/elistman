@@ -404,6 +404,17 @@ func TestValidateAddress(t *testing.T) {
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 
+	t.Run("ReturnsErrorIfIsSuppressedFails", func(t *testing.T) {
+		f := newAddressValidatorFixture()
+		f.ts.isSuppressedErr = errors.New("unexpected SES error")
+
+		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+
+		assert.ErrorContains(t, err, "unexpected SES error")
+		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
+	})
+
 	t.Run("FailsIfAddressFailsDnsValidation", func(t *testing.T) {
 		f := newAddressValidatorFixture()
 		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}

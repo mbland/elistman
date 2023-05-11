@@ -84,12 +84,16 @@ type ProdAddressValidator struct {
 func (av *ProdAddressValidator) ValidateAddress(
 	ctx context.Context, address string,
 ) (err error) {
+	var result bool
 	email, user, domain, err := parseAddress(address)
+
 	if err != nil {
 		err = errors.New("address failed to parse: " + address)
 	} else if isKnownInvalidAddress(user, domain) {
 		err = errors.New("invalid email address: " + address)
-	} else if av.Suppressor.IsSuppressed(ctx, email) {
+	} else if result, err = av.Suppressor.IsSuppressed(ctx, email); err != nil {
+		return
+	} else if result {
 		err = errors.New("suppressed email address: " + address)
 	} else if err = av.checkMailHosts(ctx, email, domain); err != nil {
 		err = fmt.Errorf("address failed DNS validation: %s: %s", address, err)

@@ -2,7 +2,6 @@ package email
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -53,49 +52,47 @@ func (ses *TestSesV2) DeleteSuppressedDestination(
 }
 
 func TestIsSuppressed(t *testing.T) {
-	setup := func() (
-		*TestSesV2, *testutils.Logs, *SesSuppressor, context.Context,
-	) {
+	setup := func() (*TestSesV2, *SesSuppressor, context.Context) {
 		testSesV2 := &TestSesV2{}
-		logs, logger := testutils.NewLogs()
-		suppressor := &SesSuppressor{Client: testSesV2, Log: logger}
-		return testSesV2, logs, suppressor, context.Background()
+		suppressor := &SesSuppressor{Client: testSesV2}
+		return testSesV2, suppressor, context.Background()
 	}
 
 	t.Run("ReturnsTrueIfSuppressed", func(t *testing.T) {
-		_, logs, suppressor, ctx := setup()
+		_, suppressor, ctx := setup()
 
-		assert.Assert(t, suppressor.IsSuppressed(ctx, "foo@bar.com"))
+		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
-		expectedEmptyLogs := ""
-		assert.Equal(t, expectedEmptyLogs, logs.Logs())
+		assert.NilError(t, err)
+		assert.Assert(t, verdict == true)
 	})
 
-	t.Run("ReturnsFalse", func(t *testing.T) {
-		t.Run("IfNotSuppressed", func(t *testing.T) {
-			testSesV2, logs, suppressor, ctx := setup()
-			// Wrap the following error to make sure the implementation is using
-			// errors.As properly, versus a type assertion.
-			testSesV2.getError = fmt.Errorf(
-				"404: %w", &types.NotFoundException{},
-			)
+	t.Run("ReturnsFalseIfNotSuppressed", func(t *testing.T) {
+		testSesV2, suppressor, ctx := setup()
+		// Wrap the following error to make sure the implementation is using
+		// errors.As properly, versus a type assertion.
+		testSesV2.getError = fmt.Errorf(
+			"404: %w", &types.NotFoundException{},
+		)
 
-			assert.Assert(t, !suppressor.IsSuppressed(ctx, "foo@bar.com"))
+		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
-			expectedEmptyLogs := ""
-			assert.Equal(t, expectedEmptyLogs, logs.Logs())
-		})
+		assert.NilError(t, err)
+		assert.Assert(t, verdict == false)
+	})
 
-		t.Run("AndLogsErrorIfUnexpectedError", func(t *testing.T) {
-			testSesV2, logs, suppressor, ctx := setup()
-			testSesV2.getError = errors.New("not a 404")
+	t.Run("ReturnsErrorIfUnexpectedFailure", func(t *testing.T) {
+		testSesV2, suppressor, ctx := setup()
+		testSesV2.getError = testutils.AwsServerError("not a 404")
 
-			assert.Assert(t, !suppressor.IsSuppressed(ctx, "foo@bar.com"))
+		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
-			const expectedLog = "unexpected error while checking if " +
-				"foo@bar.com suppressed: not a 404"
-			logs.AssertContains(t, expectedLog)
-		})
+		assert.Assert(t, verdict == false)
+		const expectedErr = "external error: " +
+			"unexpected error while checking if foo@bar.com suppressed: " +
+			"api error : not a 404"
+		assert.ErrorContains(t, err, expectedErr)
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})
 }
 

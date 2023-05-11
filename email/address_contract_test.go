@@ -28,12 +28,9 @@ func TestValidateAddressSucceedsUsingLiveDnsService(t *testing.T) {
 	cfg, err := testutils.LoadDefaultAwsConfig()
 	assert.NilError(t, err)
 
-	logs := testutils.Logs{}
-	suppressor := &SesSuppressor{sesv2.NewFromConfig(cfg), logs.NewLogger()}
+	suppressor := &SesSuppressor{sesv2.NewFromConfig(cfg)}
 	v := ProdAddressValidator{suppressor, net.DefaultResolver}
 	ctx := context.Background()
 
 	assert.NilError(t, v.ValidateAddress(ctx, goodEmailAddress))
-	const expectedEmptyLogs = ""
-	assert.Equal(t, expectedEmptyLogs, logs.Logs())
 }

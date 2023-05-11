@@ -3,7 +3,7 @@ package email
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
@@ -17,7 +17,7 @@ import (
 type Suppressor interface {
 	// IsSuppressed checks whether an email address is on the SES account-level
 	// suppression list.
-	IsSuppressed(ctx context.Context, email string) bool
+	IsSuppressed(ctx context.Context, email string) (bool, error)
 
 	// Suppress adds an email address to the SES account-level suppression list.
 	Suppress(ctx context.Context, email string) error
@@ -29,7 +29,6 @@ type Suppressor interface {
 
 type SesSuppressor struct {
 	Client SesV2Api
-	Log    *log.Logger
 }
 
 type SesV2Api interface {
@@ -52,31 +51,21 @@ type SesV2Api interface {
 	) (*sesv2.DeleteSuppressedDestinationOutput, error)
 }
 
-func (mailer *SesSuppressor) IsSuppressed(ctx context.Context, email string) bool {
+func (mailer *SesSuppressor) IsSuppressed(
+	ctx context.Context, email string,
+) (verdict bool, err error) {
 	input := &sesv2.GetSuppressedDestinationInput{EmailAddress: &email}
-
-	_, err := mailer.Client.GetSuppressedDestination(ctx, input)
-	if err == nil {
-		return true
-	}
-
-	// This method returns only a boolean result, not a boolean and an error.
-	// This keeps its usage in ProdAddressValidator.ValidateAddress
-	// straightforward, without having that method have to propagate an
-	// extremely unlikely error.
-	//
-	// As a result, if we receive an unexpected error, we'll log it and give the
-	// address the benefit of the doubt (for now).
-	//
-	// See also:
-	// - https://aws.github.io/aws-sdk-go-v2/docs/handling-errors/#api-error-responses
-	// - https://pkg.go.dev/errors#As
 	var notFoundErr *types.NotFoundException
-	if !errors.As(err, &notFoundErr) {
-		const errFmt = "unexpected error while checking if %s suppressed: %s"
-		mailer.Log.Printf(errFmt, email, err)
+
+	if _, err = mailer.Client.GetSuppressedDestination(ctx, input); err == nil {
+		verdict = true
+	} else if errors.As(err, &notFoundErr) {
+		err = nil
+	} else {
+		const errFmt = "unexpected error while checking if %s suppressed"
+		err = ops.AwsError(fmt.Sprintf(errFmt, email), err)
 	}
-	return false
+	return
 }
 
 func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {

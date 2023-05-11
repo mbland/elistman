@@ -16,21 +16,27 @@ func TestSesSuppressor(t *testing.T) {
 	assert.NilError(t, err)
 
 	logs := testutils.Logs{}
-	suppressor := SesSuppressor{sesv2.NewFromConfig(cfg), logs.NewLogger()}
+	suppressor := SesSuppressor{sesv2.NewFromConfig(cfg)}
 	email := testutils.RandomEmail(4, "elistman-test.com")
 	ctx := context.Background()
 
-	assert.Assert(t, !suppressor.IsSuppressed(ctx, email))
+	verdict, err := suppressor.IsSuppressed(ctx, email)
+	assert.NilError(t, err)
+	assert.Assert(t, verdict == false)
 
 	err = suppressor.Suppress(ctx, email)
 	assert.NilError(t, err)
 
-	assert.Assert(t, suppressor.IsSuppressed(ctx, email))
+	verdict, err = suppressor.IsSuppressed(ctx, email)
+	assert.NilError(t, err)
+	assert.Assert(t, verdict == true)
 
 	err = suppressor.Unsuppress(ctx, email)
 	assert.NilError(t, err)
 
-	assert.Assert(t, !suppressor.IsSuppressed(ctx, email))
+	verdict, err = suppressor.IsSuppressed(ctx, email)
+	assert.NilError(t, err)
+	assert.Assert(t, verdict == false)
 
 	const expectedEmptyLogs = ""
 	assert.Equal(t, expectedEmptyLogs, logs.Logs())

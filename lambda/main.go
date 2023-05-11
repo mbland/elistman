@@ -60,7 +60,6 @@ func buildHandler() (h *handler.Handler, err error) {
 			Validator: &email.ProdAddressValidator{
 				Suppressor: &email.SesSuppressor{
 					Client: sesv2.NewFromConfig(cfg),
-					Log:    logger,
 				},
 				Resolver: net.DefaultResolver,
 			},
