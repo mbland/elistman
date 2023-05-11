@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/db"
@@ -13,9 +15,12 @@ type DecoyAgent struct {
 	SenderAddress      string
 	UnsubscribeEmail   string
 	UnsubscribeBaseUrl string
+	NewUid             func() (uuid.UUID, error)
+	CurrentTime        func() time.Time
 	Db                 db.Database
 	Validator          email.AddressValidator
 	Mailer             email.Mailer
+	Logger             *log.Logger
 }
 
 func (a *DecoyAgent) Subscribe(
@@ -40,8 +45,6 @@ func (a *DecoyAgent) Remove(ctx context.Context, email string) error {
 	return nil
 }
 
-// This should generate a new UUID as well as remove the user from the
-// account-level suppression list if present.
 func (a *DecoyAgent) Restore(ctx context.Context, email string) error {
 	return nil
 }

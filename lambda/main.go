@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/google/uuid"
 	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
@@ -33,6 +35,7 @@ func buildHandler() (h *handler.Handler, err error) {
 		Client:    ses.NewFromConfig(cfg),
 		ConfigSet: opts.ConfigurationSet,
 	}
+	logger := log.Default()
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
 		opts.EmailSiteTitle,
@@ -48,6 +51,8 @@ func buildHandler() (h *handler.Handler, err error) {
 			UnsubscribeBaseUrl: fmt.Sprintf(
 				"https://%s/%s/", opts.ApiDomainName, opts.ApiMappingKey,
 			),
+			NewUid:      uuid.NewUUID,
+			CurrentTime: time.Now,
 			Db: &db.DynamoDb{
 				Client:    dynamodb.NewFromConfig(cfg),
 				TableName: opts.SubscribersTableName,
@@ -55,17 +60,18 @@ func buildHandler() (h *handler.Handler, err error) {
 			Validator: &email.ProdAddressValidator{
 				Suppressor: &email.SesSuppressor{
 					Client: sesv2.NewFromConfig(cfg),
-					Log:    log.Default(),
+					Log:    logger,
 				},
 				Resolver: net.DefaultResolver,
 			},
 			Mailer: sesMailer,
+			Logger: logger,
 		},
 		opts.RedirectPaths,
 		handler.ResponseTemplate,
 		opts.UnsubscribeUserName,
 		sesMailer,
-		log.Default(),
+		logger,
 	)
 	return
 }
