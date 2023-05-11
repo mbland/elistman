@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
-	"github.com/aws/smithy-go"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -117,9 +116,7 @@ func TestSuppress(t *testing.T) {
 
 	t.Run("ReturnsAnError", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.putError = &smithy.GenericAPIError{
-			Message: "testing", Fault: smithy.FaultServer,
-		}
+		testSesV2.putError = testutils.AwsServerError("testing")
 
 		err := suppressor.Suppress(ctx, "foo@bar.com")
 
@@ -146,9 +143,7 @@ func TestUnsuppress(t *testing.T) {
 
 	t.Run("ReturnsAnError", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.deleteError = &smithy.GenericAPIError{
-			Message: "testing", Fault: smithy.FaultServer,
-		}
+		testSesV2.deleteError = testutils.AwsServerError("testing")
 
 		err := suppressor.Unsuppress(ctx, "foo@bar.com")
 

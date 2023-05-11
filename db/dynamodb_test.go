@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/aws/smithy-go"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -32,9 +31,7 @@ type TestDynamoDbClient struct {
 }
 
 func (client *TestDynamoDbClient) SetServerError(msg string) {
-	client.serverErr = &smithy.GenericAPIError{
-		Message: msg, Fault: smithy.FaultServer,
-	}
+	client.serverErr = testutils.AwsServerError(msg)
 }
 
 func (client *TestDynamoDbClient) CreateTable(

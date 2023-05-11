@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/smithy-go"
 )
 
 func LoadDefaultAwsConfig() (cfg aws.Config, err error) {
@@ -75,4 +76,8 @@ func AwsConfig() (*aws.Config, *EndpointResolver, error) {
 		return nil, nil, err
 	}
 	return &dbConfig, resolver, nil
+}
+
+func AwsServerError(msg string) error {
+	return &smithy.GenericAPIError{Message: msg, Fault: smithy.FaultServer}
 }

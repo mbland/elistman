@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
-	"github.com/aws/smithy-go"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -73,9 +72,7 @@ func TestSend(t *testing.T) {
 
 	t.Run("ReturnsErrorIfSendFails", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.rawEmailErr = &smithy.GenericAPIError{
-			Message: "SendRawEmail error", Fault: smithy.FaultServer,
-		}
+		testSes.rawEmailErr = testutils.AwsServerError("SendRawEmail error")
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.Equal(t, "", msgId)
@@ -123,9 +120,7 @@ func TestBounce(t *testing.T) {
 
 	t.Run("ReturnsErrorIfSendBounceFails", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.bounceErr = &smithy.GenericAPIError{
-			Message: "SendBounce error", Fault: smithy.FaultServer,
-		}
+		testSes.bounceErr = testutils.AwsServerError("SendBounce error")
 
 		bouncedId, err := mailer.Bounce(
 			ctx, emailDomain, messageId, recipients, timestamp,
