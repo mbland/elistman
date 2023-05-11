@@ -204,7 +204,7 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	_, err = dyndb.Get(ctx, testEmail)
 	checkIsExternalError(t, err)
 
-	err = dyndb.Put(ctx, newTestSubscriber())
+	err = dyndb.Put(ctx, &Subscriber{})
 	checkIsExternalError(t, err)
 
 	err = dyndb.Delete(ctx, testEmail)
