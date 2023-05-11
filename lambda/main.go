@@ -64,7 +64,7 @@ func buildHandler() (h *handler.Handler, err error) {
 				Resolver: net.DefaultResolver,
 			},
 			Mailer: sesMailer,
-			Logger: logger,
+			Log:    logger,
 		},
 		opts.RedirectPaths,
 		handler.ResponseTemplate,

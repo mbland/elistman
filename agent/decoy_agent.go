@@ -20,7 +20,7 @@ type DecoyAgent struct {
 	Db                 db.Database
 	Validator          email.AddressValidator
 	Mailer             email.Mailer
-	Logger             *log.Logger
+	Log                *log.Logger
 }
 
 func (a *DecoyAgent) Subscribe(
