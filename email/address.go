@@ -15,10 +15,20 @@ import (
 // bounced emails and other potential abuse by filtering out bad addresses
 // before attempting to send email to them.
 //
-// The return value will be nil if the address passes validation, or non nil if
-// it fails.
+// The failure return value will be nil if the address passes validation, or non
+// nil if it fails.
 type AddressValidator interface {
-	ValidateAddress(ctx context.Context, email string) error
+	ValidateAddress(
+		ctx context.Context, email string,
+	) (failure *ValidationFailure, err error)
+}
+
+type ValidationFailure struct {
+	Reason string
+}
+
+func (vf *ValidationFailure) String() string {
+	return vf.Reason
 }
 
 // Resolver wraps several methods from the net standard library.
@@ -83,20 +93,24 @@ type ProdAddressValidator struct {
 // [How to Verify Email Address Without Sending an Email]: https://mailtrap.io/blog/verify-email-address-without-sending/
 func (av *ProdAddressValidator) ValidateAddress(
 	ctx context.Context, address string,
-) (err error) {
+) (failure *ValidationFailure, err error) {
 	var result bool
 	email, user, domain, err := parseAddress(address)
 
 	if err != nil {
-		err = errors.New("address failed to parse: " + address)
+		failure = &ValidationFailure{"address failed to parse: " + address}
+		err = nil
 	} else if isKnownInvalidAddress(user, domain) {
-		err = errors.New("invalid email address: " + address)
+		failure = &ValidationFailure{"invalid email address: " + address}
 	} else if result, err = av.Suppressor.IsSuppressed(ctx, email); err != nil {
 		return
 	} else if result {
-		err = errors.New("suppressed email address: " + address)
+		failure = &ValidationFailure{"suppressed email address: " + address}
 	} else if err = av.checkMailHosts(ctx, email, domain); err != nil {
-		err = fmt.Errorf("address failed DNS validation: %s: %s", address, err)
+		failure = &ValidationFailure{
+			fmt.Sprintf("address failed DNS validation: %s: %s", address, err),
+		}
+		err = nil
 	}
 	return
 }

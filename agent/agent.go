@@ -39,16 +39,12 @@ type ProdAgent struct {
 func (a *ProdAgent) Subscribe(
 	ctx context.Context, address string,
 ) (result ops.OperationResult, err error) {
+	var failure *email.ValidationFailure
 	var sub *db.Subscriber
 
-	if failure := a.Validator.ValidateAddress(ctx, address); failure != nil {
-		// ValidateAddress returns an error describing why an address failed
-		// validation. However, this function should only return errors that are
-		// logical or infrastructure failures. Hence we log the result, but
-		// don't return the error.
-		//
-		// Perhaps ValidateAddress needs a better API, returning a failure
-		// reason separately from a logical/infrastructure error.
+	if failure, err = a.Validator.ValidateAddress(ctx, address); err != nil {
+		return
+	} else if failure != nil {
 		a.Log.Printf("%s failed validation: %s", address, failure)
 		return
 	} else if sub, err = a.getOrCreateSubscriber(ctx, address); err != nil {

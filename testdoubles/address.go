@@ -4,12 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mbland/elistman/email"
 	"gotest.tools/assert"
 )
 
 type AddressValidator struct {
-	Email string
-	Error error
+	Email   string
+	Failure *email.ValidationFailure
+	Error   error
 }
 
 func NewAddressValidator() *AddressValidator {
@@ -18,9 +20,9 @@ func NewAddressValidator() *AddressValidator {
 
 func (av *AddressValidator) ValidateAddress(
 	ctx context.Context, email string,
-) error {
+) (*email.ValidationFailure, error) {
 	av.Email = email
-	return av.Error
+	return av.Failure, av.Error
 }
 
 func (av *AddressValidator) AssertValidated(

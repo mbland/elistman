@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/db"
+	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testdoubles"
 	"github.com/mbland/elistman/testutils"
@@ -173,15 +174,25 @@ func TestSubscribe(t *testing.T) {
 		assert.Equal(t, ops.AlreadySubscribed, result)
 	})
 
-	t.Run("ReturnsErrorIfValidateAddressFails", func(t *testing.T) {
+	t.Run("ReturnsInvalidIfAddressFailsValidation", func(t *testing.T) {
 		f, ctx := setup()
-		f.validator.Error = errors.New(testEmail + " failed validation")
+		f.validator.Failure = &email.ValidationFailure{Reason: "testing"}
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Invalid, result)
-		f.logs.AssertContains(t, testEmail+" failed validation")
+		f.logs.AssertContains(t, testEmail+" failed validation: testing")
+	})
+
+	t.Run("ReturnsErrorIfValidateAddressReturnsError", func(t *testing.T) {
+		f, ctx := setup()
+		f.validator.Error = errors.New("unexpected SES error")
+
+		result, err := f.agent.Subscribe(ctx, testEmail)
+
+		assert.Error(t, err, "unexpected SES error")
+		assert.Equal(t, ops.Invalid, result)
 	})
 
 	t.Run("ReturnsErrorIfGetOrCreateSubscriberFails", func(t *testing.T) {

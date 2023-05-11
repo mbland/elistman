@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 type TestResolver struct {
@@ -368,7 +369,10 @@ func TestValidateAddress(t *testing.T) {
 		f.tr.addrs["199.89.3.120"] = []string{"mail.mia.mailroute.net"}
 		f.tr.hosts["mail.mia.mailroute.net"] = []string{"199.89.3.120"}
 
-		assert.NilError(t, f.av.ValidateAddress(f.ctx, "mbland@acm.org"))
+		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(failure))
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -376,9 +380,11 @@ func TestValidateAddress(t *testing.T) {
 	t.Run("FailsIfAddressDoesNotParse", func(t *testing.T) {
 		f := newAddressValidatorFixture()
 
-		err := f.av.ValidateAddress(f.ctx, "mblandATacm.org")
+		failure, err := f.av.ValidateAddress(f.ctx, "mblandATacm.org")
 
-		assert.ErrorContains(t, err, "address failed to parse: mblandATacm.org")
+		assert.NilError(t, err)
+		const expectedReason = "address failed to parse: mblandATacm.org"
+		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -386,9 +392,10 @@ func TestValidateAddress(t *testing.T) {
 	t.Run("FailsIfKnownInvalidAddress", func(t *testing.T) {
 		f := newAddressValidatorFixture()
 
-		err := f.av.ValidateAddress(f.ctx, "abuse@acm.org")
+		failure, err := f.av.ValidateAddress(f.ctx, "abuse@acm.org")
 
-		assert.ErrorContains(t, err, "invalid email address: abuse@acm.org")
+		assert.NilError(t, err)
+		assert.Equal(t, "invalid email address: abuse@acm.org", failure.Reason)
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -397,9 +404,11 @@ func TestValidateAddress(t *testing.T) {
 		f := newAddressValidatorFixture()
 		f.ts.isSuppressedResult = true
 
-		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
-		assert.ErrorContains(t, err, "suppressed email address: mbland@acm.org")
+		assert.NilError(t, err)
+		const expectedReason = "suppressed email address: mbland@acm.org"
+		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -408,8 +417,9 @@ func TestValidateAddress(t *testing.T) {
 		f := newAddressValidatorFixture()
 		f.ts.isSuppressedErr = errors.New("unexpected SES error")
 
-		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
+		assert.Assert(t, is.Nil(failure))
 		assert.ErrorContains(t, err, "unexpected SES error")
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
@@ -419,14 +429,15 @@ func TestValidateAddress(t *testing.T) {
 		f := newAddressValidatorFixture()
 		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}
 
-		err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
-		expected := "address failed DNS validation: mbland@acm.org: " +
-			"no valid MX hosts for acm.org: " +
+		assert.NilError(t, err)
+		const expectedReason = "address failed DNS validation: " +
+			"mbland@acm.org: no valid MX hosts for acm.org: " +
 			"reverse lookup of addresses for MX host " +
 			"mail.mailroute.net failed: " +
 			"error resolving mail.mailroute.net: no addresses returned"
-		assert.ErrorContains(t, err, expected)
+		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "mbland@acm.org", f.ts.suppressedEmail)
 	})

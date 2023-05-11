@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 var goodEmailAddress string
@@ -32,5 +33,8 @@ func TestValidateAddressSucceedsUsingLiveDnsService(t *testing.T) {
 	v := ProdAddressValidator{suppressor, net.DefaultResolver}
 	ctx := context.Background()
 
-	assert.NilError(t, v.ValidateAddress(ctx, goodEmailAddress))
+	failure, err := v.ValidateAddress(ctx, goodEmailAddress)
+
+	assert.NilError(t, err)
+	assert.Assert(t, is.Nil(failure))
 }
