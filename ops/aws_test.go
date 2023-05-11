@@ -15,7 +15,7 @@ func TestAwsError(t *testing.T) {
 		err := AwsError("test prefix", errors.New("Not an APIError"))
 
 		assert.Error(t, err, "test prefix: Not an APIError")
-		assert.Assert(t, !errors.Is(err, ErrExternal))
+		assert.Assert(t, testutils.ErrorIsNot(err, ErrExternal))
 	})
 
 	t.Run("DoesNotWrapIfNotServerError", func(t *testing.T) {
@@ -26,7 +26,7 @@ func TestAwsError(t *testing.T) {
 		err := AwsError("test prefix", apiErr)
 
 		assert.Error(t, err, "test prefix: api error : Not a server error")
-		assert.Assert(t, !errors.Is(err, ErrExternal))
+		assert.Assert(t, testutils.ErrorIsNot(err, ErrExternal))
 	})
 
 	t.Run("WrapsServerErrorWithErrExternal", func(t *testing.T) {

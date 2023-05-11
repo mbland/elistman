@@ -409,7 +409,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 			expectedErr := "failed to parse subscriber: " +
 				"failed to parse 'uid' from: "
 			assert.ErrorContains(t, err, expectedErr)
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 }

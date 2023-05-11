@@ -17,3 +17,15 @@ func ErrorIs(err, expectedErr error) cmp.Comparison {
 		return cmp.ResultFailure(errMsg)
 	}
 }
+
+func ErrorIsNot(err, unexpectedErr error) cmp.Comparison {
+	return func() cmp.Result {
+		if !errors.Is(err, unexpectedErr) {
+			return cmp.ResultSuccess
+		}
+		const errFmt = "did not expect \"%+v\" (%T) in error tree,\n" +
+			"got: \"%+v\" (%T)"
+		errMsg := fmt.Sprintf(errFmt, unexpectedErr, unexpectedErr, err, err)
+		return cmp.ResultFailure(errMsg)
+	}
+}

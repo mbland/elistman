@@ -4,7 +4,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"testing"
@@ -171,7 +170,7 @@ func TestDynamoDb(t *testing.T) {
 
 		expected := "failed to create db table " + testDb.TableName + ": "
 		assert.ErrorContains(t, err, expected)
-		assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+		assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 	})
 
 	t.Run("DeleteTableFailsIfTableDoesNotExist", func(t *testing.T) {
@@ -179,7 +178,7 @@ func TestDynamoDb(t *testing.T) {
 
 		expected := "failed to delete db table " + badDb.TableName + ": "
 		assert.ErrorContains(t, err, expected)
-		assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+		assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 	})
 
 	t.Run("PutGetAndDeleteSucceed", func(t *testing.T) {
@@ -217,7 +216,7 @@ func TestDynamoDb(t *testing.T) {
 			expectedErr := "failed to update Time To Live: " +
 				"operation error DynamoDB: UpdateTimeToLive"
 			assert.ErrorContains(t, err, expectedErr)
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 
@@ -229,7 +228,7 @@ func TestDynamoDb(t *testing.T) {
 
 			assert.Assert(t, is.Nil(retrieved))
 			assert.Assert(t, testutils.ErrorIs(err, ErrSubscriberNotFound))
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
@@ -240,7 +239,7 @@ func TestDynamoDb(t *testing.T) {
 			assert.Assert(t, is.Nil(retrieved))
 			expected := "failed to get " + subscriber.Email + ": "
 			assert.ErrorContains(t, err, expected)
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 
@@ -251,7 +250,7 @@ func TestDynamoDb(t *testing.T) {
 			err := badDb.Put(ctx, subscriber)
 
 			assert.ErrorContains(t, err, "failed to put "+subscriber.Email+": ")
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 
@@ -263,7 +262,7 @@ func TestDynamoDb(t *testing.T) {
 
 			expected := "failed to delete " + subscriber.Email + ": "
 			assert.ErrorContains(t, err, expected)
-			assert.Assert(t, !errors.Is(err, ops.ErrExternal))
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 
