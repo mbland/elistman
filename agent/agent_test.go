@@ -72,6 +72,16 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 	return &prodAgentTestFixture{pa, db, av, m, logs}
 }
 
+func makeServerError(msg string) error {
+	return ops.AwsError("test error", tu.AwsServerError(msg))
+}
+
+func assertServerErrorContains(t *testing.T, err error, expectedMsg string) {
+	t.Helper()
+	assert.ErrorContains(t, err, expectedMsg)
+	assert.Assert(t, tu.ErrorIs(err, ops.ErrExternal))
+}
+
 func TestGetOrCreateSubscriber(t *testing.T) {
 	setup := func() (*prodAgentTestFixture, context.Context) {
 		return newProdAgentTestFixture(), context.Background()
@@ -118,13 +128,13 @@ func TestGetOrCreateSubscriber(t *testing.T) {
 	t.Run("ReturnsErrorIfDatabaseGetFails", func(t *testing.T) {
 		f, ctx := setup()
 		f.db.SimulateGetErr = func(email string) error {
-			return errors.New("test error while getting " + email)
+			return makeServerError("test error while getting " + email)
 		}
 
 		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
 
 		assert.Assert(t, is.Nil(sub))
-		assert.Error(t, err, "test error while getting "+testEmail)
+		assertServerErrorContains(t, err, "test error while getting "+testEmail)
 	})
 
 	t.Run("ReturnsErrorIfNewUidFails", func(t *testing.T) {
@@ -142,13 +152,13 @@ func TestGetOrCreateSubscriber(t *testing.T) {
 	t.Run("ReturnsErrorIfDatabasePutFails", func(t *testing.T) {
 		f, ctx := setup()
 		f.db.SimulatePutErr = func(email string) error {
-			return errors.New("test error while putting " + email)
+			return makeServerError("test error while putting " + email)
 		}
 
 		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
 
 		assert.Assert(t, is.Nil(sub))
-		assert.Error(t, err, "test error while putting "+testEmail)
+		assertServerErrorContains(t, err, "test error while putting "+testEmail)
 	})
 }
 
@@ -158,12 +168,7 @@ func TestMakeVerificationEmail(t *testing.T) {
 		return f.agent
 	}
 
-	sub := &db.Subscriber{
-		Email:     tu.TestEmail,
-		Uid:       tu.TestUid,
-		Status:    db.SubscriberPending,
-		Timestamp: tu.TestTimestamp,
-	}
+	sub := expectedSubscriber
 
 	t.Run("Succeeds", func(t *testing.T) {
 		agent := setup()
@@ -237,33 +242,33 @@ func TestSubscribe(t *testing.T) {
 
 	t.Run("ReturnsErrorIfValidateAddressReturnsError", func(t *testing.T) {
 		f, ctx := setup()
-		f.validator.Error = errors.New("unexpected SES error")
+		f.validator.Error = makeServerError("SES error")
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
-		assert.Error(t, err, "unexpected SES error")
 		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "SES error")
 	})
 
 	t.Run("ReturnsErrorIfGetOrCreateSubscriberFails", func(t *testing.T) {
 		f, ctx := setup()
 		f.db.SimulateGetErr = func(email string) error {
-			return errors.New("test error while getting " + email)
+			return makeServerError("error getting " + email)
 		}
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
 		assert.Equal(t, ops.Invalid, result)
-		assert.Error(t, err, "test error while getting "+testEmail)
+		assertServerErrorContains(t, err, "error getting "+testEmail)
 	})
 
 	t.Run("ReturnsErrorIfSendingVerificationEmailFails", func(t *testing.T) {
 		f, ctx := setup()
-		f.mailer.RecipientErrors[testEmail] = errors.New("send failed")
+		f.mailer.RecipientErrors[testEmail] = makeServerError("send failed")
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
-		assert.Error(t, err, "send failed")
 		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "send failed")
 	})
 }
