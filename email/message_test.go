@@ -37,7 +37,9 @@ func TestWriter(t *testing.T) {
 	t.Run("WriteStopsWritingAfterError", func(t *testing.T) {
 		sb, w := setup()
 		errs := make([]error, 3)
-		ew := &ErrWriter{buf: sb, errorOn: "bar", err: errors.New("test error")}
+		ew := &tu.ErrWriter{
+			Buf: sb, ErrorOn: "bar", Err: errors.New("test error"),
+		}
 		w.buf = ew
 
 		_, errs[0] = w.Write([]byte("foo"))
@@ -111,9 +113,9 @@ func TestConvertToCrlf(t *testing.T) {
 }
 
 func TestWriteQuotedPrintable(t *testing.T) {
-	setup := func() (*strings.Builder, *ErrWriter) {
+	setup := func() (*strings.Builder, *tu.ErrWriter) {
 		sb := &strings.Builder{}
-		return sb, &ErrWriter{buf: sb}
+		return sb, &tu.ErrWriter{Buf: sb}
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
@@ -142,8 +144,8 @@ func TestWriteQuotedPrintable(t *testing.T) {
 		_, ew := setup()
 		msg := "This message will trigger an artificial Write error " +
 			"when the first 76 characters are flushed."
-		ew.errorOn = "trigger an artificial Write error"
-		ew.err = errors.New("Write error")
+		ew.ErrorOn = "trigger an artificial Write error"
+		ew.Err = errors.New("Write error")
 
 		assert.Error(t, writeQuotedPrintable(ew, []byte(msg)), "Write error")
 	})
@@ -151,8 +153,8 @@ func TestWriteQuotedPrintable(t *testing.T) {
 	t.Run("ReturnsCloseError", func(t *testing.T) {
 		_, ew := setup()
 		msg := "Close will fail when it calls flush on this short message."
-		ew.errorOn = "Close will fail"
-		ew.err = errors.New("Close error")
+		ew.ErrorOn = "Close will fail"
+		ew.Err = errors.New("Close error")
 
 		assert.Error(t, writeQuotedPrintable(ew, []byte(msg)), "Close error")
 	})
@@ -261,11 +263,11 @@ var decodedTextContent = string(convertToCrlf(testMessage.TextBody)) +
 	string(instantiatedTextFooter)
 
 func TestEmitTextOnly(t *testing.T) {
-	setup := func() (*strings.Builder, *writer, *ErrWriter, *Subscriber) {
+	setup := func() (*strings.Builder, *writer, *tu.ErrWriter, *Subscriber) {
 		sb := &strings.Builder{}
 		sub := newTestSubscriber()
 		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
-		return sb, &writer{buf: sb}, &ErrWriter{buf: sb}, sub
+		return sb, &writer{buf: sb}, &tu.ErrWriter{Buf: sb}, sub
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
@@ -282,8 +284,8 @@ func TestEmitTextOnly(t *testing.T) {
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
 		_, w, ew, sub := setup()
 		w.buf = ew
-		ew.errorOn = "Unsubscribe: "
-		ew.err = errors.New("writeQuotedPrintable error")
+		ew.ErrorOn = "Unsubscribe: "
+		ew.Err = errors.New("writeQuotedPrintable error")
 
 		testTemplate.emitTextOnly(w, sub)
 
@@ -311,10 +313,10 @@ func TestEmitPart(t *testing.T) {
 	}
 
 	setupErrWriter := func(errorMsg string) (
-		*ErrWriter, textproto.MIMEHeader, *multipart.Writer,
+		*tu.ErrWriter, textproto.MIMEHeader, *multipart.Writer,
 	) {
 		sb, h, _ := setup()
-		ew := &ErrWriter{buf: sb, err: errors.New(errorMsg)}
+		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errorMsg)}
 		return ew, h, multipart.NewWriter(ew)
 	}
 
@@ -339,7 +341,7 @@ func TestEmitPart(t *testing.T) {
 
 	t.Run("ReturnsCreatePartError", func(t *testing.T) {
 		ew, h, mpw := setupErrWriter("CreatePart error")
-		ew.errorOn = "--" + mpw.Boundary()
+		ew.ErrorOn = "--" + mpw.Boundary()
 
 		err := emitPart(mpw, h, contentType, body, footer)
 
@@ -348,7 +350,7 @@ func TestEmitPart(t *testing.T) {
 
 	t.Run("ReturnsWriteError", func(t *testing.T) {
 		ew, h, mpw := setupErrWriter("Write error")
-		ew.errorOn = "This is only a test." // appears in body
+		ew.ErrorOn = "This is only a test." // appears in body
 
 		err := emitPart(mpw, h, contentType, body, footer)
 
@@ -357,7 +359,7 @@ func TestEmitPart(t *testing.T) {
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
 		ew, h, mpw := setupErrWriter("writeQuotedPrintable error")
-		ew.errorOn = "Unsubscribe: " // appears in footer
+		ew.ErrorOn = "Unsubscribe: " // appears in footer
 
 		err := emitPart(mpw, h, contentType, body, footer)
 
@@ -412,9 +414,11 @@ func TestEmitMultipart(t *testing.T) {
 		return sb, &writer{buf: sb}, sub
 	}
 
-	setupWithError := func(errMsg string) (*writer, *ErrWriter, *Subscriber) {
+	setupWithError := func(
+		errMsg string,
+	) (*writer, *tu.ErrWriter, *Subscriber) {
 		sb, w, sub := setup()
-		ew := &ErrWriter{buf: sb, err: errors.New(errMsg)}
+		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
 		w.buf = ew
 		return w, ew, sub
 	}
@@ -433,7 +437,7 @@ func TestEmitMultipart(t *testing.T) {
 
 	t.Run("ReturnTextPartError", func(t *testing.T) {
 		w, ew, sub := setupWithError("text/plain part error")
-		ew.errorOn = "Content-Type: text/plain"
+		ew.ErrorOn = "Content-Type: text/plain"
 
 		testTemplate.emitMultipart(w, sub)
 
@@ -442,7 +446,7 @@ func TestEmitMultipart(t *testing.T) {
 
 	t.Run("ReturnHtmlPartError", func(t *testing.T) {
 		w, ew, sub := setupWithError("text/html part error")
-		ew.errorOn = "Content-Type: text/html"
+		ew.ErrorOn = "Content-Type: text/html"
 
 		testTemplate.emitMultipart(w, sub)
 
@@ -451,7 +455,7 @@ func TestEmitMultipart(t *testing.T) {
 
 	t.Run("ReturnCloseError", func(t *testing.T) {
 		w, ew, sub := setupWithError("multipart.Writer.Close error")
-		ew.errorOn = "--\r\n" // end of the final multipart boundary marker
+		ew.ErrorOn = "--\r\n" // end of the final multipart boundary marker
 
 		testTemplate.emitMultipart(w, sub)
 
@@ -491,9 +495,11 @@ func TestEmitMessage(t *testing.T) {
 		return sb, &writer{buf: sb}, sub
 	}
 
-	setupWithError := func(errMsg string) (*writer, *ErrWriter, *Subscriber) {
+	setupWithError := func(
+		errMsg string,
+	) (*writer, *tu.ErrWriter, *Subscriber) {
 		sb, w, sub := setup()
-		ew := &ErrWriter{buf: sb, err: errors.New(errMsg)}
+		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
 		w.buf = ew
 		return w, ew, sub
 	}
@@ -529,7 +535,7 @@ func TestEmitMessage(t *testing.T) {
 
 	t.Run("ReturnsWriteErrors", func(t *testing.T) {
 		w, ew, sub := setupWithError("write MIME-Version error")
-		ew.errorOn = "MIME-Version"
+		ew.ErrorOn = "MIME-Version"
 
 		err := testTemplate.EmitMessage(w, sub)
 

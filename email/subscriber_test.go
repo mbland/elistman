@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
+	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
@@ -53,9 +54,11 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("EmitUnsubscribeHeaders", func(t *testing.T) {
-		emitHeadersSetup := func() (*Subscriber, *strings.Builder, *ErrWriter) {
+		emitHeadersSetup := func() (
+			*Subscriber, *strings.Builder, *tu.ErrWriter,
+		) {
 			sb := &strings.Builder{}
-			return setup(), sb, &ErrWriter{buf: sb}
+			return setup(), sb, &tu.ErrWriter{Buf: sb}
 		}
 
 		t.Run("EmitsNothingIfUnsubInfoNotSet", func(t *testing.T) {
@@ -82,16 +85,16 @@ func TestSubscriber(t *testing.T) {
 
 		t.Run("ReturnsErrorFromWritingFirstHeader", func(t *testing.T) {
 			sub, _, ew := emitHeadersSetup()
-			ew.errorOn = "List-Unsubscribe: "
-			ew.err = errors.New("write error")
+			ew.ErrorOn = "List-Unsubscribe: "
+			ew.Err = errors.New("write error")
 
 			assert.Error(t, sub.EmitUnsubscribeHeaders(ew), "write error")
 		})
 
 		t.Run("ReturnsErrorFromWritingSecondHeader", func(t *testing.T) {
 			sub, _, ew := emitHeadersSetup()
-			ew.errorOn = "List-Unsubscribe-Post: "
-			ew.err = errors.New("write error")
+			ew.ErrorOn = "List-Unsubscribe-Post: "
+			ew.Err = errors.New("write error")
 
 			assert.Error(t, sub.EmitUnsubscribeHeaders(ew), "write error")
 		})

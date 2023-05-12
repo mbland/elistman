@@ -3,23 +3,8 @@
 package email
 
 import (
-	"bytes"
 	"context"
-	"io"
 )
-
-type ErrWriter struct {
-	buf     io.Writer
-	errorOn string
-	err     error
-}
-
-func (ew *ErrWriter) Write(b []byte) (int, error) {
-	if bytes.Contains(b, []byte(ew.errorOn)) {
-		return 0, ew.err
-	}
-	return ew.buf.Write(b)
-}
 
 const testUnsubEmail = "unsubscribe@foo.com"
 const testApiBaseUrl = "https://foo.com/email"

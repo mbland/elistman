@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"bytes"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -15,6 +16,19 @@ import (
 )
 
 var CharsetUtf8 = map[string]string{"charset": "utf-8"}
+
+type ErrWriter struct {
+	Buf     io.Writer
+	ErrorOn string
+	Err     error
+}
+
+func (ew *ErrWriter) Write(b []byte) (int, error) {
+	if bytes.Contains(b, []byte(ew.ErrorOn)) {
+		return 0, ew.Err
+	}
+	return ew.Buf.Write(b)
+}
 
 func ParseMessage(t *testing.T, content string) (msg *mail.Message) {
 	t.Helper()
