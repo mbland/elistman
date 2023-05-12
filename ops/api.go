@@ -33,7 +33,7 @@ func UnsubscribeMailto(unsubEmail, emailAddr string, uid uuid.UUID) string {
 
 func makeApiUrl(baseUrl, opPrefix, emailAddr string, uid uuid.UUID) string {
 	sb := strings.Builder{}
-	sb.WriteString(baseUrl)
+	sb.WriteString(strings.TrimSuffix(baseUrl, "/"))
 	sb.WriteString(opPrefix)
 	sb.WriteString(emailAddr)
 	sb.WriteString("/")

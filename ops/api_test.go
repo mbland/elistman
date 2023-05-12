@@ -21,6 +21,15 @@ func TestApiEndpoints(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
+	t.Run("VerifyUrlTrimsBaseUrlTrailingSlash", func(t *testing.T) {
+		const expected = baseUrl + ApiPrefixVerify +
+			testutils.TestEmail + "/" + testutils.TestUidStr
+
+		actual := VerifyUrl(baseUrl+"/", testutils.TestEmail, testutils.TestUid)
+
+		assert.Equal(t, expected, actual)
+	})
+
 	t.Run("UnsubscribeUrl", func(t *testing.T) {
 		const expected = baseUrl + ApiPrefixUnsubscribe +
 			testutils.TestEmail + "/" + testutils.TestUidStr
