@@ -1,10 +1,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -112,11 +112,10 @@ func verifyHtmlBody(siteTitle, verifyLink string) string {
 	)
 }
 
-func (a *ProdAgent) makeVerificationEmail(
-	sub *db.Subscriber, msgBuf io.Writer,
-) error {
+func (a *ProdAgent) makeVerificationEmail(sub *db.Subscriber) []byte {
 	verifyLink := ops.VerifyUrl(a.ApiBaseUrl, sub.Email, sub.Uid)
 	recipient := &email.Subscriber{Email: sub.Email, Uid: sub.Uid}
+	buf := &bytes.Buffer{}
 
 	msg := email.NewMessageTemplate(&email.Message{
 		From:     a.SenderAddress,
@@ -124,7 +123,11 @@ func (a *ProdAgent) makeVerificationEmail(
 		TextBody: verifyTextBody(a.EmailSiteTitle, verifyLink),
 		HtmlBody: verifyHtmlBody(a.EmailSiteTitle, verifyLink),
 	})
-	return msg.EmitMessage(msgBuf, recipient)
+
+	// Don't check the EmitMessage error because bytes.Buffer can essentially
+	// never return an error. If it runs out of memory, it panics.
+	msg.EmitMessage(buf, recipient)
+	return buf.Bytes()
 }
 
 func (a *ProdAgent) Verify(

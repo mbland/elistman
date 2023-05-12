@@ -5,7 +5,6 @@ package agent
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -152,14 +151,9 @@ func TestGetOrCreateSubscriber(t *testing.T) {
 }
 
 func TestMakeVerificationEmail(t *testing.T) {
-	setup := func() (*ProdAgent, *strings.Builder) {
+	setup := func() *ProdAgent {
 		f := newProdAgentTestFixture()
-		return f.agent, &strings.Builder{}
-	}
-
-	setupWithError := func(errMsg string) (*ProdAgent, *tu.ErrWriter) {
-		agent, sb := setup()
-		return agent, &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
+		return f.agent
 	}
 
 	sub := &db.Subscriber{
@@ -170,13 +164,11 @@ func TestMakeVerificationEmail(t *testing.T) {
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		agent, sb := setup()
+		agent := setup()
 
-		err := agent.makeVerificationEmail(sub, sb)
+		rawMsg := agent.makeVerificationEmail(sub)
 
-		assert.NilError(t, err)
-
-		msg, _, pr := tu.ParseMultipartMessageAndBoundary(t, sb.String())
+		msg, _, pr := tu.ParseMultipartMessageAndBoundary(t, string(rawMsg))
 		th := tu.TestHeader{Header: msg.Header}
 		th.Assert(t, "From", agent.SenderAddress)
 		th.Assert(t, "To", sub.Email)
@@ -190,14 +182,6 @@ func TestMakeVerificationEmail(t *testing.T) {
 		htmlPart := tu.GetNextPartContent(t, pr, "text/html")
 		assert.Assert(t, is.Contains(htmlPart, agent.EmailSiteTitle))
 		assert.Assert(t, is.Contains(htmlPart, verifyLink))
-	})
-
-	t.Run("ReturnsWriteError", func(t *testing.T) {
-		agent, ew := setupWithError("simulated write error")
-
-		err := agent.makeVerificationEmail(sub, ew)
-
-		assert.ErrorContains(t, err, "simulated write error")
 	})
 }
 
