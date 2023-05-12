@@ -188,7 +188,7 @@ func TestErrorResponse(t *testing.T) {
 
 func TestLogApiResponse(t *testing.T) {
 	req := apiGatewayRequest(
-		http.MethodGet, ApiPrefixVerify+"mbland%40acm.org/0123-456-789",
+		http.MethodGet, ops.ApiPrefixVerify+"mbland%40acm.org/0123-456-789",
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logs.NewLogger(), req, res, nil)
 
-		expectedMsg := `192.168.0.1 "GET ` + ApiPrefixVerify +
+		expectedMsg := `192.168.0.1 "GET ` + ops.ApiPrefixVerify +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 200`
 		logs.AssertContains(t, expectedMsg)
 	})
@@ -208,7 +208,7 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
-		expectedMsg := `192.168.0.1 "GET ` + ApiPrefixVerify +
+		expectedMsg := `192.168.0.1 "GET ` + ops.ApiPrefixVerify +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
 		logs.AssertContains(t, expectedMsg)
 	})
@@ -216,7 +216,7 @@ func TestLogApiResponse(t *testing.T) {
 
 func TestNewApiRequest(t *testing.T) {
 	const requestId = "deadbeef"
-	const rawPath = ApiPrefixUnsubscribe + "/mbland%40acm.org/0123-456-789"
+	const rawPath = ops.ApiPrefixUnsubscribe + "/mbland%40acm.org/0123-456-789"
 	const contentType = "application/x-www-form-urlencoded; charset=utf-8"
 	const body = "List-Unsubscribe=One-Click"
 	pathParams := map[string]string{
@@ -448,7 +448,7 @@ func TestHandleApiRequest(t *testing.T) {
 	newUnsubscribeRequest := func() *apiRequest {
 		return &apiRequest{
 			Id: "deadbeef",
-			RawPath: ApiPrefixUnsubscribe + "mbland%40acm.org/" +
+			RawPath: ops.ApiPrefixUnsubscribe + "mbland%40acm.org/" +
 				testValidUidStr,
 			Method:      http.MethodGet,
 			ContentType: "text/plain",
@@ -527,7 +527,7 @@ func TestHandleApiRequest(t *testing.T) {
 }
 
 func TestApiHandleEvent(t *testing.T) {
-	req := apiGatewayRequest(http.MethodPost, ApiPrefixSubscribe)
+	req := apiGatewayRequest(http.MethodPost, ops.ApiPrefixSubscribe)
 	req.Body = "email=mbland%40acm.org"
 	req.Headers = map[string]string{
 		"content-type": "application/x-www-form-urlencoded",
@@ -535,7 +535,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfNewApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		badReq := apiGatewayRequest(http.MethodPost, ApiPrefixSubscribe)
+		badReq := apiGatewayRequest(http.MethodPost, ops.ApiPrefixSubscribe)
 
 		badReq.Body = "Definitely not base64 encoded"
 		badReq.IsBase64Encoded = true

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -274,21 +275,21 @@ func TestParseParams(t *testing.T) {
 
 func TestParseOperationType(t *testing.T) {
 	t.Run("Subscribe", func(t *testing.T) {
-		result, err := parseOperationType(ApiPrefixSubscribe)
+		result, err := parseOperationType(ops.ApiPrefixSubscribe)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Subscribe", result.String())
 	})
 
 	t.Run("Verify", func(t *testing.T) {
-		result, err := parseOperationType(ApiPrefixVerify + "/foobar")
+		result, err := parseOperationType(ops.ApiPrefixVerify + "/foobar")
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Verify", result.String())
 	})
 
 	t.Run("Unsubscribe", func(t *testing.T) {
-		result, err := parseOperationType(ApiPrefixUnsubscribe + "/foobar")
+		result, err := parseOperationType(ops.ApiPrefixUnsubscribe + "/foobar")
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Unsubscribe", result.String())
@@ -405,7 +406,7 @@ func TestParseApiRequest(t *testing.T) {
 		var parseError *ParseError
 
 		req := &apiRequest{
-			RawPath:     ApiPrefixSubscribe,
+			RawPath:     ops.ApiPrefixSubscribe,
 			Params:      map[string]string{},
 			Method:      http.MethodPost,
 			ContentType: "application/x-www-form-urlencoded",
@@ -424,7 +425,7 @@ func TestParseApiRequest(t *testing.T) {
 
 	t.Run("UserInputForEmailInvalid", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
-			RawPath: ApiPrefixSubscribe,
+			RawPath: ops.ApiPrefixSubscribe,
 			Params:  map[string]string{"email": "foobar"},
 		})
 
@@ -437,7 +438,7 @@ func TestParseApiRequest(t *testing.T) {
 		var parseError *ParseError
 
 		result, err := parseApiRequest(&apiRequest{
-			RawPath: ApiPrefixVerify + "mbland@acm.org/0123456789",
+			RawPath: ops.ApiPrefixVerify + "mbland@acm.org/0123456789",
 			Params: map[string]string{
 				"email": "mbland@acm.org", "uid": "0123456789",
 			},
@@ -451,7 +452,7 @@ func TestParseApiRequest(t *testing.T) {
 
 	t.Run("SuccessfulSubscribe", func(t *testing.T) {
 		req := &apiRequest{
-			RawPath:     ApiPrefixSubscribe,
+			RawPath:     ops.ApiPrefixSubscribe,
 			Params:      map[string]string{},
 			Method:      http.MethodPost,
 			ContentType: "application/x-www-form-urlencoded",
@@ -474,7 +475,7 @@ func TestParseApiRequest(t *testing.T) {
 		const uidStr = "00000000-1111-2222-3333-444444444444"
 
 		req := &apiRequest{
-			RawPath: ApiPrefixUnsubscribe + "/mbland@acm.org/" + uidStr,
+			RawPath: ops.ApiPrefixUnsubscribe + "/mbland@acm.org/" + uidStr,
 			Params: map[string]string{
 				"email": "mbland@acm.org", "uid": uidStr,
 			},

@@ -15,12 +15,6 @@ import (
 	"github.com/mbland/elistman/ops"
 )
 
-const (
-	ApiPrefixSubscribe   = "/subscribe"
-	ApiPrefixVerify      = "/verify/"
-	ApiPrefixUnsubscribe = "/unsubscribe/"
-)
-
 //go:generate go run golang.org/x/tools/cmd/stringer -type=eventOperationType
 type eventOperationType int
 
@@ -114,11 +108,11 @@ func paramError(optype eventOperationType, err error) (*eventOperation, error) {
 }
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
-	if strings.HasPrefix(endpoint, ApiPrefixSubscribe) {
+	if strings.HasPrefix(endpoint, ops.ApiPrefixSubscribe) {
 		return Subscribe, nil
-	} else if strings.HasPrefix(endpoint, ApiPrefixVerify) {
+	} else if strings.HasPrefix(endpoint, ops.ApiPrefixVerify) {
 		return Verify, nil
-	} else if strings.HasPrefix(endpoint, ApiPrefixUnsubscribe) {
+	} else if strings.HasPrefix(endpoint, ops.ApiPrefixUnsubscribe) {
 		return Unsubscribe, nil
 	}
 	return Undefined, fmt.Errorf("unknown endpoint: %s", endpoint)

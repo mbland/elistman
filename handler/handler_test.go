@@ -303,7 +303,7 @@ func TestHandleEvent(t *testing.T) {
 		f.event.Type = ApiRequest
 		f.agent.ReturnValue = ops.VerifyLinkSent
 
-		req := apiGatewayRequest(http.MethodPost, ApiPrefixSubscribe)
+		req := apiGatewayRequest(http.MethodPost, ops.ApiPrefixSubscribe)
 		req.Headers = map[string]string{
 			"content-type": "application/x-www-form-urlencoded",
 		}
