@@ -309,7 +309,6 @@ target page specified in the [Location HTTP header][].
 1. Check whether the UID matches that from the DynamoDB record.
    1. If not, return the `NOT_FOUND` page.
 1. Set the `SubscriberStatus` of the record to `Verified`.
-1. Send a `SUBSCRIBED` email containing the unsubscribe link.
 1. Return the `SUBSCRIBED` page.
 
 ### Responding to an unsubscribe request

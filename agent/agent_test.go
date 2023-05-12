@@ -272,3 +272,52 @@ func TestSubscribe(t *testing.T) {
 		assertServerErrorContains(t, err, "send failed")
 	})
 }
+
+func TestGetSubscriber(t *testing.T) {
+	setup := func() (*ProdAgent, *testdoubles.Database, context.Context) {
+		f := newProdAgentTestFixture()
+		return f.agent, f.db, context.Background()
+	}
+
+	t.Run("SucceedsWhenSubscriberExists", func(t *testing.T) {
+		agent, dbase, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, expectedSubscriber))
+
+		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, expectedSubscriber, sub)
+	})
+
+	t.Run("ReturnsNilSubscriberAndNilErrorIfNotFound", func(t *testing.T) {
+		agent, _, ctx := setup()
+
+		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(sub))
+	})
+
+	t.Run("ReturnsNilSubscriberAndNilErrorIfWrongUid", func(t *testing.T) {
+		agent, dbase, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, expectedSubscriber))
+		wrongUid := uuid.MustParse("11111111-2222-3333-5555-888888888888")
+
+		sub, err := agent.getSubscriber(ctx, testEmail, wrongUid)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(sub))
+	})
+
+	t.Run("PassesThroughServerError", func(t *testing.T) {
+		agent, dbase, ctx := setup()
+		dbase.SimulateGetErr = func(address string) error {
+			return makeServerError("error getting " + address)
+		}
+
+		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+
+		assert.Assert(t, is.Nil(sub))
+		assertServerErrorContains(t, err, "error getting "+testEmail)
+	})
+}

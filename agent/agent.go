@@ -149,6 +149,21 @@ func (a *ProdAgent) Unsubscribe(
 	return ops.Unsubscribed, nil
 }
 
+func (a *ProdAgent) getSubscriber(
+	ctx context.Context, address string, uid uuid.UUID,
+) (sub *db.Subscriber, err error) {
+	sub, err = a.Db.Get(ctx, address)
+
+	if errors.Is(err, db.ErrSubscriberNotFound) {
+		err = nil
+	} else if err != nil {
+		return
+	} else if sub.Uid != uid {
+		sub = nil
+	}
+	return
+}
+
 func (a *ProdAgent) Remove(ctx context.Context, email string) error {
 	return nil
 }
