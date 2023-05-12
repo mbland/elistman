@@ -288,7 +288,7 @@ func TestParseOperationType(t *testing.T) {
 	})
 
 	t.Run("Unsubscribe", func(t *testing.T) {
-		result, err := parseOperationType(UnsubscribePrefix + "/foobar")
+		result, err := parseOperationType(ApiPrefixUnsubscribe + "/foobar")
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Unsubscribe", result.String())
@@ -474,7 +474,7 @@ func TestParseApiRequest(t *testing.T) {
 		const uidStr = "00000000-1111-2222-3333-444444444444"
 
 		req := &apiRequest{
-			RawPath: UnsubscribePrefix + "/mbland@acm.org/" + uidStr,
+			RawPath: ApiPrefixUnsubscribe + "/mbland@acm.org/" + uidStr,
 			Params: map[string]string{
 				"email": "mbland@acm.org", "uid": uidStr,
 			},

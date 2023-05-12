@@ -216,7 +216,7 @@ func TestLogApiResponse(t *testing.T) {
 
 func TestNewApiRequest(t *testing.T) {
 	const requestId = "deadbeef"
-	const rawPath = UnsubscribePrefix + "/mbland%40acm.org/0123-456-789"
+	const rawPath = ApiPrefixUnsubscribe + "/mbland%40acm.org/0123-456-789"
 	const contentType = "application/x-www-form-urlencoded; charset=utf-8"
 	const body = "List-Unsubscribe=One-Click"
 	pathParams := map[string]string{
@@ -448,7 +448,7 @@ func TestHandleApiRequest(t *testing.T) {
 	newUnsubscribeRequest := func() *apiRequest {
 		return &apiRequest{
 			Id: "deadbeef",
-			RawPath: UnsubscribePrefix + "mbland%40acm.org/" +
+			RawPath: ApiPrefixUnsubscribe + "mbland%40acm.org/" +
 				testValidUidStr,
 			Method:      http.MethodGet,
 			ContentType: "text/plain",
