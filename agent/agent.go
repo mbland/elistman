@@ -25,15 +25,15 @@ type SubscriptionAgent interface {
 }
 
 type ProdAgent struct {
-	SenderAddress      string
-	UnsubscribeEmail   string
-	UnsubscribeBaseUrl string
-	NewUid             func() (uuid.UUID, error)
-	CurrentTime        func() time.Time
-	Db                 db.Database
-	Validator          email.AddressValidator
-	Mailer             email.Mailer
-	Log                *log.Logger
+	SenderAddress    string
+	UnsubscribeEmail string
+	ApiBaseUrl       string
+	NewUid           func() (uuid.UUID, error)
+	CurrentTime      func() time.Time
+	Db               db.Database
+	Validator        email.AddressValidator
+	Mailer           email.Mailer
+	Log              *log.Logger
 }
 
 func (a *ProdAgent) Subscribe(
