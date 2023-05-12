@@ -78,13 +78,20 @@ func (a *ProdAgent) getOrCreateSubscriber(
 		return
 	}
 
-	sub.Timestamp = a.CurrentTime()
-	if sub.Uid, err = a.NewUid(); err != nil {
-		sub = nil
-	} else if err = a.Db.Put(ctx, sub); err != nil {
+	if err = a.putSubscriber(ctx, sub); err != nil {
 		sub = nil
 	}
 	return
+}
+
+func (a *ProdAgent) putSubscriber(
+	ctx context.Context, sub *db.Subscriber,
+) (err error) {
+	sub.Timestamp = a.CurrentTime()
+	if sub.Uid, err = a.NewUid(); err != nil {
+		return err
+	}
+	return a.Db.Put(ctx, sub)
 }
 
 const verifySubjectPrefix = "Verify your email subscription to "

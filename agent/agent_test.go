@@ -82,6 +82,49 @@ func assertServerErrorContains(t *testing.T, err error, expectedMsg string) {
 	assert.Assert(t, tu.ErrorIs(err, ops.ErrExternal))
 }
 
+func TestPutSubscriber(t *testing.T) {
+	setup := func() (
+		*ProdAgent, *testdoubles.Database, *db.Subscriber, context.Context,
+	) {
+		f := newProdAgentTestFixture()
+		sub := &db.Subscriber{Email: testEmail, Status: db.SubscriberPending}
+		return f.agent, f.db, sub, context.Background()
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+
+		err := agent.putSubscriber(ctx, sub)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, expectedSubscriber, sub)
+		assert.DeepEqual(t, expectedSubscriber, dbase.Index[sub.Email])
+	})
+
+	t.Run("ReturnsErrorIfNewUidFails", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+		agent.NewUid = func() (uuid.UUID, error) {
+			return uuid.Nil, errors.New("NewUid failed")
+		}
+
+		err := agent.putSubscriber(ctx, sub)
+
+		assert.Error(t, err, "NewUid failed")
+		assert.Assert(t, is.Nil(dbase.Index[sub.Email]))
+	})
+
+	t.Run("PassesThroughPutError", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+		dbase.SimulatePutErr = func(address string) error {
+			return makeServerError("error while putting " + address)
+		}
+
+		err := agent.putSubscriber(ctx, sub)
+
+		assertServerErrorContains(t, err, "error while putting "+sub.Email)
+	})
+}
+
 func TestGetOrCreateSubscriber(t *testing.T) {
 	setup := func() (*prodAgentTestFixture, context.Context) {
 		return newProdAgentTestFixture(), context.Background()
@@ -137,28 +180,16 @@ func TestGetOrCreateSubscriber(t *testing.T) {
 		assertServerErrorContains(t, err, "test error while getting "+testEmail)
 	})
 
-	t.Run("ReturnsErrorIfNewUidFails", func(t *testing.T) {
-		f, ctx := setup()
-		f.agent.NewUid = func() (uuid.UUID, error) {
-			return uuid.Nil, errors.New("NewUid failed")
-		}
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.Assert(t, is.Nil(sub))
-		assert.Error(t, err, "NewUid failed")
-	})
-
-	t.Run("ReturnsErrorIfDatabasePutFails", func(t *testing.T) {
+	t.Run("PassesErrorThroughIfPutSubscriberFails", func(t *testing.T) {
 		f, ctx := setup()
 		f.db.SimulatePutErr = func(email string) error {
-			return makeServerError("test error while putting " + email)
+			return makeServerError("error while putting " + email)
 		}
 
 		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
 
 		assert.Assert(t, is.Nil(sub))
-		assertServerErrorContains(t, err, "test error while putting "+testEmail)
+		assertServerErrorContains(t, err, "error while putting "+testEmail)
 	})
 }
 
