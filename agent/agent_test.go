@@ -35,7 +35,7 @@ var verifiedSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       uuid.MustParse("55555555-6666-7777-8888-999999999999"),
 	Status:    db.SubscriberVerified,
-	Timestamp: time.Now(),
+	Timestamp: tu.TestTimestamp,
 }
 
 type prodAgentTestFixture struct {
@@ -319,5 +319,86 @@ func TestGetSubscriber(t *testing.T) {
 
 		assert.Assert(t, is.Nil(sub))
 		assertServerErrorContains(t, err, "error getting "+testEmail)
+	})
+}
+
+func TestVerify(t *testing.T) {
+	setup := func() (
+		*ProdAgent,
+		*testdoubles.Database,
+		*db.Subscriber,
+		context.Context) {
+		f := newProdAgentTestFixture()
+		sub := &db.Subscriber{
+			Email:     testEmail,
+			Uid:       tu.TestUid,
+			Status:    db.SubscriberPending,
+			Timestamp: tu.TestTimestamp,
+		}
+		return f.agent, f.db, sub, context.Background()
+	}
+
+	t.Run("SucceedsAndUpdatesStatusAndTimestamp", func(t *testing.T) {
+		agent, dbase, pendingSub, ctx := setup()
+		newTimestamp := time.Now().Truncate(time.Second)
+		agent.CurrentTime = func() time.Time {
+			return newTimestamp
+		}
+		assert.NilError(t, dbase.Put(ctx, pendingSub))
+
+		result, err := agent.Verify(ctx, pendingSub.Email, pendingSub.Uid)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.Subscribed, result)
+
+		sub, err := dbase.Get(ctx, pendingSub.Email)
+		assert.NilError(t, err)
+		assert.Equal(t, db.SubscriberVerified, sub.Status)
+		assert.Equal(t, newTimestamp, sub.Timestamp)
+	})
+
+	t.Run("ReturnsNotSubscribedIfNotFound", func(t *testing.T) {
+		agent, _, pendingSub, ctx := setup()
+
+		result, err := agent.Verify(ctx, pendingSub.Email, pendingSub.Uid)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.NotSubscribed, result)
+	})
+
+	t.Run("ReturnsAlreadySubscribedIfAlreadyVerified", func(t *testing.T) {
+		agent, dbase, _, ctx := setup()
+		verifiedSub := verifiedSubscriber
+		assert.NilError(t, dbase.Put(ctx, verifiedSub))
+
+		result, err := agent.Verify(ctx, verifiedSub.Email, verifiedSub.Uid)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.AlreadySubscribed, result)
+	})
+
+	t.Run("PassesThroughGetSubscriberError", func(t *testing.T) {
+		agent, dbase, pendingSub, ctx := setup()
+		dbase.SimulateGetErr = func(address string) error {
+			return makeServerError("failed to get " + address)
+		}
+
+		result, err := agent.Verify(ctx, pendingSub.Email, pendingSub.Uid)
+
+		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "failed to get "+pendingSub.Email)
+	})
+
+	t.Run("PassesThroughPutError", func(t *testing.T) {
+		agent, dbase, pendingSub, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, pendingSub))
+		dbase.SimulatePutErr = func(address string) error {
+			return makeServerError("failed to put " + address)
+		}
+
+		result, err := agent.Verify(ctx, pendingSub.Email, pendingSub.Uid)
+
+		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "failed to put "+pendingSub.Email)
 	})
 }

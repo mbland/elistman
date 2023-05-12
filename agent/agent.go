@@ -138,9 +138,27 @@ func (a *ProdAgent) makeVerificationEmail(sub *db.Subscriber) []byte {
 }
 
 func (a *ProdAgent) Verify(
-	ctx context.Context, email string, uid uuid.UUID,
-) (ops.OperationResult, error) {
-	return ops.Subscribed, nil
+	ctx context.Context, address string, uid uuid.UUID,
+) (result ops.OperationResult, err error) {
+	var sub *db.Subscriber
+
+	if sub, err = a.getSubscriber(ctx, address, uid); err != nil {
+		return
+	} else if sub == nil {
+		result = ops.NotSubscribed
+		return
+	} else if sub.Status == db.SubscriberVerified {
+		result = ops.AlreadySubscribed
+		return
+	}
+
+	sub.Status = db.SubscriberVerified
+	sub.Timestamp = a.CurrentTime()
+
+	if err = a.Db.Put(ctx, sub); err == nil {
+		result = ops.Subscribed
+	}
+	return
 }
 
 func (a *ProdAgent) Unsubscribe(
