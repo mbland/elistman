@@ -402,3 +402,66 @@ func TestVerify(t *testing.T) {
 		assertServerErrorContains(t, err, "failed to put "+pendingSub.Email)
 	})
 }
+
+func TestUnsubscribe(t *testing.T) {
+	setup := func() (
+		*ProdAgent,
+		*testdoubles.Database,
+		*db.Subscriber,
+		context.Context) {
+		f := newProdAgentTestFixture()
+		sub := &db.Subscriber{
+			Email:     testEmail,
+			Uid:       tu.TestUid,
+			Status:    db.SubscriberVerified,
+			Timestamp: tu.TestTimestamp,
+		}
+		return f.agent, f.db, sub, context.Background()
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, sub))
+
+		result, err := agent.Unsubscribe(ctx, sub.Email, sub.Uid)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.Unsubscribed, result)
+		assert.Assert(t, is.Nil(dbase.Index[sub.Email]))
+	})
+
+	t.Run("ReturnsNotSubscribedIfSubscriberNotFound", func(t *testing.T) {
+		agent, _, sub, ctx := setup()
+
+		result, err := agent.Unsubscribe(ctx, sub.Email, sub.Uid)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.NotSubscribed, result)
+	})
+
+	t.Run("PassesThroughGetSubscriberError", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+		dbase.SimulateGetErr = func(address string) error {
+			return makeServerError("failed to get " + address)
+		}
+
+		result, err := agent.Unsubscribe(ctx, sub.Email, sub.Uid)
+
+		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "failed to get "+sub.Email)
+	})
+
+	t.Run("PassesThroughPutError", func(t *testing.T) {
+		agent, dbase, sub, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, sub))
+		dbase.SimulateDelErr = func(address string) error {
+			return makeServerError("failed to delete " + address)
+		}
+
+		result, err := agent.Unsubscribe(ctx, sub.Email, sub.Uid)
+
+		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "failed to delete "+sub.Email)
+	})
+
+}

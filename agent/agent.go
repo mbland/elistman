@@ -162,9 +162,18 @@ func (a *ProdAgent) Verify(
 }
 
 func (a *ProdAgent) Unsubscribe(
-	ctx context.Context, email string, uid uuid.UUID,
-) (ops.OperationResult, error) {
-	return ops.Unsubscribed, nil
+	ctx context.Context, address string, uid uuid.UUID,
+) (result ops.OperationResult, err error) {
+	var sub *db.Subscriber
+
+	if sub, err = a.getSubscriber(ctx, address, uid); err != nil {
+		return
+	} else if sub == nil {
+		result = ops.NotSubscribed
+	} else if err = a.Db.Delete(ctx, address); err == nil {
+		result = ops.Unsubscribed
+	}
+	return
 }
 
 func (a *ProdAgent) getSubscriber(
