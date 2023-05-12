@@ -4,10 +4,7 @@ package email
 
 import (
 	"errors"
-	"io"
-	"mime"
 	"mime/multipart"
-	"mime/quotedprintable"
 	"net/mail"
 	"net/textproto"
 	"strings"
@@ -15,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
+	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -262,82 +260,6 @@ var textOnlyContent = "Content-Type: " + textContentType + "\r\n" +
 var decodedTextContent = string(convertToCrlf(testMessage.TextBody)) +
 	string(instantiatedTextFooter)
 
-func parseMessage(t *testing.T, content string) (msg *mail.Message) {
-	t.Helper()
-	var err error
-
-	if msg, err = mail.ReadMessage(strings.NewReader(content)); err != nil {
-		t.Fatalf("couldn't parse message from content: %s\n%s", err, content)
-	}
-	return
-}
-
-func assertValue(t *testing.T, name, expected, actual string) {
-	t.Helper()
-
-	if expected != actual {
-		t.Fatalf("expected %s: %s, actual: %s", name, expected, actual)
-	}
-}
-
-func assertContentTypeAndGetParams(
-	t *testing.T, headers textproto.MIMEHeader, expectedMediaType string,
-) (params map[string]string) {
-	t.Helper()
-
-	var mediaType string
-	var err error
-
-	if ct := headers.Get("Content-Type"); ct == "" {
-		t.Fatalf("no Content-Type header in: %+v", headers)
-	} else if mediaType, params, err = mime.ParseMediaType(ct); err != nil {
-		t.Fatalf("couldn't parse media type from: %s: %s", ct, err)
-	} else {
-		assertValue(t, "media type", expectedMediaType, mediaType)
-	}
-	return
-}
-
-func assertContentType(
-	t *testing.T,
-	headers textproto.MIMEHeader,
-	expectedMediaType string,
-	expectedParams map[string]string,
-) {
-	t.Helper()
-
-	params := assertContentTypeAndGetParams(t, headers, expectedMediaType)
-	const assertMsg = "unexpected Content-Type params"
-	assert.Assert(t, is.DeepEqual(expectedParams, params), assertMsg)
-}
-
-func assertDecodedContent(t *testing.T, content io.Reader, expected string) {
-	t.Helper()
-
-	if decoded, err := io.ReadAll(content); err != nil {
-		t.Errorf("couldn't read and decode content: %s", err)
-	} else {
-		actual := string(decoded)
-		assert.Equal(t, expected, actual)
-	}
-}
-
-func parseTextMessage(
-	t *testing.T, content string,
-) (msg *mail.Message, qpReader *quotedprintable.Reader) {
-	t.Helper()
-
-	msg = parseMessage(t, content)
-	header := textproto.MIMEHeader(msg.Header)
-	assertContentType(t, header, "text/plain", charsetUtf8)
-
-	const cte = "Content-Transfer-Encoding"
-	assertValue(t, cte, "quoted-printable", header.Get(cte))
-
-	qpReader = quotedprintable.NewReader(msg.Body)
-	return
-}
-
 func TestEmitTextOnly(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *ErrWriter, *Subscriber) {
 		sb := &strings.Builder{}
@@ -353,8 +275,8 @@ func TestEmitTextOnly(t *testing.T) {
 
 		assert.NilError(t, w.err)
 		assert.Equal(t, textOnlyContent, sb.String())
-		_, qpr := parseTextMessage(t, sb.String())
-		assertDecodedContent(t, qpr, decodedTextContent)
+		_, qpr := tu.ParseTextMessage(t, sb.String())
+		tu.AssertDecodedContent(t, qpr, decodedTextContent)
 	})
 
 	t.Run("ReturnsWriteQuotedPrintableError", func(t *testing.T) {
@@ -374,29 +296,6 @@ var textPart string = "Content-Transfer-Encoding: quoted-printable\r\n" +
 	"\r\n" +
 	string(testTemplate.textBody) +
 	string(encodedTextFooter)
-
-func assertNextPart(
-	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
-) {
-	t.Helper()
-
-	var part *multipart.Part
-	var err error
-
-	if part, err = reader.NextPart(); err != nil {
-		t.Fatalf("couldn't parse message part: %s", err)
-	}
-	assertContentType(t, part.Header, mediaType, charsetUtf8)
-
-	// Per: https://pkg.go.dev/mime/multipart#Reader.NextPart
-	//
-	// > As a special case, if the "Content-Transfer-Encoding" header has a
-	// > value of "quoted-printable", that header is instead hidden and the body
-	// > is transparently decoded during Read calls.
-	const cte = "Content-Transfer-Encoding"
-	assertValue(t, cte, "", part.Header.Get(cte))
-	assertDecodedContent(t, part, decoded)
-}
 
 func TestEmitPart(t *testing.T) {
 	setup := func() (
@@ -435,7 +334,7 @@ func TestEmitPart(t *testing.T) {
 		assert.NilError(t, mpw.Close()) // ensure end boundary written
 		contentReader := strings.NewReader(sb.String())
 		partReader := multipart.NewReader(contentReader, mpw.Boundary())
-		assertNextPart(t, partReader, "text/plain", decodedTextContent)
+		tu.AssertNextPart(t, partReader, "text/plain", decodedTextContent)
 	})
 
 	t.Run("ReturnsCreatePartError", func(t *testing.T) {
@@ -505,20 +404,6 @@ func multipartContent(boundary string) string {
 var decodedHtmlContent = string(convertToCrlf(testMessage.HtmlBody)) +
 	string(instantiatedHtmlFooter)
 
-func parseMultipartMessageAndBoundary(
-	t *testing.T, content string,
-) (msg *mail.Message, boundary string, partReader *multipart.Reader) {
-	t.Helper()
-
-	msg = parseMessage(t, content)
-	params := assertContentTypeAndGetParams(
-		t, textproto.MIMEHeader(msg.Header), "multipart/alternative",
-	)
-	boundary = params["boundary"]
-	partReader = multipart.NewReader(msg.Body, boundary)
-	return
-}
-
 func TestEmitMultipart(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *Subscriber) {
 		sb := &strings.Builder{}
@@ -540,10 +425,10 @@ func TestEmitMultipart(t *testing.T) {
 		testTemplate.emitMultipart(w, sub)
 
 		assert.NilError(t, w.err)
-		_, boundary, pr := parseMultipartMessageAndBoundary(t, sb.String())
+		_, boundary, pr := tu.ParseMultipartMessageAndBoundary(t, sb.String())
 		assert.Equal(t, multipartContent(boundary), sb.String())
-		assertNextPart(t, pr, "text/plain", decodedTextContent)
-		assertNextPart(t, pr, "text/html", decodedHtmlContent)
+		tu.AssertNextPart(t, pr, "text/plain", decodedTextContent)
+		tu.AssertNextPart(t, pr, "text/html", decodedHtmlContent)
 	})
 
 	t.Run("ReturnTextPartError", func(t *testing.T) {
@@ -586,28 +471,16 @@ const expectedHeaders = "From: EListMan@foo.com\r\n" +
 	"List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n" +
 	"MIME-Version: 1.0\r\n"
 
-type testHeader struct {
-	mail.Header
-}
-
-func (th *testHeader) assert(t *testing.T, name string, expected string) {
-	t.Helper()
-
-	if actual := th.Get(name); actual != expected {
-		t.Errorf("expected %s header: %s, actual: %s", name, expected, actual)
-	}
-}
-
 func assertMessageHeaders(t *testing.T, msg *mail.Message, content string) {
 	t.Helper()
 
-	th := testHeader{msg.Header}
-	th.assert(t, "From", testMessage.From)
-	th.assert(t, "To", testSubscriber.Email)
-	th.assert(t, "Subject", testMessage.Subject)
-	th.assert(t, "List-Unsubscribe", testUnsubHeaderValue)
-	th.assert(t, "List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
-	th.assert(t, "MIME-Version", "1.0")
+	th := tu.TestHeader{Header: msg.Header}
+	th.Assert(t, "From", testMessage.From)
+	th.Assert(t, "To", testSubscriber.Email)
+	th.Assert(t, "Subject", testMessage.Subject)
+	th.Assert(t, "List-Unsubscribe", testUnsubHeaderValue)
+	th.Assert(t, "List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+	th.Assert(t, "MIME-Version", "1.0")
 }
 
 func TestEmitMessage(t *testing.T) {
@@ -634,10 +507,10 @@ func TestEmitMessage(t *testing.T) {
 
 		assert.NilError(t, err)
 		content := sb.String()
-		msg, qpr := parseTextMessage(t, content)
+		msg, qpr := tu.ParseTextMessage(t, content)
 		assert.Equal(t, expectedHeaders+textOnlyContent, content)
 		assertMessageHeaders(t, msg, content)
-		assertDecodedContent(t, qpr, decodedTextContent)
+		tu.AssertDecodedContent(t, qpr, decodedTextContent)
 	})
 
 	t.Run("EmitsMultipartMessage", func(t *testing.T) {
@@ -647,11 +520,11 @@ func TestEmitMessage(t *testing.T) {
 
 		assert.NilError(t, err)
 		content := sb.String()
-		msg, boundary, pr := parseMultipartMessageAndBoundary(t, content)
+		msg, boundary, pr := tu.ParseMultipartMessageAndBoundary(t, content)
 		assert.Equal(t, expectedHeaders+multipartContent(boundary), content)
 		assertMessageHeaders(t, msg, content)
-		assertNextPart(t, pr, "text/plain", decodedTextContent)
-		assertNextPart(t, pr, "text/html", decodedHtmlContent)
+		tu.AssertNextPart(t, pr, "text/plain", decodedTextContent)
+		tu.AssertNextPart(t, pr, "text/html", decodedHtmlContent)
 	})
 
 	t.Run("ReturnsWriteErrors", func(t *testing.T) {
