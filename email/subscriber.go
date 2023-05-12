@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"io"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
@@ -20,30 +21,15 @@ type Subscriber struct {
 }
 
 func (sub *Subscriber) SetUnsubscribeInfo(email, apiBaseUrl string) {
-	uid := sub.Uid.String()
-	b := &bytes.Buffer{}
+	sub.unsubUrl = []byte(ops.UnsubscribeUrl(apiBaseUrl, sub.Email, sub.Uid))
 
-	b.Reset()
-	b.WriteString(apiBaseUrl)
-	b.WriteString(ops.ApiPrefixUnsubscribe)
-	b.WriteString(sub.Email)
-	b.WriteString("/")
-	b.WriteString(uid)
-	sub.unsubUrl = make([]byte, b.Len())
-	copy(sub.unsubUrl, b.Bytes())
-
-	b.Reset()
-	b.WriteString("List-Unsubscribe: <mailto:")
-	b.WriteString(email)
-	b.WriteString("?subject=")
-	b.WriteString(sub.Email)
-	b.WriteString("%20")
-	b.WriteString(uid)
-	b.WriteString(">, <")
-	b.Write(sub.unsubUrl)
-	b.WriteString(">\r\n")
-	sub.unsubHeader = make([]byte, b.Len())
-	copy(sub.unsubHeader, b.Bytes())
+	sb := &strings.Builder{}
+	sb.WriteString("List-Unsubscribe: <")
+	sb.WriteString(ops.UnsubscribeMailto(email, sub.Email, sub.Uid))
+	sb.WriteString(">, <")
+	sb.Write(sub.unsubUrl)
+	sb.WriteString(">\r\n")
+	sub.unsubHeader = []byte(sb.String())
 }
 
 var listUnsubscribePost = []byte(
