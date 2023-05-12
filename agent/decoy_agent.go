@@ -21,6 +21,7 @@ type DecoyAgent struct {
 	Db               db.Database
 	Validator        email.AddressValidator
 	Mailer           email.Mailer
+	Suppressor       email.Suppressor
 	Log              *log.Logger
 }
 

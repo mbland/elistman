@@ -188,6 +188,7 @@ func TestDynamoDb(t *testing.T) {
 		retrievedSubscriber, getErr := testDb.Get(ctx, subscriber.Email)
 		deleteErr := testDb.Delete(ctx, subscriber.Email)
 		_, getAfterDeleteErr := testDb.Get(ctx, subscriber.Email)
+		deleteAfterDeleteErr := testDb.Delete(ctx, subscriber.Email)
 
 		assert.NilError(t, putErr)
 		assert.NilError(t, getErr)
@@ -196,6 +197,9 @@ func TestDynamoDb(t *testing.T) {
 		assert.Assert(
 			t, testutils.ErrorIs(getAfterDeleteErr, ErrSubscriberNotFound),
 		)
+		// Believe it or not, deleting a nonexistent record doesn't raise any
+		// kind of an error.
+		assert.NilError(t, deleteAfterDeleteErr)
 	})
 
 	t.Run("UpdateTimeToLive", func(t *testing.T) {

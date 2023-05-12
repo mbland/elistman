@@ -36,6 +36,7 @@ type ProdAgent struct {
 	Db               db.Database
 	Validator        email.AddressValidator
 	Mailer           email.Mailer
+	Suppressor       email.Suppressor
 	Log              *log.Logger
 }
 
@@ -198,12 +199,19 @@ func (a *ProdAgent) getSubscriber(
 	return
 }
 
-func (a *ProdAgent) Remove(ctx context.Context, email string) error {
-	return nil
+func (a *ProdAgent) Remove(ctx context.Context, address string) (err error) {
+	if err = a.Db.Delete(ctx, address); err == nil {
+		err = a.Suppressor.Suppress(ctx, address)
+	}
+	return
 }
 
-// This should generate a new UUID as well as remove the user from the
-// account-level suppression list if present.
-func (a *ProdAgent) Restore(ctx context.Context, email string) error {
-	return nil
+func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
+	// Since the SnsHandler is calling this to restore a previous subscriber,
+	// presume they're already verified.
+	sub := &db.Subscriber{Email: address, Status: db.SubscriberVerified}
+	if err = a.putSubscriber(ctx, sub); err == nil {
+		err = a.Suppressor.Unsuppress(ctx, address)
+	}
+	return
 }

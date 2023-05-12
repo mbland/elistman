@@ -57,13 +57,20 @@ func (dbase *Database) Delete(_ context.Context, email string) error {
 		return err
 	}
 
-	subIndex := 0
+	subIndex := -1
 
 	for i, sub := range dbase.Subscribers {
 		if sub.Email == email {
 			subIndex = i
 			break
 		}
+	}
+
+	if subIndex == -1 {
+		// Believe it or not, deleting a nonexistent record doesn't raise any
+		// kind of an error. Confirmed by dynamodb_contract_test/
+		// PutGetAndDeleteSucceed.
+		return nil
 	}
 
 	before := dbase.Subscribers[:subIndex]

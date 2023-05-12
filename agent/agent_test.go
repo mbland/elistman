@@ -39,11 +39,12 @@ var verifiedSubscriber *db.Subscriber = &db.Subscriber{
 }
 
 type prodAgentTestFixture struct {
-	agent     *ProdAgent
-	db        *testdoubles.Database
-	validator *testdoubles.AddressValidator
-	mailer    *testdoubles.Mailer
-	logs      *tu.Logs
+	agent      *ProdAgent
+	db         *testdoubles.Database
+	validator  *testdoubles.AddressValidator
+	mailer     *testdoubles.Mailer
+	suppressor *testdoubles.Suppressor
+	logs       *tu.Logs
 }
 
 func newProdAgentTestFixture() *prodAgentTestFixture {
@@ -56,6 +57,7 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 	db := testdoubles.NewDatabase()
 	av := testdoubles.NewAddressValidator()
 	m := testdoubles.NewMailer()
+	sup := testdoubles.NewSuppressor()
 	logs, logger := tu.NewLogs()
 	pa := &ProdAgent{
 		testSender,
@@ -67,9 +69,10 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 		db,
 		av,
 		m,
+		sup,
 		logger,
 	}
-	return &prodAgentTestFixture{pa, db, av, m, logs}
+	return &prodAgentTestFixture{pa, db, av, m, sup, logs}
 }
 
 func makeServerError(msg string) error {
@@ -493,6 +496,106 @@ func TestUnsubscribe(t *testing.T) {
 
 		assert.Equal(t, ops.Invalid, result)
 		assertServerErrorContains(t, err, "failed to delete "+sub.Email)
+	})
+}
+
+func TestRemove(t *testing.T) {
+	setup := func() (
+		*ProdAgent,
+		*testdoubles.Database,
+		*testdoubles.Suppressor,
+		*db.Subscriber,
+		context.Context) {
+		f := newProdAgentTestFixture()
+		sub := &db.Subscriber{
+			Email:     testEmail,
+			Uid:       tu.TestUid,
+			Status:    db.SubscriberVerified,
+			Timestamp: tu.TestTimestamp,
+		}
+		return f.agent, f.db, f.suppressor, sub, context.Background()
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, dbase, suppressor, sub, ctx := setup()
+		assert.NilError(t, dbase.Put(ctx, sub))
+
+		err := agent.Remove(ctx, sub.Email)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(dbase.Index[sub.Email]))
+		assert.Assert(t, suppressor.Addresses[sub.Email] == true)
+	})
+
+	t.Run("PassesThroughDeleteError", func(t *testing.T) {
+		agent, dbase, _, sub, ctx := setup()
+		dbase.SimulateDelErr = func(address string) error {
+			return makeServerError("failed to delete " + address)
+		}
+
+		err := agent.Remove(ctx, sub.Email)
+
+		assertServerErrorContains(t, err, "failed to delete "+sub.Email)
+	})
+
+	t.Run("PassesThroughSuppressError", func(t *testing.T) {
+		agent, _, suppressor, sub, ctx := setup()
+		errMsg := "failed to suppress " + sub.Email
+		suppressor.Errors[sub.Email] = makeServerError(errMsg)
+
+		err := agent.Remove(ctx, sub.Email)
+
+		assertServerErrorContains(t, err, errMsg)
+	})
+}
+
+func TestRestore(t *testing.T) {
+	setup := func() (
+		*ProdAgent,
+		*testdoubles.Database,
+		*testdoubles.Suppressor,
+		*db.Subscriber,
+		context.Context) {
+		f := newProdAgentTestFixture()
+		expectedSub := &db.Subscriber{
+			Email:     testEmail,
+			Uid:       tu.TestUid,
+			Status:    db.SubscriberVerified,
+			Timestamp: tu.TestTimestamp,
+		}
+		return f.agent, f.db, f.suppressor, expectedSub, context.Background()
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, dbase, suppressor, expectedSub, ctx := setup()
+		suppressor.Addresses[expectedSub.Email] = true
+
+		err := agent.Restore(ctx, expectedSub.Email)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, expectedSub, dbase.Index[expectedSub.Email])
+		assert.Assert(t, suppressor.Addresses[expectedSub.Email] == false)
+	})
+
+	t.Run("PassesThroughPutError", func(t *testing.T) {
+		agent, dbase, _, expectedSub, ctx := setup()
+		dbase.SimulatePutErr = func(address string) error {
+			return makeServerError("failed to put " + address)
+		}
+
+		err := agent.Restore(ctx, expectedSub.Email)
+
+		assertServerErrorContains(t, err, "failed to put "+expectedSub.Email)
+	})
+
+	t.Run("PassesThroughUnsuppressError", func(t *testing.T) {
+		agent, _, suppressor, sub, ctx := setup()
+		errMsg := "failed to unsuppress " + sub.Email
+		suppressor.Errors[sub.Email] = makeServerError(errMsg)
+
+		err := agent.Restore(ctx, sub.Email)
+
+		assertServerErrorContains(t, err, errMsg)
 	})
 
 }
