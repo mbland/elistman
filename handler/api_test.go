@@ -527,7 +527,7 @@ func TestHandleApiRequest(t *testing.T) {
 }
 
 func TestApiHandleEvent(t *testing.T) {
-	req := apiGatewayRequest(http.MethodPost, SubscribePrefix)
+	req := apiGatewayRequest(http.MethodPost, ApiPrefixSubscribe)
 	req.Body = "email=mbland%40acm.org"
 	req.Headers = map[string]string{
 		"content-type": "application/x-www-form-urlencoded",
@@ -535,7 +535,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("ReturnsErrorIfNewApiRequestFails", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		badReq := apiGatewayRequest(http.MethodPost, SubscribePrefix)
+		badReq := apiGatewayRequest(http.MethodPost, ApiPrefixSubscribe)
 
 		badReq.Body = "Definitely not base64 encoded"
 		badReq.IsBase64Encoded = true

@@ -274,7 +274,7 @@ func TestParseParams(t *testing.T) {
 
 func TestParseOperationType(t *testing.T) {
 	t.Run("Subscribe", func(t *testing.T) {
-		result, err := parseOperationType(SubscribePrefix)
+		result, err := parseOperationType(ApiPrefixSubscribe)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Subscribe", result.String())
@@ -405,7 +405,7 @@ func TestParseApiRequest(t *testing.T) {
 		var parseError *ParseError
 
 		req := &apiRequest{
-			RawPath:     SubscribePrefix,
+			RawPath:     ApiPrefixSubscribe,
 			Params:      map[string]string{},
 			Method:      http.MethodPost,
 			ContentType: "application/x-www-form-urlencoded",
@@ -424,7 +424,7 @@ func TestParseApiRequest(t *testing.T) {
 
 	t.Run("UserInputForEmailInvalid", func(t *testing.T) {
 		result, err := parseApiRequest(&apiRequest{
-			RawPath: SubscribePrefix,
+			RawPath: ApiPrefixSubscribe,
 			Params:  map[string]string{"email": "foobar"},
 		})
 
@@ -451,7 +451,7 @@ func TestParseApiRequest(t *testing.T) {
 
 	t.Run("SuccessfulSubscribe", func(t *testing.T) {
 		req := &apiRequest{
-			RawPath:     SubscribePrefix,
+			RawPath:     ApiPrefixSubscribe,
 			Params:      map[string]string{},
 			Method:      http.MethodPost,
 			ContentType: "application/x-www-form-urlencoded",

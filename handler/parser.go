@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	SubscribePrefix   = "/subscribe"
-	VerifyPrefix      = "/verify/"
-	UnsubscribePrefix = "/unsubscribe/"
+	ApiPrefixSubscribe = "/subscribe"
+	VerifyPrefix       = "/verify/"
+	UnsubscribePrefix  = "/unsubscribe/"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=eventOperationType
@@ -114,7 +114,7 @@ func paramError(optype eventOperationType, err error) (*eventOperation, error) {
 }
 
 func parseOperationType(endpoint string) (eventOperationType, error) {
-	if strings.HasPrefix(endpoint, SubscribePrefix) {
+	if strings.HasPrefix(endpoint, ApiPrefixSubscribe) {
 		return Subscribe, nil
 	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
 		return Verify, nil
