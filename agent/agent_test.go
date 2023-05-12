@@ -42,6 +42,7 @@ type prodAgentTestFixture struct {
 	agent     *ProdAgent
 	db        *testdoubles.Database
 	validator *testdoubles.AddressValidator
+	mailer    *testdoubles.Mailer
 	logs      *tu.Logs
 }
 
@@ -54,6 +55,7 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 	}
 	db := testdoubles.NewDatabase()
 	av := testdoubles.NewAddressValidator()
+	m := testdoubles.NewMailer()
 	logs, logger := tu.NewLogs()
 	pa := &ProdAgent{
 		testSender,
@@ -64,10 +66,10 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 		currentTime,
 		db,
 		av,
-		nil,
+		m,
 		logger,
 	}
-	return &prodAgentTestFixture{pa, db, av, logs}
+	return &prodAgentTestFixture{pa, db, av, m, logs}
 }
 
 func TestGetOrCreateSubscriber(t *testing.T) {
@@ -190,15 +192,26 @@ func TestSubscribe(t *testing.T) {
 		return newProdAgentTestFixture(), context.Background()
 	}
 
-	t.Run("CreatesNewSubscriber", func(t *testing.T) {
+	t.Run("CreatesNewSubscriberAndSendsVerificationEmail", func(t *testing.T) {
 		f, ctx := setup()
+		msgId := "deadbeef"
+		f.mailer.MessageIds[testEmail] = msgId
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.VerifyLinkSent, result)
 		f.validator.AssertValidated(t, testEmail)
-		assert.DeepEqual(t, expectedSubscriber, f.db.Index[testEmail])
+
+		sub := f.db.Index[testEmail]
+		assert.DeepEqual(t, expectedSubscriber, sub)
+
+		verifyEmail := f.mailer.GetMessageTo(t, testEmail)
+		assert.Assert(t, is.Contains(verifyEmail, verifySubjectPrefix))
+
+		expectedLog := "sent verification email to " + testEmail +
+			" with ID " + msgId
+		f.logs.AssertContains(t, expectedLog)
 	})
 
 	t.Run("DoesNotSendEmailToVerifiedSubscriber", func(t *testing.T) {
@@ -242,5 +255,15 @@ func TestSubscribe(t *testing.T) {
 
 		assert.Equal(t, ops.Invalid, result)
 		assert.Error(t, err, "test error while getting "+testEmail)
+	})
+
+	t.Run("ReturnsErrorIfSendingVerificationEmailFails", func(t *testing.T) {
+		f, ctx := setup()
+		f.mailer.RecipientErrors[testEmail] = errors.New("send failed")
+
+		result, err := f.agent.Subscribe(ctx, testEmail)
+
+		assert.Error(t, err, "send failed")
+		assert.Equal(t, ops.Invalid, result)
 	})
 }

@@ -56,7 +56,14 @@ func (a *ProdAgent) Subscribe(
 		result = ops.AlreadySubscribed
 		return
 	}
-	result = ops.VerifyLinkSent
+
+	msg := a.makeVerificationEmail(sub)
+	var msgId string
+
+	if msgId, err = a.Mailer.Send(ctx, address, msg); err == nil {
+		a.Log.Printf("sent verification email to %s with ID %s", address, msgId)
+		result = ops.VerifyLinkSent
+	}
 	return
 }
 
