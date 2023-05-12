@@ -13,6 +13,7 @@ import (
 
 type DecoyAgent struct {
 	SenderAddress    string
+	EmailSiteTitle   string
 	UnsubscribeEmail string
 	ApiBaseUrl       string
 	NewUid           func() (uuid.UUID, error)

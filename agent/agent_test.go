@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,21 +14,22 @@ import (
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testdoubles"
-	"github.com/mbland/elistman/testutils"
+	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
 
 const testEmail = "foo@bar.com"
 const testSender = "updates@foo.com"
+const testSiteTitle = "Foo Blog"
 const testUnsubEmail = "unsubscribe@foo.com"
 const testUnsubBaseUrl = "https://foo.com/email/"
 
 var expectedSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
-	Uid:       testutils.TestUid,
+	Uid:       tu.TestUid,
 	Status:    db.SubscriberPending,
-	Timestamp: testutils.TestTimestamp,
+	Timestamp: tu.TestTimestamp,
 }
 
 var verifiedSubscriber *db.Subscriber = &db.Subscriber{
@@ -41,21 +43,22 @@ type prodAgentTestFixture struct {
 	agent     *ProdAgent
 	db        *testdoubles.Database
 	validator *testdoubles.AddressValidator
-	logs      *testutils.Logs
+	logs      *tu.Logs
 }
 
 func newProdAgentTestFixture() *prodAgentTestFixture {
 	newUid := func() (uuid.UUID, error) {
-		return testutils.TestUid, nil
+		return tu.TestUid, nil
 	}
 	currentTime := func() time.Time {
-		return testutils.TestTimestamp
+		return tu.TestTimestamp
 	}
 	db := testdoubles.NewDatabase()
 	av := testdoubles.NewAddressValidator()
-	logs, logger := testutils.NewLogs()
+	logs, logger := tu.NewLogs()
 	pa := &ProdAgent{
 		testSender,
+		testSiteTitle,
 		testUnsubEmail,
 		testUnsubBaseUrl,
 		newUid,
@@ -145,6 +148,56 @@ func TestGetOrCreateSubscriber(t *testing.T) {
 
 		assert.Assert(t, is.Nil(sub))
 		assert.Error(t, err, "test error while putting "+testEmail)
+	})
+}
+
+func TestMakeVerificationEmail(t *testing.T) {
+	setup := func() (*ProdAgent, *strings.Builder) {
+		f := newProdAgentTestFixture()
+		return f.agent, &strings.Builder{}
+	}
+
+	setupWithError := func(errMsg string) (*ProdAgent, *tu.ErrWriter) {
+		agent, sb := setup()
+		return agent, &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
+	}
+
+	sub := &db.Subscriber{
+		Email:     tu.TestEmail,
+		Uid:       tu.TestUid,
+		Status:    db.SubscriberPending,
+		Timestamp: tu.TestTimestamp,
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, sb := setup()
+
+		err := agent.makeVerificationEmail(sub, sb)
+
+		assert.NilError(t, err)
+
+		msg, _, pr := tu.ParseMultipartMessageAndBoundary(t, sb.String())
+		th := tu.TestHeader{Header: msg.Header}
+		th.Assert(t, "From", agent.SenderAddress)
+		th.Assert(t, "To", sub.Email)
+		th.Assert(t, "Subject", verifySubjectPrefix+agent.EmailSiteTitle)
+
+		verifyLink := ops.VerifyUrl(agent.ApiBaseUrl, sub.Email, sub.Uid)
+		textPart := tu.GetNextPartContent(t, pr, "text/plain")
+		assert.Assert(t, is.Contains(textPart, agent.EmailSiteTitle))
+		assert.Assert(t, is.Contains(textPart, verifyLink))
+
+		htmlPart := tu.GetNextPartContent(t, pr, "text/html")
+		assert.Assert(t, is.Contains(htmlPart, agent.EmailSiteTitle))
+		assert.Assert(t, is.Contains(htmlPart, verifyLink))
+	})
+
+	t.Run("ReturnsWriteError", func(t *testing.T) {
+		agent, ew := setupWithError("simulated write error")
+
+		err := agent.makeVerificationEmail(sub, ew)
+
+		assert.ErrorContains(t, err, "simulated write error")
 	})
 }
 

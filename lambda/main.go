@@ -46,6 +46,7 @@ func buildHandler() (h *handler.Handler, err error) {
 				opts.SenderUserName,
 				opts.EmailDomainName,
 			),
+			EmailSiteTitle: opts.EmailSiteTitle,
 			UnsubscribeEmail: opts.UnsubscribeUserName +
 				"@" + opts.EmailDomainName,
 			ApiBaseUrl: fmt.Sprintf(

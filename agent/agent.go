@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -26,6 +28,7 @@ type SubscriptionAgent interface {
 
 type ProdAgent struct {
 	SenderAddress    string
+	EmailSiteTitle   string
 	UnsubscribeEmail string
 	ApiBaseUrl       string
 	NewUid           func() (uuid.UUID, error)
@@ -75,6 +78,53 @@ func (a *ProdAgent) getOrCreateSubscriber(
 		sub = nil
 	}
 	return
+}
+
+const verifySubjectPrefix = "Verify your email subscription to "
+
+const verifyTextFormat = `` +
+	`Please verify your email subscription to %s by clicking:
+
+- %s
+
+If you did not subscribe, please ignore this email.
+`
+
+const verifyHtmlFormat = `` +
+	`<!DOCTYPE html>
+<html>
+<head><title>Verify your email subscription to %s</title></head>
+<body>
+<p>Please verify your email subscription to %s by clicking:</p>
+<ul><li><a href=\"%s\">%s</a></li></ul>
+<p>If you did not subscribe, please ignore this email.</p>
+</body>
+</html>
+`
+
+func verifyTextBody(siteTitle, verifyLink string) string {
+	return fmt.Sprintf(verifyTextFormat, siteTitle, verifyLink)
+}
+
+func verifyHtmlBody(siteTitle, verifyLink string) string {
+	return fmt.Sprintf(
+		verifyHtmlFormat, siteTitle, siteTitle, verifyLink, verifyLink,
+	)
+}
+
+func (a *ProdAgent) makeVerificationEmail(
+	sub *db.Subscriber, msgBuf io.Writer,
+) error {
+	verifyLink := ops.VerifyUrl(a.ApiBaseUrl, sub.Email, sub.Uid)
+	recipient := &email.Subscriber{Email: sub.Email, Uid: sub.Uid}
+
+	msg := email.NewMessageTemplate(&email.Message{
+		From:     a.SenderAddress,
+		Subject:  verifySubjectPrefix + a.EmailSiteTitle,
+		TextBody: verifyTextBody(a.EmailSiteTitle, verifyLink),
+		HtmlBody: verifyHtmlBody(a.EmailSiteTitle, verifyLink),
+	})
+	return msg.EmitMessage(msgBuf, recipient)
 }
 
 func (a *ProdAgent) Verify(
