@@ -188,7 +188,7 @@ func TestErrorResponse(t *testing.T) {
 
 func TestLogApiResponse(t *testing.T) {
 	req := apiGatewayRequest(
-		http.MethodGet, VerifyPrefix+"mbland%40acm.org/0123-456-789",
+		http.MethodGet, ApiPrefixVerify+"mbland%40acm.org/0123-456-789",
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logs.NewLogger(), req, res, nil)
 
-		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
+		expectedMsg := `192.168.0.1 "GET ` + ApiPrefixVerify +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 200`
 		logs.AssertContains(t, expectedMsg)
 	})
@@ -208,7 +208,7 @@ func TestLogApiResponse(t *testing.T) {
 
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
-		expectedMsg := `192.168.0.1 "GET ` + VerifyPrefix +
+		expectedMsg := `192.168.0.1 "GET ` + ApiPrefixVerify +
 			`mbland%40acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
 		logs.AssertContains(t, expectedMsg)
 	})

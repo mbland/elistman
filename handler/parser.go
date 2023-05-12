@@ -17,7 +17,7 @@ import (
 
 const (
 	ApiPrefixSubscribe = "/subscribe"
-	VerifyPrefix       = "/verify/"
+	ApiPrefixVerify    = "/verify/"
 	UnsubscribePrefix  = "/unsubscribe/"
 )
 
@@ -116,7 +116,7 @@ func paramError(optype eventOperationType, err error) (*eventOperation, error) {
 func parseOperationType(endpoint string) (eventOperationType, error) {
 	if strings.HasPrefix(endpoint, ApiPrefixSubscribe) {
 		return Subscribe, nil
-	} else if strings.HasPrefix(endpoint, VerifyPrefix) {
+	} else if strings.HasPrefix(endpoint, ApiPrefixVerify) {
 		return Verify, nil
 	} else if strings.HasPrefix(endpoint, UnsubscribePrefix) {
 		return Unsubscribe, nil

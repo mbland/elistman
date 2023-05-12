@@ -281,7 +281,7 @@ func TestParseOperationType(t *testing.T) {
 	})
 
 	t.Run("Verify", func(t *testing.T) {
-		result, err := parseOperationType(VerifyPrefix + "/foobar")
+		result, err := parseOperationType(ApiPrefixVerify + "/foobar")
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Verify", result.String())
@@ -437,7 +437,7 @@ func TestParseApiRequest(t *testing.T) {
 		var parseError *ParseError
 
 		result, err := parseApiRequest(&apiRequest{
-			RawPath: VerifyPrefix + "mbland@acm.org/0123456789",
+			RawPath: ApiPrefixVerify + "mbland@acm.org/0123456789",
 			Params: map[string]string{
 				"email": "mbland@acm.org", "uid": "0123456789",
 			},
