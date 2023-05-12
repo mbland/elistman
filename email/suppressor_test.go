@@ -51,6 +51,12 @@ func (ses *TestSesV2) DeleteSuppressedDestination(
 	return ses.deleteOutput, ses.deleteError
 }
 
+func notFoundException() error {
+	// Wrap the error to make sure the implementation is using errors.As
+	// properly, versus a type assertion.
+	return fmt.Errorf("404: %w", &types.NotFoundException{})
+}
+
 func TestIsSuppressed(t *testing.T) {
 	setup := func() (*TestSesV2, *SesSuppressor, context.Context) {
 		testSesV2 := &TestSesV2{}
@@ -69,11 +75,7 @@ func TestIsSuppressed(t *testing.T) {
 
 	t.Run("ReturnsFalseIfNotSuppressed", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		// Wrap the following error to make sure the implementation is using
-		// errors.As properly, versus a type assertion.
-		testSesV2.getError = fmt.Errorf(
-			"404: %w", &types.NotFoundException{},
-		)
+		testSesV2.getError = notFoundException()
 
 		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
@@ -132,6 +134,15 @@ func TestUnsuppress(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		_, suppressor, ctx := setup()
+
+		err := suppressor.Unsuppress(ctx, "foo@bar.com")
+
+		assert.NilError(t, err)
+	})
+
+	t.Run("SucceedsEvenIfUserIsNotSuppressed", func(t *testing.T) {
+		testSesV2, suppressor, ctx := setup()
+		testSesV2.deleteError = notFoundException()
 
 		err := suppressor.Unsuppress(ctx, "foo@bar.com")
 

@@ -31,12 +31,20 @@ func TestSesSuppressor(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, verdict == true)
 
+	// Suppressing an already suppressed address should be OK.
+	err = suppressor.Suppress(ctx, email)
+	assert.NilError(t, err)
+
 	err = suppressor.Unsuppress(ctx, email)
 	assert.NilError(t, err)
 
 	verdict, err = suppressor.IsSuppressed(ctx, email)
 	assert.NilError(t, err)
 	assert.Assert(t, verdict == false)
+
+	// Unsuppressing nonexistent address should be OK.
+	err = suppressor.Unsuppress(ctx, email)
+	assert.NilError(t, err)
 
 	const expectedEmptyLogs = ""
 	assert.Equal(t, expectedEmptyLogs, logs.Logs())

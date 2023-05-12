@@ -86,10 +86,13 @@ func (mailer *SesSuppressor) Unsuppress(ctx context.Context, email string) error
 	input := &sesv2.DeleteSuppressedDestinationInput{
 		EmailAddress: aws.String(email),
 	}
+	var notFoundErr *types.NotFoundException
 
 	_, err := mailer.Client.DeleteSuppressedDestination(ctx, input)
 
-	if err != nil {
+	if errors.As(err, &notFoundErr) {
+		err = nil
+	} else if err != nil {
 		err = ops.AwsError("failed to unsuppress "+email, err)
 	}
 	return err
