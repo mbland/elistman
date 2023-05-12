@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 )
 
 const UnsubscribeUrlTemplate = "{{UnsubscribeUrl}}"
@@ -18,12 +19,13 @@ type Subscriber struct {
 	unsubHeader []byte
 }
 
-func (sub *Subscriber) SetUnsubscribeInfo(email, baseUrl string) {
+func (sub *Subscriber) SetUnsubscribeInfo(email, apiBaseUrl string) {
 	uid := sub.Uid.String()
 	b := &bytes.Buffer{}
 
 	b.Reset()
-	b.WriteString(baseUrl)
+	b.WriteString(apiBaseUrl)
+	b.WriteString(ops.ApiPrefixUnsubscribe)
 	b.WriteString(sub.Email)
 	b.WriteString("/")
 	b.WriteString(uid)

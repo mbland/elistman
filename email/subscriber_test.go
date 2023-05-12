@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
 )
 
@@ -18,14 +19,15 @@ func TestSubscriber(t *testing.T) {
 			Email: "subscriber@foo.com",
 			Uid:   uuid.MustParse(testUid),
 		}
-		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sub
 	}
 
 	expectedUrlAndHeader := func(sub *Subscriber) (string, string) {
 		const mailtoFmt = "mailto:%s?subject=%s%%20%s"
 		mailto := fmt.Sprintf(mailtoFmt, testUnsubEmail, sub.Email, testUid)
-		unsubUrl := fmt.Sprintf("%s%s/%s", testUnsubBaseUrl, sub.Email, testUid)
+		unsubUrl := testApiBaseUrl + ops.ApiPrefixUnsubscribe +
+			sub.Email + "/" + testUid
 		header := fmt.Sprintf(
 			"List-Unsubscribe: <%s>, <%s>\r\n", mailto, unsubUrl,
 		)

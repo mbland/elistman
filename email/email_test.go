@@ -22,7 +22,7 @@ func (ew *ErrWriter) Write(b []byte) (int, error) {
 }
 
 const testUnsubEmail = "unsubscribe@foo.com"
-const testUnsubBaseUrl = "https://foo.com/email/unsubscribe/"
+const testApiBaseUrl = "https://foo.com/email"
 const testUid = "00000000-1111-2222-3333-444444444444"
 
 type TestSuppressor struct {

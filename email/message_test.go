@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -341,7 +342,7 @@ func TestEmitTextOnly(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *ErrWriter, *Subscriber) {
 		sb := &strings.Builder{}
 		sub := newTestSubscriber()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, &ErrWriter{buf: sb}, sub
 	}
 
@@ -522,7 +523,7 @@ func TestEmitMultipart(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *Subscriber) {
 		sb := &strings.Builder{}
 		sub := newTestSubscriber()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, sub
 	}
 
@@ -575,7 +576,8 @@ func TestEmitMultipart(t *testing.T) {
 
 const testUnsubHeaderValue = "<mailto:" + testUnsubEmail +
 	"?subject=subscriber@foo.com%20" + testUid + ">, " +
-	"<" + testUnsubBaseUrl + "subscriber@foo.com/" + testUid + ">"
+	"<" + testApiBaseUrl + ops.ApiPrefixUnsubscribe +
+	"subscriber@foo.com/" + testUid + ">"
 
 const expectedHeaders = "From: EListMan@foo.com\r\n" +
 	"To: subscriber@foo.com\r\n" +
@@ -612,7 +614,7 @@ func TestEmitMessage(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *Subscriber) {
 		sb := &strings.Builder{}
 		sub := newTestSubscriber()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubBaseUrl)
+		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, sub
 	}
 
