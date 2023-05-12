@@ -65,15 +65,21 @@ func AssertContentType(
 	assert.Assert(t, is.DeepEqual(expectedParams, params), assertMsg)
 }
 
+func GetDecodedContent(t *testing.T, content io.Reader) string {
+	t.Helper()
+	var decoded []byte
+	var err error
+
+	if decoded, err = io.ReadAll(content); err != nil {
+		t.Fatalf("couldn't read and decode content: %s", err)
+	}
+	return string(decoded)
+}
+
 func AssertDecodedContent(t *testing.T, content io.Reader, expected string) {
 	t.Helper()
-
-	if decoded, err := io.ReadAll(content); err != nil {
-		t.Errorf("couldn't read and decode content: %s", err)
-	} else {
-		actual := string(decoded)
-		assert.Equal(t, expected, actual)
-	}
+	actual := GetDecodedContent(t, content)
+	assert.Equal(t, expected, actual)
 }
 
 func ParseTextMessage(
@@ -92,9 +98,9 @@ func ParseTextMessage(
 	return
 }
 
-func AssertNextPart(
-	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
-) {
+func GetNextPart(
+	t *testing.T, reader *multipart.Reader, mediaType string,
+) io.Reader {
 	t.Helper()
 
 	var part *multipart.Part
@@ -112,7 +118,21 @@ func AssertNextPart(
 	// > is transparently decoded during Read calls.
 	const cte = "Content-Transfer-Encoding"
 	AssertValue(t, cte, "", part.Header.Get(cte))
-	AssertDecodedContent(t, part, decoded)
+	return part
+}
+
+func GetNextPartContent(
+	t *testing.T, reader *multipart.Reader, mediaType string,
+) string {
+	t.Helper()
+	return GetDecodedContent(t, GetNextPart(t, reader, mediaType))
+}
+
+func AssertNextPart(
+	t *testing.T, reader *multipart.Reader, mediaType, decoded string,
+) {
+	t.Helper()
+	AssertDecodedContent(t, GetNextPart(t, reader, mediaType), decoded)
 }
 
 func ParseMultipartMessageAndBoundary(
