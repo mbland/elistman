@@ -208,7 +208,7 @@ func TestSubscribe(t *testing.T) {
 		f.logs.AssertContains(t, testEmail+" failed validation: testing")
 	})
 
-	t.Run("ReturnsErrorIfValidateAddressReturnsError", func(t *testing.T) {
+	t.Run("PassesThroughValidateAddressError", func(t *testing.T) {
 		f, ctx := setup()
 		f.validator.Error = makeServerError("SES error")
 
@@ -219,7 +219,7 @@ func TestSubscribe(t *testing.T) {
 		f.mailer.AssertNoMessageSent(t, testEmail)
 	})
 
-	t.Run("ReturnsErrorIfGetOrCreateSubscriberFails", func(t *testing.T) {
+	t.Run("PassesThroughGetError", func(t *testing.T) {
 		f, ctx := setup()
 		f.db.SimulateGetErr = func(email string) error {
 			return makeServerError("error getting " + email)
@@ -232,7 +232,20 @@ func TestSubscribe(t *testing.T) {
 		f.mailer.AssertNoMessageSent(t, testEmail)
 	})
 
-	t.Run("ReturnsErrorIfSendingVerificationEmailFails", func(t *testing.T) {
+	t.Run("PassesThroughPutError", func(t *testing.T) {
+		f, ctx := setup()
+		f.db.SimulatePutErr = func(email string) error {
+			return makeServerError("error putting " + email)
+		}
+
+		result, err := f.agent.Subscribe(ctx, testEmail)
+
+		assert.Equal(t, ops.Invalid, result)
+		assertServerErrorContains(t, err, "error putting "+testEmail)
+		f.mailer.AssertNoMessageSent(t, testEmail)
+	})
+
+	t.Run("PassesThroughSendError", func(t *testing.T) {
 		f, ctx := setup()
 		f.mailer.RecipientErrors[testEmail] = makeServerError("send failed")
 
