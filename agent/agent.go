@@ -44,17 +44,23 @@ func (a *ProdAgent) Subscribe(
 	ctx context.Context, address string,
 ) (result ops.OperationResult, err error) {
 	var failure *email.ValidationFailure
-	var sub *db.Subscriber
 
 	if failure, err = a.Validator.ValidateAddress(ctx, address); err != nil {
 		return
 	} else if failure != nil {
 		a.Log.Printf("%s failed validation: %s", address, failure)
 		return
-	} else if sub, err = a.getOrCreateSubscriber(ctx, address); err != nil {
-		return
-	} else if sub.Status == db.SubscriberVerified {
+	}
+
+	if _, err = a.Db.Get(ctx, address); err == nil {
 		result = ops.AlreadySubscribed
+		return
+	} else if !errors.Is(err, db.ErrSubscriberNotFound) {
+		return
+	}
+
+	sub := &db.Subscriber{Email: address, Status: db.SubscriberPending}
+	if err = a.putSubscriber(ctx, sub); err != nil {
 		return
 	}
 
@@ -64,23 +70,6 @@ func (a *ProdAgent) Subscribe(
 	if msgId, err = a.Mailer.Send(ctx, address, msg); err == nil {
 		a.Log.Printf("sent verification email to %s with ID %s", address, msgId)
 		result = ops.VerifyLinkSent
-	}
-	return
-}
-
-func (a *ProdAgent) getOrCreateSubscriber(
-	ctx context.Context, address string,
-) (sub *db.Subscriber, err error) {
-	sub, err = a.Db.Get(ctx, address)
-
-	if errors.Is(err, db.ErrSubscriberNotFound) {
-		sub = &db.Subscriber{Email: address, Status: db.SubscriberPending}
-	} else if err != nil || sub.Status == db.SubscriberVerified {
-		return
-	}
-
-	if err = a.putSubscriber(ctx, sub); err != nil {
-		sub = nil
 	}
 	return
 }

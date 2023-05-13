@@ -128,74 +128,6 @@ func TestPutSubscriber(t *testing.T) {
 	})
 }
 
-func TestGetOrCreateSubscriber(t *testing.T) {
-	setup := func() (*prodAgentTestFixture, context.Context) {
-		return newProdAgentTestFixture(), context.Background()
-	}
-
-	t.Run("CreatesNewSubscriber", func(t *testing.T) {
-		f, ctx := setup()
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.NilError(t, err)
-		assert.DeepEqual(t, expectedSubscriber, sub)
-		assert.DeepEqual(t, expectedSubscriber, f.db.Index[testEmail])
-	})
-
-	t.Run("ReturnsVerifiedSubscriberUnchanged", func(t *testing.T) {
-		f, ctx := setup()
-		assert.NilError(t, f.db.Put(ctx, verifiedSubscriber))
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.NilError(t, err)
-		assert.DeepEqual(t, verifiedSubscriber, sub)
-		assert.DeepEqual(t, verifiedSubscriber, f.db.Index[testEmail])
-	})
-
-	t.Run("ReturnsPendingSubscriberWithNewUidAndTimestamp", func(t *testing.T) {
-		f, ctx := setup()
-		pendingSubscriber := &db.Subscriber{
-			Email:     testEmail,
-			Uid:       uuid.MustParse("11111111-2222-3333-5555-888888888888"),
-			Status:    db.SubscriberPending,
-			Timestamp: time.Now(),
-		}
-		assert.NilError(t, f.db.Put(ctx, pendingSubscriber))
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.NilError(t, err)
-		assert.DeepEqual(t, expectedSubscriber, sub)
-		assert.DeepEqual(t, expectedSubscriber, f.db.Index[testEmail])
-	})
-
-	t.Run("ReturnsErrorIfDatabaseGetFails", func(t *testing.T) {
-		f, ctx := setup()
-		f.db.SimulateGetErr = func(email string) error {
-			return makeServerError("test error while getting " + email)
-		}
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.Assert(t, is.Nil(sub))
-		assertServerErrorContains(t, err, "test error while getting "+testEmail)
-	})
-
-	t.Run("PassesErrorThroughIfPutSubscriberFails", func(t *testing.T) {
-		f, ctx := setup()
-		f.db.SimulatePutErr = func(email string) error {
-			return makeServerError("error while putting " + email)
-		}
-
-		sub, err := f.agent.getOrCreateSubscriber(ctx, testEmail)
-
-		assert.Assert(t, is.Nil(sub))
-		assertServerErrorContains(t, err, "error while putting "+testEmail)
-	})
-}
-
 func TestMakeVerificationEmail(t *testing.T) {
 	setup := func() *ProdAgent {
 		f := newProdAgentTestFixture()
@@ -253,14 +185,15 @@ func TestSubscribe(t *testing.T) {
 		f.logs.AssertContains(t, expectedLog)
 	})
 
-	t.Run("DoesNotSendEmailToVerifiedSubscriber", func(t *testing.T) {
+	t.Run("ReturnsAlreadySubscribedForExistingSubscribers", func(t *testing.T) {
 		f, ctx := setup()
-		assert.NilError(t, f.db.Put(ctx, verifiedSubscriber))
+		assert.NilError(t, f.db.Put(ctx, expectedSubscriber))
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.AlreadySubscribed, result)
+		f.mailer.AssertNoMessageSent(t, testEmail)
 	})
 
 	t.Run("ReturnsInvalidIfAddressFailsValidation", func(t *testing.T) {
@@ -271,6 +204,7 @@ func TestSubscribe(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Invalid, result)
+		f.mailer.AssertNoMessageSent(t, testEmail)
 		f.logs.AssertContains(t, testEmail+" failed validation: testing")
 	})
 
@@ -282,6 +216,7 @@ func TestSubscribe(t *testing.T) {
 
 		assert.Equal(t, ops.Invalid, result)
 		assertServerErrorContains(t, err, "SES error")
+		f.mailer.AssertNoMessageSent(t, testEmail)
 	})
 
 	t.Run("ReturnsErrorIfGetOrCreateSubscriberFails", func(t *testing.T) {
@@ -294,6 +229,7 @@ func TestSubscribe(t *testing.T) {
 
 		assert.Equal(t, ops.Invalid, result)
 		assertServerErrorContains(t, err, "error getting "+testEmail)
+		f.mailer.AssertNoMessageSent(t, testEmail)
 	})
 
 	t.Run("ReturnsErrorIfSendingVerificationEmailFails", func(t *testing.T) {

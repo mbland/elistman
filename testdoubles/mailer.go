@@ -36,3 +36,11 @@ func (m *Mailer) GetMessageTo(t *testing.T, recipient string) string {
 	}
 	return string(msg)
 }
+
+func (m *Mailer) AssertNoMessageSent(t *testing.T, recipient string) {
+	t.Helper()
+
+	if msg, ok := m.RecipientMessages[recipient]; ok {
+		t.Fatalf("expected %s to receive no messages, got: %s", recipient, msg)
+	}
+}
