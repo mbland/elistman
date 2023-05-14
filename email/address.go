@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/mail"
 	"strings"
+
+	"github.com/mbland/elistman/ops"
 )
 
 // AddressValidator wraps the ValidateAddress method.
@@ -294,4 +296,30 @@ func lookup[T []string | []*net.MX, F func(context.Context, string) (T, error)](
 		err = fmt.Errorf(errFmt, target, err)
 	}
 	return
+}
+
+// processDnsError differentiates DNSError.IsNotFound from external errors.
+//
+// This function should be used to process errors returned from the standard
+// library net.Resolver API. It returns nil if err is a DNSError and IsNotFound
+// is true. Otherwise it presumes the error is a network or other external
+// failure and wraps it with ops.ErrExternal.
+//
+// This relies on the following facts about net.Resolver:
+//
+//   - All errors are of type net.DNSError.
+//   - If a host is found, it will be returned, even if there's a non-nil error
+//     accompanying it in some cases. In that case, do not call this function.
+//   - If there were no problems with the network or DNS response, but the host
+//     was not found, no hosts are returned. The error will be a net.DNSError
+//     with IsNotFound == true.
+//   - If there were network or DNS issues, no hosts are returned, and the error
+//     will be a net.DNSError with IsNotFound == false.
+func processDnsError(err error) error {
+	var dnsErr *net.DNSError
+
+	if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", ops.ErrExternal, err)
 }

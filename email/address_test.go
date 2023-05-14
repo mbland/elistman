@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -132,6 +134,34 @@ func newAddressValidatorFixture() *addressValidatorFixture {
 		resolver,
 		context.Background(),
 	}
+}
+
+func TestProcessDnsError(t *testing.T) {
+	t.Run("ReturnsTrueIfIsNotFound", func(t *testing.T) {
+		dnsErr := &net.DNSError{Err: "host not found", IsNotFound: true}
+
+		err := processDnsError(dnsErr)
+
+		assert.NilError(t, err)
+	})
+
+	t.Run("ReturnsWrappedErrorIfNotFoundIsFalse", func(t *testing.T) {
+		dnsErr := &net.DNSError{Err: "DNS failure", IsNotFound: false}
+
+		err := processDnsError(dnsErr)
+
+		assert.ErrorContains(t, err, "DNS failure")
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+	})
+
+	t.Run("ReturnsWrappedErrorIfNotDnsError", func(t *testing.T) {
+		otherErr := errors.New("other external error")
+
+		err := processDnsError(otherErr)
+
+		assert.ErrorContains(t, err, "other external error")
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+	})
 }
 
 func TestLookup(t *testing.T) {
