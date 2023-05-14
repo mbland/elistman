@@ -30,16 +30,43 @@ func (tr *TestResolver) LookupMX(
 	return tr.mailHosts[domain], tr.mxErrs[domain]
 }
 
+func (tr *TestResolver) setMxFailure(domain string, err error) {
+	tr.mailHosts[domain] = []*net.MX{}
+	tr.mxErrs[domain] = err
+}
+
 func (tr *TestResolver) LookupHost(
 	_ context.Context, host string,
 ) (addrs []string, err error) {
 	return tr.hosts[host], tr.hostErrs[host]
 }
 
+func (tr *TestResolver) setHostFailure(host string, err error) {
+	tr.hosts[host] = []string{}
+	tr.hostErrs[host] = err
+}
+
 func (tr *TestResolver) LookupAddr(
 	_ context.Context, addr string,
 ) (names []string, err error) {
 	return tr.addrs[addr], tr.addrErrs[addr]
+}
+
+func (tr *TestResolver) setAddrFailure(addr string, err error) {
+	tr.addrs[addr] = []string{}
+	tr.addrErrs[addr] = err
+}
+
+func assertExternalError(t *testing.T, err error) {
+	t.Helper()
+
+	assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+}
+
+func assertIsNotExternalError(t *testing.T, err error) {
+	t.Helper()
+
+	assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 }
 
 func TestParseAddress(t *testing.T) {
@@ -136,80 +163,68 @@ func newAddressValidatorFixture() *addressValidatorFixture {
 	}
 }
 
-func TestProcessDnsError(t *testing.T) {
-	t.Run("ReturnsTrueIfIsNotFound", func(t *testing.T) {
-		dnsErr := &net.DNSError{Err: "host not found", IsNotFound: true}
-
-		err := processDnsError(dnsErr)
-
-		assert.NilError(t, err)
-	})
-
-	t.Run("ReturnsWrappedErrorIfNotFoundIsFalse", func(t *testing.T) {
-		dnsErr := &net.DNSError{Err: "DNS failure", IsNotFound: false}
-
-		err := processDnsError(dnsErr)
-
-		assert.ErrorContains(t, err, "DNS failure")
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
-	})
-
-	t.Run("ReturnsWrappedErrorIfNotDnsError", func(t *testing.T) {
-		otherErr := errors.New("other external error")
-
-		err := processDnsError(otherErr)
-
-		assert.ErrorContains(t, err, "other external error")
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
-	})
-}
-
 func TestLookup(t *testing.T) {
-	setup := func() (*ProdAddressValidator, *TestResolver, context.Context) {
+	setup := func() (
+		*TestResolver,
+		func(context.Context, string) ([]string, error),
+		context.Context,
+	) {
 		f := newAddressValidatorFixture()
-		return f.av, f.tr, f.ctx
+		lookupAddr := func(_ context.Context, addr string) ([]string, error) {
+			return f.tr.addrs[addr], f.tr.addrErrs[addr]
+		}
+		return f.tr, lookupAddr, f.ctx
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		av, tr, ctx := setup()
+		tr, lookupAddr, ctx := setup()
 		testHosts := []string{"foo.com", "bar.com", "baz.com"}
 		tr.addrs["127.0.0.1"] = testHosts
 
-		hosts, err := av.lookupAddr(ctx, "127.0.0.1")
+		hosts, err := lookup(lookupAddr, ctx, "127.0.0.1")
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, testHosts, hosts)
 	})
 
 	t.Run("SucceedsEvenIfDnsContainsSomeBadRecords", func(t *testing.T) {
-		av, tr, ctx := setup()
+		tr, lookupAddr, ctx := setup()
 		testHosts := []string{"foo.com", "baz.com"}
 		tr.addrs["127.0.0.1"] = testHosts
 		tr.addrErrs["127.0.0.1"] = errors.New("some bad DNS records")
 
-		hosts, err := av.lookupAddr(ctx, "127.0.0.1")
+		hosts, err := lookup(lookupAddr, ctx, "127.0.0.1")
 
+		assert.NilError(t, err)
 		assert.DeepEqual(t, testHosts, hosts)
-		assert.Error(t, err, "error resolving 127.0.0.1: some bad DNS records")
 	})
 
-	t.Run("FailsIfNoHostsButNoResolverError", func(t *testing.T) {
-		av, _, ctx := setup()
+	t.Run("FailsIfNoHostsFound", func(t *testing.T) {
+		tr, lookupAddr, ctx := setup()
+		tr.addrErrs["127.0.0.1"] = &net.DNSError{
+			Err: "no such host", IsNotFound: true,
+		}
 
-		hosts, err := av.lookupAddr(ctx, "127.0.0.1")
+		hosts, err := lookup(lookupAddr, ctx, "127.0.0.1")
 
 		assert.Equal(t, len(hosts), 0)
-		assert.Error(t, err, "error resolving 127.0.0.1: no hostnames returned")
+		assert.Error(t, err, "no records for 127.0.0.1")
+		assertIsNotExternalError(t, err)
 	})
 
-	t.Run("FailsIfNoHostsAndResolverReturnsError", func(t *testing.T) {
-		av, tr, ctx := setup()
-		tr.addrErrs["127.0.0.1"] = errors.New("LookupAddr failed")
+	t.Run("FailsIfExternalError", func(t *testing.T) {
+		tr, lookupAddr, ctx := setup()
+		tr.addrErrs["127.0.0.1"] = &net.DNSError{
+			Err: "test error", IsNotFound: false,
+		}
 
-		hosts, err := av.lookupAddr(ctx, "127.0.0.1")
+		hosts, err := lookup(lookupAddr, ctx, "127.0.0.1")
 
 		assert.Equal(t, len(hosts), 0)
-		assert.Error(t, err, "error resolving 127.0.0.1: LookupAddr failed")
+		expectedErrMsg := ops.ErrExternal.Error() +
+			": failed to resolve 127.0.0.1: lookup : test error"
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assertExternalError(t, err)
 	})
 }
 
@@ -225,67 +240,120 @@ func TestCheckHostResolvesToAddress(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		f := setup()
 
-		assert.NilError(
-			t, f.av.checkHostResolvesToAddress(f.ctx, "foo.com", "172.16.0.1"),
-		)
+		err := f.av.checkHostResolvesToAddress(f.ctx, "foo.com", "172.16.0.1")
+
+		assert.NilError(t, err)
 	})
 
 	t.Run("FailsHostLookup", func(t *testing.T) {
 		f := setup()
-		f.tr.hosts = map[string][]string{}
-		f.tr.hostErrs["foo.com"] = errors.New("test error")
+		f.tr.setHostFailure("foo.com", &net.DNSError{IsNotFound: true})
 
 		err := f.av.checkHostResolvesToAddress(f.ctx, "foo.com", "172.16.0.1")
 
-		assert.Error(t, err, "error resolving foo.com: test error")
+		expectedErrMsg := "no records for foo.com"
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assertIsNotExternalError(t, err)
 	})
 
-	t.Run("FailsToResolveToAddress", func(t *testing.T) {
+	t.Run("FailsToResolveToExpectedAddress", func(t *testing.T) {
 		f := setup()
+		addressThatDoesNotMatch := "172.16.0.2"
 
-		err := f.av.checkHostResolvesToAddress(f.ctx, "foo.com", "172.16.0.2")
+		err := f.av.checkHostResolvesToAddress(
+			f.ctx, "foo.com", addressThatDoesNotMatch,
+		)
 
-		expected := "foo.com resolves to: " + strings.Join(testAddrs, ", ")
-		assert.Error(t, err, expected)
+		expectedErrMsg := "foo.com resolves to " + strings.Join(testAddrs, ", ")
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assertIsNotExternalError(t, err)
+	})
+
+	t.Run("PassesThroughLookupError", func(t *testing.T) {
+		f := setup()
+		f.tr.setHostFailure(
+			"foo.com", &net.DNSError{Err: "test error", IsNotFound: false},
+		)
+
+		err := f.av.checkHostResolvesToAddress(f.ctx, "foo.com", "172.16.0.1")
+
+		expectedErrMsg := "external error: failed to resolve foo.com: " +
+			"lookup : test error"
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assertExternalError(t, err)
 	})
 }
 
 func TestCheckReverseLookupHostResolvesToOriginalIp(t *testing.T) {
+	const matchingAddress = "172.16.0.1"
+	const addressThatDoesNotMatch = "172.16.0.2"
+
 	setup := func() (*ProdAddressValidator, *TestResolver, context.Context) {
 		f := newAddressValidatorFixture()
 		testHosts := []string{"foo.com", "bar.com", "baz.com"}
-		f.tr.addrs["172.16.0.1"] = testHosts
-		f.tr.addrs["172.16.0.2"] = testHosts
+		f.tr.addrs[matchingAddress] = testHosts
+		f.tr.addrs[addressThatDoesNotMatch] = testHosts
 		f.tr.hosts["foo.com"] = []string{"127.0.0.1"}
 		f.tr.hosts["bar.com"] = []string{"192.168.0.1"}
-		f.tr.hosts["baz.com"] = []string{"172.16.0.1"}
+		f.tr.hosts["baz.com"] = []string{matchingAddress}
 		return f.av, f.tr, f.ctx
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
 		v, _, ctx := setup()
 
-		assert.NilError(
-			t, v.checkReverseLookupHostResolvesToOriginalIp(ctx, "172.16.0.1"),
+		err := v.checkReverseLookupHostResolvesToOriginalIp(
+			ctx, matchingAddress,
 		)
+
+		assert.NilError(t, err)
 	})
 
-	t.Run("ReturnsAllErrorsIfNoHostResolvesToOriginalIp", func(t *testing.T) {
-		// Emulates returning an error alongside valid results, and none of
-		// those results resolving back to the original address.
-		v, tr, ctx := setup()
-		tr.addrErrs["172.16.0.2"] = errors.New("some bad DNS records")
+	t.Run("ReturnsErrorIfNoHostResolvesToOriginalIp", func(t *testing.T) {
+		v, _, ctx := setup()
 
-		err := v.checkReverseLookupHostResolvesToOriginalIp(ctx, "172.16.0.2")
+		err := v.checkReverseLookupHostResolvesToOriginalIp(
+			ctx, addressThatDoesNotMatch,
+		)
 
 		expected := []string{
-			"no host resolves to 172.16.0.2: " +
-				"error resolving 172.16.0.2: some bad DNS records",
-			"foo.com resolves to: 127.0.0.1",
-			"bar.com resolves to: 192.168.0.1",
-			"baz.com resolves to: 172.16.0.1",
+			"no host resolves to 172.16.0.2: foo.com resolves to 127.0.0.1",
+			"bar.com resolves to 192.168.0.1",
+			"baz.com resolves to 172.16.0.1",
 		}
 		assert.Error(t, err, strings.Join(expected, "\n"))
+		assertIsNotExternalError(t, err)
+	})
+
+	t.Run("PassesThroughAddressLookupError", func(t *testing.T) {
+		v, tr, ctx := setup()
+		tr.setAddrFailure(matchingAddress, errors.New("address lookup error"))
+
+		err := v.checkReverseLookupHostResolvesToOriginalIp(
+			ctx, matchingAddress,
+		)
+
+		expectedErr := "external error: failed to resolve 172.16.0.1: " +
+			"address lookup error"
+		assert.ErrorContains(t, err, expectedErr)
+		assertExternalError(t, err)
+	})
+
+	t.Run("PassesThroughHostLookupError", func(t *testing.T) {
+		v, tr, ctx := setup()
+		tr.setHostFailure("bar.com", errors.New("host lookup error"))
+
+		err := v.checkReverseLookupHostResolvesToOriginalIp(
+			ctx, addressThatDoesNotMatch,
+		)
+
+		expected := []string{
+			"no host resolves to 172.16.0.2: foo.com resolves to 127.0.0.1",
+			"external error: failed to resolve bar.com: host lookup error",
+			"baz.com resolves to 172.16.0.1",
+		}
+		assert.Error(t, err, strings.Join(expected, "\n"))
+		assertExternalError(t, err)
 	})
 }
 
@@ -306,10 +374,9 @@ func TestCheckMailHost(t *testing.T) {
 		assert.NilError(t, err)
 	})
 
-	t.Run("ReturnsAllErrorsIfAllReverseLookupsFail", func(t *testing.T) {
+	t.Run("ReturnsErrorIfAllReverseLookupsFail", func(t *testing.T) {
 		av, tr, ctx := setup()
 		tr.hosts["mx1.mail.foo.com"] = []string{"127.0.0.1"}
-		tr.hostErrs["mx1.mail.foo.com"] = errors.New("some bad DNS records")
 		tr.addrs["127.0.0.1"] = []string{"mail.foo.com", "mail.bar.com"}
 		tr.hosts["mail.foo.com"] = []string{"127.0.0.2"}
 		tr.hosts["mail.bar.com"] = []string{"127.0.0.3"}
@@ -317,14 +384,44 @@ func TestCheckMailHost(t *testing.T) {
 		err := av.checkMailHost(ctx, "mx1.mail.foo.com")
 
 		expected := []string{
-			"reverse lookup of addresses for MX host " +
-				"mx1.mail.foo.com failed: " +
-				"error resolving mx1.mail.foo.com: some bad DNS records",
-			"no host resolves to 127.0.0.1: " +
-				"mail.foo.com resolves to: 127.0.0.2",
-			"mail.bar.com resolves to: 127.0.0.3",
+			"reverse lookup of addresses for mx1.mail.foo.com failed: " +
+				"no host resolves to 127.0.0.1: " +
+				"mail.foo.com resolves to 127.0.0.2",
+			"mail.bar.com resolves to 127.0.0.3",
 		}
 		assert.Error(t, err, strings.Join(expected, "\n"))
+		assertIsNotExternalError(t, err)
+	})
+
+	t.Run("PassesThroughHostLookupError", func(t *testing.T) {
+		av, tr, ctx := setup()
+		tr.setHostFailure("mx1.mail.foo.com", errors.New("host lookup error"))
+
+		err := av.checkMailHost(ctx, "mx1.mail.foo.com")
+
+		expectedErrMsg := "external error: " +
+			"failed to resolve mx1.mail.foo.com: host lookup error"
+		assert.Error(t, err, expectedErrMsg)
+		assertExternalError(t, err)
+	})
+
+	t.Run("PassesThroughAddressLookupError", func(t *testing.T) {
+		av, tr, ctx := setup()
+		tr.hosts["mx1.mail.foo.com"] = []string{"127.0.0.1", "127.0.0.2"}
+		tr.addrs["127.0.0.1"] = []string{"mail.foo.com"}
+		tr.hosts["mail.foo.com"] = []string{"127.0.0.3"}
+		tr.setAddrFailure("127.0.0.2", errors.New("addr lookup failure"))
+
+		err := av.checkMailHost(ctx, "mx1.mail.foo.com")
+
+		expected := []string{
+			"reverse lookup of addresses for mx1.mail.foo.com failed: " +
+				"no host resolves to 127.0.0.1: " +
+				"mail.foo.com resolves to 127.0.0.3",
+			"external error: failed to resolve 127.0.0.2: addr lookup failure",
+		}
+		assert.Error(t, err, strings.Join(expected, "\n"))
+		assertExternalError(t, err)
 	})
 }
 
@@ -350,43 +447,59 @@ func TestCheckMailHosts(t *testing.T) {
 	})
 
 	t.Run("FailsWithoutSuppressingAddressIfNoMxRecords", func(t *testing.T) {
-		av, ts, _, ctx := setup()
+		av, ts, tr, ctx := setup()
+		tr.setMxFailure("bar.com", errors.New("MX lookup failure"))
 
 		err := av.checkMailHosts(ctx, "foo@bar.com", "bar.com")
 
-		expected := "error retrieving MX records for bar.com: " +
-			"no records returned"
+		expected := "failed to retrieve MX records for bar.com: " +
+			"external error: failed to resolve bar.com: MX lookup failure"
 		assert.Error(t, err, expected)
+		assertExternalError(t, err)
 		assert.Equal(t, ts.suppressedEmail, "")
 	})
 
 	t.Run("FailsAndSuppressesAddressIfMxValidationFails", func(t *testing.T) {
 		av, ts, tr, ctx := setup()
 		tr.mailHosts["bar.com"] = []*net.MX{{Host: "mx1.mail.bar.com"}}
+		tr.hosts["mx1.mail.bar.com"] = []string{"127.0.0.1"}
+		tr.addrs["127.0.0.1"] = []string{"mail.bar.com"}
+
+		// Make sure external errors are passed through.
+		tr.setHostFailure("mail.bar.com", errors.New("host lookup failed"))
 
 		err := av.checkMailHosts(ctx, "foo@bar.com", "bar.com")
 
 		expected := "no valid MX hosts for bar.com: " +
-			"reverse lookup of addresses for MX host mx1.mail.bar.com failed"
-		assert.ErrorContains(t, err, expected)
+			"reverse lookup of addresses for mx1.mail.bar.com failed: " +
+			"no host resolves to 127.0.0.1: " +
+			"external error: failed to resolve mail.bar.com: host lookup failed"
+		assert.Error(t, err, expected)
+		assertExternalError(t, err)
 		assert.Equal(t, ts.suppressedEmail, "foo@bar.com")
 	})
 
-	t.Run("ReportsAllErrorsIncludingSuppressionError", func(t *testing.T) {
+	t.Run("ReportsValidationAndSuppressionErrors", func(t *testing.T) {
 		av, ts, tr, ctx := setup()
 		tr.mailHosts["bar.com"] = []*net.MX{{Host: "mx1.mail.bar.com"}}
-		tr.mxErrs["bar.com"] = errors.New("some bad DNS records")
-		ts.suppressErr = errors.New("suppression failed")
+
+		// The previous test checks that external validation errors are passed
+		// through. Making the validation error non-external and the suppression
+		// error external enables us to validate that external suppression
+		// errors are passed through as well.
+		tr.setHostFailure("mx1.mail.bar.com", &net.DNSError{IsNotFound: true})
+		ts.suppressErr = ops.AwsError(
+			"suppression failed", testutils.AwsServerError("server error"),
+		)
 
 		err := av.checkMailHosts(ctx, "foo@bar.com", "bar.com")
 
 		expected := []string{
-			"no valid MX hosts for bar.com: " +
-				"error retrieving MX records for bar.com: some bad DNS records",
-			"reverse lookup of addresses for MX host mx1.mail.bar.com failed",
+			"no valid MX hosts for bar.com: no records for mx1.mail.bar.com",
+			"external error: suppression failed: api error : server error",
 		}
 		assert.ErrorContains(t, err, strings.Join(expected, "\n"))
-		assert.ErrorContains(t, err, "suppression failed")
+		assertExternalError(t, err)
 		assert.Equal(t, ts.suppressedEmail, "foo@bar.com")
 	})
 }
@@ -458,15 +571,16 @@ func TestValidateAddress(t *testing.T) {
 	t.Run("FailsIfAddressFailsDnsValidation", func(t *testing.T) {
 		f := newAddressValidatorFixture()
 		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}
+		f.tr.setHostFailure(
+			"mail.mailroute.net", &net.DNSError{IsNotFound: true},
+		)
 
 		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
 		assert.NilError(t, err)
 		const expectedReason = "address failed DNS validation: " +
 			"mbland@acm.org: no valid MX hosts for acm.org: " +
-			"reverse lookup of addresses for MX host " +
-			"mail.mailroute.net failed: " +
-			"error resolving mail.mailroute.net: no addresses returned"
+			"no records for mail.mailroute.net"
 		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "mbland@acm.org", f.ts.suppressedEmail)

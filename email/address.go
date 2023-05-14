@@ -158,12 +158,13 @@ func getPrimaryDomain(domainName string) string {
 func (av *ProdAddressValidator) checkMailHosts(
 	ctx context.Context, email, domain string,
 ) error {
-	mxRecords, err := av.lookupMx(ctx, domain)
+	mxRecords, err := lookup(av.Resolver.LookupMX, ctx, domain)
 
 	// If LookupMX failed to resolve any hosts, it could be due to a typo. In
 	// this case, don't add the address to the suppression list.
 	if len(mxRecords) == 0 {
-		return err
+		const errFmt = "failed to retrieve MX records for %s: %w"
+		return fmt.Errorf(errFmt, domain, err)
 	}
 
 	errs := make([]error, len(mxRecords))
@@ -176,6 +177,9 @@ func (av *ProdAddressValidator) checkMailHosts(
 		}
 	}
 
+	const errFmt = "no valid MX hosts for %s: %w"
+	err = fmt.Errorf(errFmt, domain, errors.Join(errs...))
+
 	// If LookupMX succeeded, but validating all the MX records fail, sending a
 	// message to the address would bounce, so suppress the address. This will
 	// short circuit ValidateAddress before it calls this method for the same
@@ -185,15 +189,22 @@ func (av *ProdAddressValidator) checkMailHosts(
 	// attack. Of course, an attacker could use different addresses from the
 	// same domain. It might be worth creating a table of suppressed domains at
 	// some point.
-	suppressErr := av.Suppressor.Suppress(ctx, email)
-	err = errors.Join(err, errors.Join(errs...), suppressErr)
-	return fmt.Errorf("no valid MX hosts for %s: %s", domain, err)
+	//
+	// If it is a network issue, suppression will probably fail as well, so we
+	// likely won't accidentally suppress anyone.
+	suppressionErr := av.Suppressor.Suppress(ctx, email)
+	return errors.Join(err, suppressionErr)
 }
 
 func (av *ProdAddressValidator) checkMailHost(
 	ctx context.Context, mailHost string,
 ) error {
-	mailHostIps, mailHostIpLookupErr := av.lookupHost(ctx, mailHost)
+	mailHostIps, err := lookup(av.Resolver.LookupHost, ctx, mailHost)
+
+	if err != nil {
+		return err
+	}
+
 	errs := make([]error, len(mailHostIps))
 
 	for i, mailIp := range mailHostIps {
@@ -203,15 +214,18 @@ func (av *ProdAddressValidator) checkMailHost(
 		}
 	}
 
-	const errFmt = "reverse lookup of addresses for MX host %s failed: %s"
-	err := errors.Join(mailHostIpLookupErr, errors.Join(errs...))
-	return fmt.Errorf(errFmt, mailHost, err)
+	const errFmt = "reverse lookup of addresses for %s failed: %w"
+	return fmt.Errorf(errFmt, mailHost, errors.Join(errs...))
 }
 
 func (av *ProdAddressValidator) checkReverseLookupHostResolvesToOriginalIp(
 	ctx context.Context, addr string,
 ) error {
-	hosts, lookupErr := av.lookupAddr(ctx, addr)
+	hosts, err := lookup(av.Resolver.LookupAddr, ctx, addr)
+
+	if err != nil {
+		return err
+	}
 	errs := make([]error, len(hosts))
 
 	for i, host := range hosts {
@@ -221,16 +235,16 @@ func (av *ProdAddressValidator) checkReverseLookupHostResolvesToOriginalIp(
 		}
 	}
 
-	const errFmt = "no host resolves to %s: %s"
-	err := errors.Join(lookupErr, errors.Join(errs...))
-	return fmt.Errorf(errFmt, addr, err)
+	const errFmt = "no host resolves to %s: %w"
+	return fmt.Errorf(errFmt, addr, errors.Join(errs...))
 }
 
 func (av *ProdAddressValidator) checkHostResolvesToAddress(
 	ctx context.Context, host, addr string,
 ) error {
-	addrs, err := av.lookupHost(ctx, host)
-	if len(addrs) == 0 {
+	addrs, err := lookup(av.Resolver.LookupHost, ctx, host)
+
+	if err != nil {
 		return err
 	}
 
@@ -239,87 +253,52 @@ func (av *ProdAddressValidator) checkHostResolvesToAddress(
 			return nil
 		}
 	}
-	return errors.Join(
-		err, fmt.Errorf("%s resolves to: %s", host, strings.Join(addrs, ", ")),
-	)
+	return fmt.Errorf("%s resolves to %s", host, strings.Join(addrs, ", "))
 }
 
-func (av *ProdAddressValidator) lookupMx(
-	ctx context.Context, domain string,
-) ([]*net.MX, error) {
-	const noValuesErrMsg = "no records returned"
-	const errFmt = "error retrieving MX records for %s: %s"
-	return lookup(av.Resolver.LookupMX, ctx, domain, noValuesErrMsg, errFmt)
-}
-
-func (av *ProdAddressValidator) lookupAddr(
-	ctx context.Context, addr string,
-) ([]string, error) {
-	const noValuesErrMsg = "no hostnames returned"
-	const errFmt = "error resolving %s: %s"
-	return lookup(av.Resolver.LookupAddr, ctx, addr, noValuesErrMsg, errFmt)
-}
-
-func (av *ProdAddressValidator) lookupHost(
-	ctx context.Context, host string,
-) ([]string, error) {
-	const noValuesErrMsg = "no addresses returned"
-	const errFmt = "error resolving %s: %s"
-	return lookup(av.Resolver.LookupHost, ctx, host, noValuesErrMsg, errFmt)
-}
-
-// lookup wraps error messages from net.Resolver methods.
+// lookup calls a net.Resolver method and processes its errors.
 //
-// Both [net.Resolver.LookupMX] and [net.Resolver.LookupAddr] can potentially
-// return valid results and non nil error values. This is because both will
-// filter returned DNS records, returning all valid records while reporting that
-// malformed records exist. As a result, this function will pass through any
-// returned records and generate an error prefixed using errFmt if:
+// Specifically, it differentiates successful DNS responses that return no
+// records from external errors, be they DNS configuration errors or networking
+// errors:
 //
-// - zero records are returned, but the request otherwise succeeded (err == nil)
-// - the request returned an error
-//
-// [net.Resolver.LookupHost] doesn't explicitly state that it could return both
-// valid records and a non nil error. However, wrapping it with [lookup] will do
-// the right thing regardless.
-func lookup[T []string | []*net.MX, F func(context.Context, string) (T, error)](
-	lookup F, ctx context.Context, target, noValuesErrMsg, errFmt string,
-) (values T, err error) {
-	values, err = lookup(ctx, target)
-
-	if len(values) == 0 {
-		if err == nil {
-			err = errors.New(noValuesErrMsg)
-		}
-	}
-	if err != nil {
-		err = fmt.Errorf(errFmt, target, err)
-	}
-	return
-}
-
-// processDnsError differentiates DNSError.IsNotFound from external errors.
-//
-// This function should be used to process errors returned from the standard
-// library net.Resolver API. It returns nil if err is a DNSError and IsNotFound
-// is true. Otherwise it presumes the error is a network or other external
-// failure and wraps it with ops.ErrExternal.
+//   - It returns nil if the error is a DNSError and IsNotFound is true.
+//   - Otherwise it presumes the error is a network or other external failure
+//     and wraps it with ops.ErrExternal.
 //
 // This relies on the following facts about net.Resolver:
 //
 //   - All errors are of type net.DNSError.
 //   - If a host is found, it will be returned, even if there's a non-nil error
-//     accompanying it in some cases. In that case, do not call this function.
+//     accompanying it in some cases.
 //   - If there were no problems with the network or DNS response, but the host
 //     was not found, no hosts are returned. The error will be a net.DNSError
-//     with IsNotFound == true.
+//     value with IsNotFound == true.
 //   - If there were network or DNS issues, no hosts are returned, and the error
-//     will be a net.DNSError with IsNotFound == false.
-func processDnsError(err error) error {
+//     will be a net.DNSError value with IsNotFound == false.
+//
+// Both [net.Resolver.LookupMX] and [net.Resolver.LookupAddr] can potentially
+// return valid results and non nil error values. This is because both will
+// filter returned DNS records, returning all valid records while reporting that
+// malformed records exist. As a result, this function will pass through any
+// returned records and return a nil error.
+//
+// [net.Resolver.LookupHost] doesn't explicitly state that it could return both
+// valid records and a non nil error. However, wrapping it with [lookup] will do
+// the right thing regardless.
+func lookup[T []string | []*net.MX, F func(context.Context, string) (T, error)](
+	lookup F, ctx context.Context, target string,
+) (values T, err error) {
+	values, err = lookup(ctx, target)
 	var dnsErr *net.DNSError
 
-	if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
-		return nil
+	if len(values) != 0 {
+		err = nil
+	} else if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+		err = fmt.Errorf("no records for %s", target)
+	} else {
+		const errFmt = "%w: failed to resolve %s: %w"
+		err = fmt.Errorf(errFmt, ops.ErrExternal, target, err)
 	}
-	return fmt.Errorf("%w: %w", ops.ErrExternal, err)
+	return
 }
