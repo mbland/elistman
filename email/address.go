@@ -53,8 +53,11 @@ type ProdAddressValidator struct {
 
 // ValidateAddress parses and validates email addresses.
 //
-// The return value will be nil if the address passes validation, or non nil if
-// it fails.
+// If the address passes validation, the returned ValidationFailure and error
+// values will both be nil. If a network or DNS error occurs, the returned error
+// value will be non-nil and the ValidationFailure value will be nil. Absent
+// such external errors, if the address fails validation, the ValidationFailure
+// will be non-nil and the error will be nil.
 //
 // This method:
 //
@@ -100,21 +103,21 @@ func (av *ProdAddressValidator) ValidateAddress(
 	email, user, domain, err := parseAddress(address)
 
 	if err != nil {
-		failure = &ValidationFailure{"address failed to parse: " + address}
-		err = nil
+		return &ValidationFailure{"address failed to parse: " + address}, nil
 	} else if isKnownInvalidAddress(user, domain) {
-		failure = &ValidationFailure{"invalid email address: " + address}
+		return &ValidationFailure{"invalid email address: " + address}, nil
 	} else if result, err = av.Suppressor.IsSuppressed(ctx, email); err != nil {
 		return
 	} else if result {
-		failure = &ValidationFailure{"suppressed email address: " + address}
-	} else if err = av.checkMailHosts(ctx, email, domain); err != nil {
-		failure = &ValidationFailure{
-			fmt.Sprintf("address failed DNS validation: %s: %s", address, err),
-		}
-		err = nil
+		return &ValidationFailure{"suppressed email address: " + address}, nil
+	} else if err = av.checkMailHosts(ctx, email, domain); err == nil {
+		return
+	} else if errors.Is(err, ops.ErrExternal) {
+		return
 	}
-	return
+
+	const dnsFailFmt = "address failed DNS validation: %s: %s"
+	return &ValidationFailure{fmt.Sprintf(dnsFailFmt, address, err)}, nil
 }
 
 func parseAddress(address string) (email, user, domain string, err error) {

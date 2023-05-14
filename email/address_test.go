@@ -585,4 +585,20 @@ func TestValidateAddress(t *testing.T) {
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "mbland@acm.org", f.ts.suppressedEmail)
 	})
+
+	t.Run("ReturnsExternalDnsValidationError", func(t *testing.T) {
+		f := newAddressValidatorFixture()
+		f.tr.mailHosts["acm.org"] = []*net.MX{{Host: "mail.mailroute.net"}}
+		f.tr.setHostFailure(
+			"mail.mailroute.net", errors.New("host lookup failed"),
+		)
+
+		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
+
+		assert.Assert(t, is.Nil(failure))
+		const expected = "no valid MX hosts for acm.org: external error: " +
+			"failed to resolve mail.mailroute.net: host lookup failed"
+		assert.Error(t, err, expected)
+		assertExternalError(t, err)
+	})
 }
