@@ -185,9 +185,20 @@ func TestSubscribe(t *testing.T) {
 		f.logs.AssertContains(t, expectedLog)
 	})
 
-	t.Run("ReturnsAlreadySubscribedForExistingSubscribers", func(t *testing.T) {
+	t.Run("ReturnsVerifyLinkSentForPendingSubscribers", func(t *testing.T) {
 		f, ctx := setup()
 		assert.NilError(t, f.db.Put(ctx, pendingSubscriber))
+
+		result, err := f.agent.Subscribe(ctx, testEmail)
+
+		assert.NilError(t, err)
+		assert.Equal(t, ops.VerifyLinkSent, result)
+		f.mailer.AssertNoMessageSent(t, testEmail)
+	})
+
+	t.Run("ReturnsAlreadySubscribedForVerifiedSubscribers", func(t *testing.T) {
+		f, ctx := setup()
+		assert.NilError(t, f.db.Put(ctx, verifiedSubscriber))
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 

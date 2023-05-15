@@ -52,14 +52,21 @@ func (a *ProdAgent) Subscribe(
 		return
 	}
 
-	if _, err = a.Db.Get(ctx, address); err == nil {
-		result = ops.AlreadySubscribed
+	var sub *db.Subscriber
+
+	if sub, err = a.Db.Get(ctx, address); err == nil {
+		switch sub.Status {
+		case db.SubscriberPending:
+			result = ops.VerifyLinkSent
+		default:
+			result = ops.AlreadySubscribed
+		}
 		return
 	} else if !errors.Is(err, db.ErrSubscriberNotFound) {
 		return
 	}
 
-	sub := &db.Subscriber{Email: address, Status: db.SubscriberPending}
+	sub = &db.Subscriber{Email: address, Status: db.SubscriberPending}
 	if err = a.putSubscriber(ctx, sub); err != nil {
 		return
 	}

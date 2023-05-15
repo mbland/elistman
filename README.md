@@ -288,47 +288,99 @@ target page specified in the [Location HTTP header][].
       1. Looking up the IP addresses of the hosts returned by the reverse lookup.
       1. Confirming at least one reverse lookup host IP address matches a mail
          host IP address.
-   1. If it fails validation, return the `INVALID` page.
+   1. If it fails validation, return the `INVALID_REQUEST_PATH`.
 1. Look for an existing DynamoDB record for the email address.
-   1. If it exists and `SubscriberStatus` is `Verified`, return the
-      `ALREADY_SUBSCRIBED` page.
+   1. If it exists, return the `VERIFY_LINK_SENT_PATH` for `Pending` subscribers
+      and `ALREADY_SUBSCRIBED_PATH` for `Verified` subscribers.
 1. Generate a UID.
 1. Write a DynamoDB record containing the email address, the UID, a timestamp,
-   and with `SubscriberStatus` set to `Unverified`.
+   and with `SubscriberStatus` set to `Pending`.
 1. Generate a verification link using the email address and UID.
 1. Send the verification link to the email address.
-   1. If the mail bounces or fails to send, return the `INVALID` page.
-1. Return the `CONFIRM` page.
+   1. If the mail bounces or fails to send, return the `INVALID_REQUEST_PATH`.
+1. Return the `VERIFY_LINK_SENT_PATH`.
 
 ### Responding to a subscriber verification link
 
 1. An HTTP request from the API Gateway comes in, containing a subscriber's
    email address and UID.
 1. Check whether there is a record for the email address in DynamoDB.
-   1. If not, return the `NOT_FOUND` page.
+   1. If not, return the `NOT_SUBSCRIBED_PATH`.
 1. Check whether the UID matches that from the DynamoDB record.
-   1. If not, return the `NOT_FOUND` page.
+   1. If not, return the `NOT_SUBSCRIBED_PATH`.
+1. If the subscriber's status is `Verified`, return the
+   `ALREADY_SUBSCRIBED_PATH`.
 1. Set the `SubscriberStatus` of the record to `Verified`.
-1. Return the `SUBSCRIBED` page.
+1. Return the `SUBSCRIBED_PATH`.
 
 ### Responding to an unsubscribe request
 
 1. Either an HTTP Request from the API Gateway or a mailto: event from SES comes
    in, containing a subscriber's email address and UID.
 1. Check whether there is a record for the email address in DynamoDB.
-   1. If not, return the `NOT_FOUND` page.
+   1. If not, return the `NOT_SUBSCRIBED_PATH`.
 1. Check whether the UID matches that from the DynamoDB record.
-   1. If not, return the `NOT_FOUND` page.
+   1. If not, return the `NOT_SUBSCRIBED_PATH`.
 1. Delete the DynamoDB record for the email address.
 1. If the request was an HTTP Request:
    1. If it uses the `POST` method, and the data contains
       `List-Unsubscribe=One-Click`, return [HTTP 204 No Content][].
-   1. Otherwise return the `UNSUBSCRIBED` page.
+   1. Otherwise return the `UNSUBSCRIBED_PATH` page.
 
 ### Expiring unused subscriber verification links
 
-1. Retrieve all existing DynamoDB records.
-1. Delete any `Unverified` records exceeding the timeout (1h).
+[DynamoDB's Time To Live feature][] will eventually remove expired pending subscriber records after 24 hours.
+
+## Unimplemented/possible future features
+
+### Send rate throttling
+
+- [Managing your Amazon SES sending limits][]
+- [Errors related to the sending quotas for your Amazon SES account][]
+- [How to handle a "Throttling – Maximum sending rate exceeded" error][]
+- [How to Automatically Prevent Email Throttling when Reaching Concurrency Limit][]
+
+### Automated End-to-End tests
+
+This is something I _really_ want to pull off, but without blocking the first
+release.
+
+Here is what I anticipate the implementation will involve (beyond some of the existing cases in [bin/smoke-test.sh](./bin/smoke-test.sh)):
+
+#### Setup
+
+- Create a new random test username.
+- Create a S3 bucket for the emails received by the random test user.
+- Create a receipt rule for the active rule set on the domain to send emails to
+  the new random test username to the S3 bucket.
+  - Add the random test username to the recipient conditions.
+  - Add an action to write to the S3 bucket
+- Bring up a CloudFormation/Serverless Application Model stack defining these
+  resources.
+
+#### Execution
+
+For each permutation described below:
+
+- Send a request to subscribe the valid random username.
+- Read the S3 bucket to get the validation URL.
+- Request the validation URL.
+- Form an unsubscribe request (either URL or mailto) from the validation URL.
+
+#### Permutations
+
+- Subscribe via urlencoded params, unsubscribe via urlencoded params
+- Subscribe via form-data, unsubscribe via form-data params
+- Subscribe via urlencoded params, unsubscribe via email
+- Try to resubscribe to expect an `ALREADY_SUBSCRIBED_PATH` response.
+- Modify the UID in the verification URL to expect an `INVALID_REQUEST_PATH`
+  response.
+
+#### Teardown
+
+- Tear down the stack, which will:
+  - Tear down the receipt rules
+  - Tear down the test bucket
 
 ## Open Source License
 
@@ -438,6 +490,11 @@ This software is made available as [Open Source software][oss-def] under the
 [Location HTTP Header]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
 [RFC 5322 Section 3.2.3]: https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3
 [net/mail.ParseAddress]: https://pkg.go.dev/net/mail#ParseAddress
+[DynamoDB's Time To Live feature]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html
+[Managing your Amazon SES sending limits]: https://docs.aws.amazon.com/ses/latest/dg/manage-sending-quotas.html
+[Errors related to the sending quotas for your Amazon SES account]: https://docs.aws.amazon.com/ses/latest/dg/manage-sending-quotas-errors.html
+[How to handle a "Throttling – Maximum sending rate exceeded" error]: https://aws.amazon.com/blogs/messaging-and-targeting/how-to-handle-a-throttling-maximum-sending-rate-exceeded-error/
+[How to Automatically Prevent Email Throttling when Reaching Concurrency Limit]: https://aws.amazon.com/blogs/messaging-and-targeting/prevent-email-throttling-concurrency-limit/
 [oss-def]:     https://opensource.org/osd-annotated
 [HTTP 204 No Content]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204
 [Mozilla Public License 2.0]: https://www.mozilla.org/en-US/MPL/
