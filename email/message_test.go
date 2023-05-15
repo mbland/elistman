@@ -18,28 +18,20 @@ import (
 	is "gotest.tools/assert/cmp"
 )
 
-const testMessageJson = `{
-	"from": "Mike Bland <mbland@acm.org>",
-	"subject": "Test object",
-	"textBody": "Hello, World!",
-	"textFooter": "Blah blah woof woof...",
-	"htmlBody": "<!DOCTYPE html><html><head></head><body><p>Hello, World!</p>",
-	"htmlFooter": "<p>Blah blah woof woof...</p></body></html>"
-}`
-
 func TestMessageJsonMarshaling(t *testing.T) {
 	msg := &Message{}
 
-	assert.NilError(t, json.Unmarshal([]byte(testMessageJson), msg))
+	assert.NilError(t, json.Unmarshal([]byte(ExampleMessageJson), msg))
 
-	assert.Equal(t, "Mike Bland <mbland@acm.org>", msg.From)
+	assert.Equal(t, "Foo Bar <foobar@example.com>", msg.From)
 	assert.Equal(t, "Test object", msg.Subject)
 	assert.Equal(t, "Hello, World!", msg.TextBody)
-	assert.Equal(t, "Blah blah woof woof...", msg.TextFooter)
+	assert.Equal(t, "Unsubscribe: "+UnsubscribeUrlTemplate, msg.TextFooter)
 	const htmlBody = "<!DOCTYPE html><html><head></head>" +
-		"<body><p>Hello, World!</p>"
+		"<body>Hello, World!<br/>"
 	assert.Equal(t, htmlBody, msg.HtmlBody)
-	const htmlFooter = "<p>Blah blah woof woof...</p></body></html>"
+	const htmlFooter = "<a href='" + UnsubscribeUrlTemplate +
+		"'>Unsubscribe</a></body></html>"
 	assert.Equal(t, htmlFooter, msg.HtmlFooter)
 }
 
@@ -659,5 +651,31 @@ func TestEmitMessage(t *testing.T) {
 		expected := "error emitting message to " + sub.Email +
 			": write MIME-Version error"
 		assert.Error(t, err, expected)
+	})
+}
+
+func TestNewListMessageTemplateFromJson(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		mt, err := NewListMessageTemplateFromJson([]byte(ExampleMessageJson))
+
+		assert.NilError(t, err)
+		assert.Assert(t, mt != nil)
+	})
+
+	t.Run("ErrorsIfParsingJsonFails", func(t *testing.T) {
+		mt, err := NewListMessageTemplateFromJson(
+			[]byte("{ \"definitely not proper JSON\": foobar}"),
+		)
+
+		assert.Assert(t, is.Nil(mt))
+		const expectedMsg = "failed to parse message input from JSON"
+		assert.ErrorContains(t, err, expectedMsg)
+	})
+
+	t.Run("ErrorsIfValidationFails", func(t *testing.T) {
+		mt, err := NewListMessageTemplateFromJson([]byte("{}"))
+
+		assert.Assert(t, is.Nil(mt))
+		assert.ErrorContains(t, err, "message failed validation: ")
 	})
 }

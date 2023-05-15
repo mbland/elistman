@@ -2,6 +2,7 @@ package email
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,12 +14,12 @@ import (
 )
 
 type Message struct {
-	From       string `json:"from"`
-	Subject    string `json:"subject"`
-	TextBody   string `json:"textBody"`
-	TextFooter string `json:"textFooter"`
-	HtmlBody   string `json:"htmlBody"`
-	HtmlFooter string `json:"htmlFooter"`
+	From       string
+	Subject    string
+	TextBody   string
+	TextFooter string
+	HtmlBody   string
+	HtmlFooter string
 }
 
 func (msg *Message) Validate() error {
@@ -63,6 +64,18 @@ type MessageTemplate struct {
 	textFooter []byte
 	htmlBody   []byte
 	htmlFooter []byte
+}
+
+func NewListMessageTemplateFromJson(
+	msgJson []byte,
+) (mt *MessageTemplate, err error) {
+	msg := &Message{}
+	if err = json.Unmarshal(msgJson, msg); err != nil {
+		err = fmt.Errorf("failed to parse message input from JSON: %w", err)
+	} else if err = msg.Validate(); err == nil {
+		mt = NewMessageTemplate(msg)
+	}
+	return
 }
 
 func NewMessageTemplate(m *Message) *MessageTemplate {

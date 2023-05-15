@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,15 +18,7 @@ var previewCmd = &cobra.Command{
 	Short: "Preview a raw email message without sending it",
 	Long: `Reads a JSON object from standard input describing a message:
 
-  {
-    "from": "Foo Bar <foobar@example.com>",
-    "subject": "Test object",
-    "textBody": "Hello, World!",
-    "textFooter": "Unsubscribe: ` + email.UnsubscribeUrlTemplate + `",
-    "htmlBody": "<!DOCTYPE html><html><head></head><body>Hello, World!<br/>",
-    "htmlFooter": "<a href='` + email.UnsubscribeUrlTemplate +
-		`'>Unsubscribe</a></body></html>"
-  }
+` + email.ExampleMessageJson + `
 
 If the input passes validation, it then emits a raw email message to standard
 output representing what would be sent to each mailing list member.`,
@@ -38,28 +29,24 @@ func init() {
 	rootCmd.AddCommand(previewCmd)
 }
 
-func previewRawMessage(cmd *cobra.Command, args []string) error {
-	rawJson, err := io.ReadAll(os.Stdin)
-
-	if err != nil {
+func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
+	var rawJson []byte
+	if rawJson, err = io.ReadAll(os.Stdin); err != nil {
 		return fmt.Errorf("failed to read standard input: %w", err)
 	}
 
-	msg := &email.Message{}
-	if err = json.Unmarshal(rawJson, msg); err != nil {
-		return fmt.Errorf("failed to parse input as JSON message: %w", err)
-	} else if err = msg.Validate(); err != nil {
+	var mt *email.MessageTemplate
+	if mt, err = email.NewListMessageTemplateFromJson(rawJson); err != nil {
 		return err
 	}
 
-	msgTemplate := email.NewMessageTemplate(msg)
 	sub := &email.Subscriber{
 		Email: "subscriber@foo.com",
 		Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
 	}
 	sub.SetUnsubscribeInfo("unsubscribe@bar.com", "https://bar.com/email/")
 
-	if err = msgTemplate.EmitMessage(os.Stdout, sub); err != nil {
+	if err = mt.EmitMessage(os.Stdout, sub); err != nil {
 		return fmt.Errorf("failed to emit preview message: %w", err)
 	}
 	return nil
