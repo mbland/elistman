@@ -11,12 +11,12 @@ import (
 )
 
 type Message struct {
-	From       string
-	Subject    string
-	TextBody   string
-	TextFooter string
-	HtmlBody   string
-	HtmlFooter string
+	From       string `json:"from"`
+	Subject    string `json:"subject"`
+	TextBody   string `json:"textBody"`
+	TextFooter string `json:"textFooter"`
+	HtmlBody   string `json:"htmlBody"`
+	HtmlFooter string `json:"htmlFooter"`
 }
 
 type MessageTemplate struct {

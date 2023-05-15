@@ -3,6 +3,7 @@
 package email
 
 import (
+	"encoding/json"
 	"errors"
 	"mime/multipart"
 	"net/mail"
@@ -16,6 +17,31 @@ import (
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
+
+const testMessageJson = `{
+	"from": "Mike Bland <mbland@acm.org>",
+	"subject": "Test object",
+	"textBody": "Hello, World!",
+	"textFooter": "Blah blah woof woof...",
+	"htmlBody": "<!DOCTYPE html><html><head></head><body><p>Hello, World!</p>",
+	"htmlFooter": "<p>Blah blah woof woof...</p></body></html>"
+}`
+
+func TestMessageJsonMarshaling(t *testing.T) {
+	msg := &Message{}
+
+	assert.NilError(t, json.Unmarshal([]byte(testMessageJson), msg))
+
+	assert.Equal(t, "Mike Bland <mbland@acm.org>", msg.From)
+	assert.Equal(t, "Test object", msg.Subject)
+	assert.Equal(t, "Hello, World!", msg.TextBody)
+	assert.Equal(t, "Blah blah woof woof...", msg.TextFooter)
+	const htmlBody = "<!DOCTYPE html><html><head></head>" +
+		"<body><p>Hello, World!</p>"
+	assert.Equal(t, htmlBody, msg.HtmlBody)
+	const htmlFooter = "<p>Blah blah woof woof...</p></body></html>"
+	assert.Equal(t, htmlFooter, msg.HtmlFooter)
+}
 
 func TestWriter(t *testing.T) {
 	setup := func() (*strings.Builder, *writer) {
