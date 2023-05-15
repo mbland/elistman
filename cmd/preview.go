@@ -23,13 +23,14 @@ var previewCmd = &cobra.Command{
     "from": "Foo Bar <foobar@example.com>",
     "subject": "Test object",
     "textBody": "Hello, World!",
-    "textFooter": "Unsubscribe: {{UnsubscribeUrl}}",
+    "textFooter": "Unsubscribe: ` + email.UnsubscribeUrlTemplate + `",
     "htmlBody": "<!DOCTYPE html><html><head></head><body>Hello, World!<br/>",
-    "htmlFooter": "<a href='{{UnsubscribeUrl}}'>Unsubscribe</a></body></html>"
+    "htmlFooter": "<a href='` + email.UnsubscribeUrlTemplate +
+		`'>Unsubscribe</a></body></html>"
   }
 
-Emits a raw email message to standard output representing what would be sent to
-each mailing list member.`,
+If the input passes validation, it then emits a raw email message to standard
+output representing what would be sent to each mailing list member.`,
 	RunE: previewRawMessage,
 }
 
@@ -47,11 +48,13 @@ func previewRawMessage(cmd *cobra.Command, args []string) error {
 	msg := &email.Message{}
 	if err = json.Unmarshal(rawJson, msg); err != nil {
 		return fmt.Errorf("failed to parse input as JSON message: %w", err)
+	} else if err = msg.Validate(); err != nil {
+		return err
 	}
 
 	msgTemplate := email.NewMessageTemplate(msg)
 	sub := &email.Subscriber{
-		Email: "subscribe@foo.com",
+		Email: "subscriber@foo.com",
 		Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
 	}
 	sub.SetUnsubscribeInfo("unsubscribe@bar.com", "https://bar.com/email/")

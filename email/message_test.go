@@ -259,6 +259,19 @@ func TestMessageValidate(t *testing.T) {
 		assert.Error(t, (&Message{}).Validate(), expectedErrMsg)
 	})
 
+	t.Run("FailsIfHtmlBodyWithoutHtmlFooter", func(t *testing.T) {
+		msg := &Message{
+			From:       "foo@bar.com",
+			Subject:    "Missing HtmlFooter",
+			TextBody:   "OK",
+			TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
+			HtmlBody:   "<!DOCTYPE html><html><head></head><body>OK<br/>",
+		}
+
+		const expectedErrMsg = "message failed validation: HtmlFooter missing"
+		assert.Error(t, msg.Validate(), expectedErrMsg)
+	})
+
 	t.Run("FailsIfFootersMissingUnsubscribeTemplate", func(t *testing.T) {
 		msg := &Message{
 			From:       "foo@bar.com",
