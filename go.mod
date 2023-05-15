@@ -32,7 +32,7 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20230425010034-47ecfdc1ba53 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
