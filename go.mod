@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.21
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.6
-	github.com/aws/aws-sdk-go-v2/service/ses v1.15.8
+	github.com/aws/aws-sdk-go-v2/service/ses v1.15.9
 	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.17.6
 	github.com/aws/smithy-go v1.13.5
 	github.com/google/uuid v1.3.0
