@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"mime/quotedprintable"
 	"net/textproto"
+	"strings"
 )
 
 type Message struct {
@@ -41,16 +42,16 @@ func NewMessageTemplate(m *Message) *MessageTemplate {
 	mt := &MessageTemplate{
 		from:       makeHeader("From", m.From),
 		subject:    makeHeader("Subject", m.Subject),
-		textBody:   convertToCrlf(m.TextBody),
+		textBody:   convertToCrlf(appendNewlineIfNeeded(m.TextBody)),
 		textFooter: convertToCrlf(m.TextFooter),
-		htmlBody:   convertToCrlf(m.HtmlBody),
+		htmlBody:   convertToCrlf(appendNewlineIfNeeded(m.HtmlBody)),
 		htmlFooter: convertToCrlf(m.HtmlFooter),
 	}
 
 	tb := &bytes.Buffer{}
 	hb := &bytes.Buffer{}
 
-	// strings.Builder never errors, so neither will the quotedprintable writer.
+	// bytest.Buffer never errors, so neither will the quotedprintable writer.
 	writeQuotedPrintable(tb, mt.textBody)
 	mt.textBody = tb.Bytes()
 	writeQuotedPrintable(hb, mt.htmlBody)
@@ -60,6 +61,13 @@ func NewMessageTemplate(m *Message) *MessageTemplate {
 
 var toHeaderPrefix = []byte("To: ")
 var mimeVersion = []byte("MIME-Version: 1.0\r\n")
+
+func appendNewlineIfNeeded(s string) string {
+	if strings.HasSuffix(s, "\n") {
+		return s
+	}
+	return s + "\n"
+}
 
 func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
 	w := &writer{buf: b}

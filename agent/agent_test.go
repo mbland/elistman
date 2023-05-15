@@ -557,5 +557,4 @@ func TestRestore(t *testing.T) {
 
 		assertServerErrorContains(t, err, errMsg)
 	})
-
 }

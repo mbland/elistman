@@ -246,14 +246,37 @@ func byteStringsEqual(t *testing.T, expected, actual []byte) {
 }
 
 func TestNewMessageTemplate(t *testing.T) {
-	mt := NewMessageTemplate(testMessage)
+	assertMessageTemplatesEqual := func(
+		t *testing.T, expected, actual *MessageTemplate,
+	) {
+		t.Helper()
 
-	byteStringsEqual(t, testTemplate.from, mt.from)
-	byteStringsEqual(t, testTemplate.subject, mt.subject)
-	byteStringsEqual(t, testTemplate.textBody, mt.textBody)
-	byteStringsEqual(t, testTemplate.textFooter, mt.textFooter)
-	byteStringsEqual(t, testTemplate.htmlBody, mt.htmlBody)
-	byteStringsEqual(t, testTemplate.htmlFooter, mt.htmlFooter)
+		byteStringsEqual(t, expected.from, actual.from)
+		byteStringsEqual(t, expected.subject, actual.subject)
+		byteStringsEqual(t, expected.textBody, actual.textBody)
+		byteStringsEqual(t, expected.textFooter, actual.textFooter)
+		byteStringsEqual(t, expected.htmlBody, actual.htmlBody)
+		byteStringsEqual(t, expected.htmlFooter, actual.htmlFooter)
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		mt := NewMessageTemplate(testMessage)
+
+		assertMessageTemplatesEqual(t, testTemplate, mt)
+	})
+
+	t.Run("WillAddANewlineToEndOfBodiesIfNeeded", func(t *testing.T) {
+		mt := NewMessageTemplate(&Message{
+			From:       testMessage.From,
+			Subject:    testMessage.Subject,
+			TextBody:   strings.TrimRight(testMessage.TextBody, "\r\n"),
+			TextFooter: testMessage.TextFooter,
+			HtmlBody:   strings.TrimRight(testMessage.HtmlBody, "\r\n"),
+			HtmlFooter: testMessage.HtmlFooter,
+		})
+
+		assertMessageTemplatesEqual(t, testTemplate, mt)
+	})
 }
 
 var testSubscriber *Subscriber = &Subscriber{
