@@ -2,6 +2,7 @@ package email
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -18,6 +19,41 @@ type Message struct {
 	TextFooter string `json:"textFooter"`
 	HtmlBody   string `json:"htmlBody"`
 	HtmlFooter string `json:"htmlFooter"`
+}
+
+func (msg *Message) Validate() error {
+	errs := make([]error, 0, 5)
+	addErr := func(msg string) {
+		errs = append(errs, errors.New(msg))
+	}
+
+	if len(msg.From) == 0 {
+		addErr("missing From")
+	}
+	if len(msg.Subject) == 0 {
+		addErr("missing Subject")
+	}
+	if len(msg.TextBody) == 0 {
+		addErr("missing TextBody")
+	}
+	if len(msg.TextFooter) == 0 {
+		addErr("missing TextFooter")
+	} else if !strings.Contains(msg.TextFooter, UnsubscribeUrlTemplate) {
+		addErr("TextFooter does not contain " + UnsubscribeUrlTemplate)
+	}
+	if len(msg.HtmlBody) != 0 {
+		if len(msg.HtmlFooter) == 0 {
+			addErr("HtmlFooter missing")
+		} else if !strings.Contains(msg.HtmlFooter, UnsubscribeUrlTemplate) {
+			addErr("HtmlFooter does not contain " + UnsubscribeUrlTemplate)
+		}
+	} else if len(msg.HtmlFooter) != 0 {
+		addErr("HtmlFooter present, but HtmlBody missing")
+	}
+	if err := errors.Join(errs...); err != nil {
+		return fmt.Errorf("message failed validation: %w", err)
+	}
+	return nil
 }
 
 type MessageTemplate struct {

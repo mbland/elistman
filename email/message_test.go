@@ -240,6 +240,61 @@ var testTemplate *MessageTemplate = &MessageTemplate{
 		"</body></html>"),
 }
 
+func TestMessageValidate(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		assert.NilError(t, testMessage.Validate())
+	})
+
+	t.Run("EmptyMessageFails", func(t *testing.T) {
+		expectedErrMsg := strings.Join(
+			[]string{
+				"message failed validation: missing From",
+				"missing Subject",
+				"missing TextBody",
+				"missing TextFooter",
+			},
+			"\n",
+		)
+
+		assert.Error(t, (&Message{}).Validate(), expectedErrMsg)
+	})
+
+	t.Run("FailsIfFootersMissingUnsubscribeTemplate", func(t *testing.T) {
+		msg := &Message{
+			From:       "foo@bar.com",
+			Subject:    "Fubar Footers",
+			TextBody:   "OK",
+			TextFooter: "Fubar",
+			HtmlBody:   "<!DOCTYPE html><html><head></head><body>OK<br/>",
+			HtmlFooter: "Fubar</body></html>",
+		}
+		expectedErrMsg := strings.Join(
+			[]string{
+				"message failed validation: " +
+					"TextFooter does not contain " + UnsubscribeUrlTemplate,
+				"HtmlFooter does not contain " + UnsubscribeUrlTemplate,
+			},
+			"\n",
+		)
+
+		assert.Error(t, msg.Validate(), expectedErrMsg)
+	})
+
+	t.Run("FailsIfHtmlFooterWithoutHtmlBody", func(t *testing.T) {
+		msg := &Message{
+			From:       "foo@bar.com",
+			Subject:    "HtmlBody missing",
+			TextBody:   "OK",
+			TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
+			HtmlFooter: "Fubar</body></html>",
+		}
+		expectedErrMsg := "message failed validation: " +
+			"HtmlFooter present, but HtmlBody missing"
+
+		assert.Error(t, msg.Validate(), expectedErrMsg)
+	})
+}
+
 func byteStringsEqual(t *testing.T, expected, actual []byte) {
 	t.Helper()
 	assert.Check(t, is.Equal(string(expected), string(actual)))
