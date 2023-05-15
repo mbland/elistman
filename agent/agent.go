@@ -74,10 +74,20 @@ func (a *ProdAgent) Subscribe(
 	return
 }
 
+// timeToLiveDuration defines how long a pending Subscriber can exist.
+//
+// putSubscriber adds a day to the timestamp for pending subscribers
+// so DynamoDB's Time To Live feature can eventually remove them.
+const timeToLiveDuration = time.Hour * 24
+
 func (a *ProdAgent) putSubscriber(
 	ctx context.Context, sub *db.Subscriber,
 ) (err error) {
 	sub.Timestamp = a.CurrentTime()
+
+	if sub.Status == db.SubscriberPending {
+		sub.Timestamp = sub.Timestamp.Add(timeToLiveDuration)
+	}
 	if sub.Uid, err = a.NewUid(); err != nil {
 		return err
 	}

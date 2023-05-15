@@ -24,11 +24,11 @@ const testSiteTitle = "Foo Blog"
 const testUnsubEmail = "unsubscribe@foo.com"
 const testUnsubBaseUrl = "https://foo.com/email/"
 
-var expectedSubscriber *db.Subscriber = &db.Subscriber{
+var pendingSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       tu.TestUid,
 	Status:    db.SubscriberPending,
-	Timestamp: tu.TestTimestamp,
+	Timestamp: tu.TestTimestamp.Add(timeToLiveDuration),
 }
 
 var verifiedSubscriber *db.Subscriber = &db.Subscriber{
@@ -100,8 +100,8 @@ func TestPutSubscriber(t *testing.T) {
 		err := agent.putSubscriber(ctx, sub)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, expectedSubscriber, sub)
-		assert.DeepEqual(t, expectedSubscriber, dbase.Index[sub.Email])
+		assert.DeepEqual(t, pendingSubscriber, sub)
+		assert.DeepEqual(t, pendingSubscriber, dbase.Index[sub.Email])
 	})
 
 	t.Run("ReturnsErrorIfNewUidFails", func(t *testing.T) {
@@ -134,7 +134,7 @@ func TestMakeVerificationEmail(t *testing.T) {
 		return f.agent
 	}
 
-	sub := expectedSubscriber
+	sub := pendingSubscriber
 
 	t.Run("Succeeds", func(t *testing.T) {
 		agent := setup()
@@ -175,7 +175,7 @@ func TestSubscribe(t *testing.T) {
 		f.validator.AssertValidated(t, testEmail)
 
 		sub := f.db.Index[testEmail]
-		assert.DeepEqual(t, expectedSubscriber, sub)
+		assert.DeepEqual(t, pendingSubscriber, sub)
 
 		verifyEmail := f.mailer.GetMessageTo(t, testEmail)
 		assert.Assert(t, is.Contains(verifyEmail, verifySubjectPrefix))
@@ -187,7 +187,7 @@ func TestSubscribe(t *testing.T) {
 
 	t.Run("ReturnsAlreadySubscribedForExistingSubscribers", func(t *testing.T) {
 		f, ctx := setup()
-		assert.NilError(t, f.db.Put(ctx, expectedSubscriber))
+		assert.NilError(t, f.db.Put(ctx, pendingSubscriber))
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
@@ -264,12 +264,12 @@ func TestGetSubscriber(t *testing.T) {
 
 	t.Run("SucceedsWhenSubscriberExists", func(t *testing.T) {
 		agent, dbase, ctx := setup()
-		assert.NilError(t, dbase.Put(ctx, expectedSubscriber))
+		assert.NilError(t, dbase.Put(ctx, pendingSubscriber))
 
 		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, expectedSubscriber, sub)
+		assert.DeepEqual(t, pendingSubscriber, sub)
 	})
 
 	t.Run("ReturnsNilSubscriberAndNilErrorIfNotFound", func(t *testing.T) {
@@ -283,7 +283,7 @@ func TestGetSubscriber(t *testing.T) {
 
 	t.Run("ReturnsNilSubscriberAndNilErrorIfWrongUid", func(t *testing.T) {
 		agent, dbase, ctx := setup()
-		assert.NilError(t, dbase.Put(ctx, expectedSubscriber))
+		assert.NilError(t, dbase.Put(ctx, pendingSubscriber))
 		wrongUid := uuid.MustParse("11111111-2222-3333-5555-888888888888")
 
 		sub, err := agent.getSubscriber(ctx, testEmail, wrongUid)
