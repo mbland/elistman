@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/mbland/elistman/db"
-	"github.com/mbland/elistman/types"
 )
 
 type Database struct {
-	Subscribers         []*types.Subscriber
+	Subscribers         []*db.Subscriber
 	SimulateGetErr      func(emailAddress string) error
 	SimulatePutErr      func(emailAddress string) error
 	SimulateDelErr      func(emailAddress string) error
 	SimulateProcSubsErr func(emailAddress string) error
-	Index               map[string]*types.Subscriber
+	Index               map[string]*db.Subscriber
 }
 
 func NewDatabase() *Database {
@@ -21,18 +20,18 @@ func NewDatabase() *Database {
 		return nil
 	}
 	return &Database{
-		Subscribers:         make([]*types.Subscriber, 0, 10),
+		Subscribers:         make([]*db.Subscriber, 0, 10),
 		SimulateGetErr:      simulateNilError,
 		SimulatePutErr:      simulateNilError,
 		SimulateDelErr:      simulateNilError,
 		SimulateProcSubsErr: simulateNilError,
-		Index:               make(map[string]*types.Subscriber, 10),
+		Index:               make(map[string]*db.Subscriber, 10),
 	}
 }
 
 func (dbase *Database) Get(
 	_ context.Context, email string,
-) (sub *types.Subscriber, err error) {
+) (sub *db.Subscriber, err error) {
 	if err = dbase.SimulateGetErr(email); err != nil {
 		return
 	}
@@ -44,7 +43,7 @@ func (dbase *Database) Get(
 	return
 }
 
-func (dbase *Database) Put(_ context.Context, sub *types.Subscriber) error {
+func (dbase *Database) Put(_ context.Context, sub *db.Subscriber) error {
 	if err := dbase.SimulatePutErr(sub.Email); err != nil {
 		return err
 	}
@@ -82,7 +81,7 @@ func (dbase *Database) Delete(_ context.Context, email string) error {
 }
 
 func (dbase *Database) ProcessSubscribersInState(
-	_ context.Context, status types.SubscriberStatus, sp db.SubscriberProcessor,
+	_ context.Context, status db.SubscriberStatus, sp db.SubscriberProcessor,
 ) error {
 	for _, sub := range dbase.Subscribers {
 		if sub.Status != status {

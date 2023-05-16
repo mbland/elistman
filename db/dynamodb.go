@@ -12,7 +12,6 @@ import (
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/types"
 )
 
 type DynamoDbClient interface {
@@ -62,14 +61,12 @@ type DynamoDb struct {
 const DynamoDbPrimaryKey = "email"
 
 // Sparse Global Secondary Index for records containing a "pending" attribute.
-const DynamoDbPendingIndexName = string(types.SubscriberPending)
-const DynamoDbPendingIndexPartitionKey = string(types.SubscriberPending)
+const DynamoDbPendingIndexName = string(SubscriberPending)
+const DynamoDbPendingIndexPartitionKey = string(SubscriberPending)
 
 // Sparse Global Secondary Index for records containing a "verified" attribute.
-const DynamoDbVerifiedIndexName string = string(types.SubscriberVerified)
-const DynamoDbVerifiedIndexPartitionKey string = string(
-	types.SubscriberVerified,
-)
+const DynamoDbVerifiedIndexName string = string(SubscriberVerified)
+const DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
 
 var DynamoDbIndexProjection *dbtypes.Projection = &dbtypes.Projection{
 	ProjectionType: dbtypes.ProjectionTypeAll,
@@ -137,7 +134,7 @@ func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *dbtypes.TimeToLiveSpecification, err error) {
 	spec := &dbtypes.TimeToLiveSpecification{
-		AttributeName: aws.String(string(types.SubscriberPending)),
+		AttributeName: aws.String(string(SubscriberPending)),
 		Enabled:       aws.Bool(true),
 	}
 	input := &dynamodb.UpdateTimeToLiveInput{
@@ -175,11 +172,9 @@ type dbParser struct {
 	attrs dbAttributes
 }
 
-func parseSubscriber(attrs dbAttributes) (
-	subscriber *types.Subscriber, err error,
-) {
+func parseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 	p := dbParser{attrs}
-	s := &types.Subscriber{}
+	s := &Subscriber{}
 	errs := make([]error, 0, 3)
 	addErr := func(e error) {
 		errs = append(errs, e)
@@ -192,26 +187,20 @@ func parseSubscriber(attrs dbAttributes) (
 		addErr(err)
 	}
 
-	_, pending := attrs[string(types.SubscriberPending)]
-	_, verified := attrs[string(types.SubscriberVerified)]
+	_, pending := attrs[string(SubscriberPending)]
+	_, verified := attrs[string(SubscriberVerified)]
 
-	s.Status = types.SubscriberPending
+	s.Status = SubscriberPending
 	if verified {
-		s.Status = types.SubscriberVerified
+		s.Status = SubscriberVerified
 	}
 
 	if pending && verified {
-		addErr(fmt.Errorf(
-			"contains both '%s' and '%s' attributes",
-			types.SubscriberPending,
-			types.SubscriberVerified,
-		))
+		const errFmt = "contains both '%s' and '%s' attributes"
+		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
 	} else if !(pending || verified) {
-		addErr(fmt.Errorf(
-			"has neither '%s' or '%s' attributes",
-			types.SubscriberPending,
-			types.SubscriberVerified,
-		))
+		const errFmt = "has neither '%s' or '%s' attributes"
+		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
 	} else if s.Timestamp, err = p.GetTime(string(s.Status)); err != nil {
 		addErr(err)
 	}
@@ -269,7 +258,7 @@ func getAttribute[T any, V any](
 
 func (db *DynamoDb) Get(
 	ctx context.Context, email string,
-) (subscriber *types.Subscriber, err error) {
+) (subscriber *Subscriber, err error) {
 	input := &dynamodb.GetItemInput{
 		Key: subscriberKey(email), TableName: aws.String(db.TableName),
 	}
@@ -285,9 +274,7 @@ func (db *DynamoDb) Get(
 	return
 }
 
-func (db *DynamoDb) Put(
-	ctx context.Context, sub *types.Subscriber,
-) (err error) {
+func (db *DynamoDb) Put(ctx context.Context, sub *Subscriber) (err error) {
 	input := &dynamodb.PutItemInput{
 		Item: dbAttributes{
 			"email":            &dbString{Value: sub.Email},
@@ -313,7 +300,7 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 }
 
 func (db *DynamoDb) ProcessSubscribersInState(
-	ctx context.Context, status types.SubscriberStatus, sp SubscriberProcessor,
+	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) error {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(db.TableName),

@@ -2,16 +2,19 @@ package db
 
 import (
 	"context"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/mbland/elistman/types"
 )
 
 type Database interface {
-	Get(ctx context.Context, email string) (*types.Subscriber, error)
-	Put(ctx context.Context, subscriber *types.Subscriber) error
+	Get(ctx context.Context, email string) (*Subscriber, error)
+	Put(ctx context.Context, subscriber *Subscriber) error
 	Delete(ctx context.Context, email string) error
 	ProcessSubscribersInState(
-		context.Context, types.SubscriberStatus, SubscriberProcessor,
+		context.Context, SubscriberStatus, SubscriberProcessor,
 	) error
 }
 
@@ -26,16 +29,54 @@ const ErrSubscriberNotFound = types.SentinelError("is not a subscriber")
 // Process should return true if processing should continue with the next
 // Subscriber, or false if processing should halt.
 type SubscriberProcessor interface {
-	Process(*types.Subscriber) bool
+	Process(*Subscriber) bool
 }
 
 // SubscriberFunc is an adapter to allow processing of Subscriber
 // objects using plain functions.
 //
 // Inspired by: https://pkg.go.dev/net/http#HandlerFunc
-type SubscriberFunc func(sub *types.Subscriber) bool
+type SubscriberFunc func(sub *Subscriber) bool
 
 // SubscriberFunc calls and returns f(sub).
-func (f SubscriberFunc) Process(sub *types.Subscriber) bool {
+func (f SubscriberFunc) Process(sub *Subscriber) bool {
 	return f(sub)
+}
+
+type Subscriber struct {
+	Email     string
+	Uid       uuid.UUID
+	Status    SubscriberStatus
+	Timestamp time.Time
+}
+
+type SubscriberStatus string
+
+const (
+	SubscriberPending  SubscriberStatus = "pending"
+	SubscriberVerified SubscriberStatus = "verified"
+)
+
+const TimestampFormat = time.RFC1123Z
+
+func NewSubscriber(email string) *Subscriber {
+	return &Subscriber{
+		Email:     email,
+		Uid:       uuid.New(),
+		Status:    SubscriberPending,
+		Timestamp: time.Now().Truncate(time.Second),
+	}
+}
+
+func (sub *Subscriber) String() string {
+	sb := strings.Builder{}
+	sb.WriteString("Email: ")
+	sb.WriteString(sub.Email)
+	sb.WriteString(", Uid: ")
+	sb.WriteString(sub.Uid.String())
+	sb.WriteString(", Status: ")
+	sb.WriteString(string(sub.Status))
+	sb.WriteString(", Timestamp: ")
+	sb.WriteString(sub.Timestamp.Format(TimestampFormat))
+	return sb.String()
 }

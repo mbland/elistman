@@ -12,7 +12,6 @@ import (
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/types"
 )
 
 type SubscriptionAgent interface {
@@ -53,11 +52,11 @@ func (a *ProdAgent) Subscribe(
 		return
 	}
 
-	var sub *types.Subscriber
+	var sub *db.Subscriber
 
 	if sub, err = a.Db.Get(ctx, address); err == nil {
 		switch sub.Status {
-		case types.SubscriberPending:
+		case db.SubscriberPending:
 			result = ops.VerifyLinkSent
 		default:
 			result = ops.AlreadySubscribed
@@ -67,7 +66,7 @@ func (a *ProdAgent) Subscribe(
 		return
 	}
 
-	sub = &types.Subscriber{Email: address, Status: types.SubscriberPending}
+	sub = &db.Subscriber{Email: address, Status: db.SubscriberPending}
 	if err = a.putSubscriber(ctx, sub); err != nil {
 		return
 	}
@@ -89,11 +88,11 @@ func (a *ProdAgent) Subscribe(
 const timeToLiveDuration = time.Hour * 24
 
 func (a *ProdAgent) putSubscriber(
-	ctx context.Context, sub *types.Subscriber,
+	ctx context.Context, sub *db.Subscriber,
 ) (err error) {
 	sub.Timestamp = a.CurrentTime()
 
-	if sub.Status == types.SubscriberPending {
+	if sub.Status == db.SubscriberPending {
 		sub.Timestamp = sub.Timestamp.Add(timeToLiveDuration)
 	}
 	if sub.Uid, err = a.NewUid(); err != nil {
@@ -134,7 +133,7 @@ func verifyHtmlBody(siteTitle, verifyLink string) string {
 	)
 }
 
-func (a *ProdAgent) makeVerificationEmail(sub *types.Subscriber) []byte {
+func (a *ProdAgent) makeVerificationEmail(sub *db.Subscriber) []byte {
 	verifyLink := ops.VerifyUrl(a.ApiBaseUrl, sub.Email, sub.Uid)
 	recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
 	buf := &bytes.Buffer{}
@@ -155,19 +154,19 @@ func (a *ProdAgent) makeVerificationEmail(sub *types.Subscriber) []byte {
 func (a *ProdAgent) Verify(
 	ctx context.Context, address string, uid uuid.UUID,
 ) (result ops.OperationResult, err error) {
-	var sub *types.Subscriber
+	var sub *db.Subscriber
 
 	if sub, err = a.getSubscriber(ctx, address, uid); err != nil {
 		return
 	} else if sub == nil {
 		result = ops.NotSubscribed
 		return
-	} else if sub.Status == types.SubscriberVerified {
+	} else if sub.Status == db.SubscriberVerified {
 		result = ops.AlreadySubscribed
 		return
 	}
 
-	sub.Status = types.SubscriberVerified
+	sub.Status = db.SubscriberVerified
 	sub.Timestamp = a.CurrentTime()
 
 	if err = a.Db.Put(ctx, sub); err == nil {
@@ -179,7 +178,7 @@ func (a *ProdAgent) Verify(
 func (a *ProdAgent) Unsubscribe(
 	ctx context.Context, address string, uid uuid.UUID,
 ) (result ops.OperationResult, err error) {
-	var sub *types.Subscriber
+	var sub *db.Subscriber
 
 	if sub, err = a.getSubscriber(ctx, address, uid); err != nil {
 		return
@@ -193,7 +192,7 @@ func (a *ProdAgent) Unsubscribe(
 
 func (a *ProdAgent) getSubscriber(
 	ctx context.Context, address string, uid uuid.UUID,
-) (sub *types.Subscriber, err error) {
+) (sub *db.Subscriber, err error) {
 	sub, err = a.Db.Get(ctx, address)
 
 	if errors.Is(err, db.ErrSubscriberNotFound) {
@@ -216,7 +215,7 @@ func (a *ProdAgent) Remove(ctx context.Context, address string) (err error) {
 func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 	// Since the SnsHandler is calling this to restore a previous subscriber,
 	// presume they're already verified.
-	sub := &types.Subscriber{Email: address, Status: types.SubscriberVerified}
+	sub := &db.Subscriber{Email: address, Status: db.SubscriberVerified}
 	if err = a.putSubscriber(ctx, sub); err == nil {
 		err = a.Suppressor.Unsuppress(ctx, address)
 	}

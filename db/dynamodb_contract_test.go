@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
-	"github.com/mbland/elistman/types"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -147,8 +146,8 @@ func waitForTable(ctx context.Context, dynDb *DynamoDb) error {
 	return waiter.Wait(ctx, input, maxTableWaitDuration)
 }
 
-func newTestSubscriber() *types.Subscriber {
-	return types.NewSubscriber(testutils.RandomString(8) + "@example.com")
+func newTestSubscriber() *Subscriber {
+	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
 
 func TestDynamoDb(t *testing.T) {
@@ -208,7 +207,7 @@ func TestDynamoDb(t *testing.T) {
 			ttlSpec, err := testDb.UpdateTimeToLive(ctx)
 
 			assert.NilError(t, err)
-			expectedAttrName := string(types.SubscriberPending)
+			expectedAttrName := string(SubscriberPending)
 			actualAttrName := aws.ToString(ttlSpec.AttributeName)
 			assert.Equal(t, expectedAttrName, actualAttrName)
 			assert.Equal(t, true, aws.ToBool(ttlSpec.Enabled))
@@ -278,7 +277,7 @@ func TestDynamoDb(t *testing.T) {
 			len(testPendingSubscribers)+len(testVerifiedSubscribers),
 		)
 
-		putSubscribers := func(t *testing.T, subs []*types.Subscriber) {
+		putSubscribers := func(t *testing.T, subs []*Subscriber) {
 			t.Helper()
 
 			for _, sub := range subs {
@@ -313,15 +312,13 @@ func TestDynamoDb(t *testing.T) {
 		defer teardown()
 
 		t.Run("Succeeds", func(t *testing.T) {
-			subs := &[]*types.Subscriber{}
-			f := SubscriberFunc(func(s *types.Subscriber) bool {
+			subs := &[]*Subscriber{}
+			f := SubscriberFunc(func(s *Subscriber) bool {
 				*subs = append(*subs, s)
 				return true
 			})
 
-			err := testDb.ProcessSubscribersInState(
-				ctx, types.SubscriberVerified, f,
-			)
+			err := testDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
 			// The ordering here isn't necessarily guaranteed, but expected

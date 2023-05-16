@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testdoubles"
 	tu "github.com/mbland/elistman/testutils"
-	"github.com/mbland/elistman/types"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -24,17 +24,17 @@ const testSiteTitle = "Foo Blog"
 const testUnsubEmail = "unsubscribe@foo.com"
 const testUnsubBaseUrl = "https://foo.com/email/"
 
-var pendingSubscriber *types.Subscriber = &types.Subscriber{
+var pendingSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       tu.TestUid,
-	Status:    types.SubscriberPending,
+	Status:    db.SubscriberPending,
 	Timestamp: tu.TestTimestamp.Add(timeToLiveDuration),
 }
 
-var verifiedSubscriber *types.Subscriber = &types.Subscriber{
+var verifiedSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       uuid.MustParse("55555555-6666-7777-8888-999999999999"),
-	Status:    types.SubscriberVerified,
+	Status:    db.SubscriberVerified,
 	Timestamp: tu.TestTimestamp,
 }
 
@@ -87,13 +87,10 @@ func assertServerErrorContains(t *testing.T, err error, expectedMsg string) {
 
 func TestPutSubscriber(t *testing.T) {
 	setup := func() (
-		*ProdAgent, *testdoubles.Database, *types.Subscriber, context.Context,
+		*ProdAgent, *testdoubles.Database, *db.Subscriber, context.Context,
 	) {
 		f := newProdAgentTestFixture()
-		sub := &types.Subscriber{
-			Email:  testEmail,
-			Status: types.SubscriberPending,
-		}
+		sub := &db.Subscriber{Email: testEmail, Status: db.SubscriberPending}
 		return f.agent, f.db, sub, context.Background()
 	}
 
@@ -323,13 +320,13 @@ func TestVerify(t *testing.T) {
 	setup := func() (
 		*ProdAgent,
 		*testdoubles.Database,
-		*types.Subscriber,
+		*db.Subscriber,
 		context.Context) {
 		f := newProdAgentTestFixture()
-		sub := &types.Subscriber{
+		sub := &db.Subscriber{
 			Email:     testEmail,
 			Uid:       tu.TestUid,
-			Status:    types.SubscriberPending,
+			Status:    db.SubscriberPending,
 			Timestamp: tu.TestTimestamp,
 		}
 		return f.agent, f.db, sub, context.Background()
@@ -350,7 +347,7 @@ func TestVerify(t *testing.T) {
 
 		sub, err := dbase.Get(ctx, pendingSub.Email)
 		assert.NilError(t, err)
-		assert.Equal(t, types.SubscriberVerified, sub.Status)
+		assert.Equal(t, db.SubscriberVerified, sub.Status)
 		assert.Equal(t, newTimestamp, sub.Timestamp)
 	})
 
@@ -404,13 +401,13 @@ func TestUnsubscribe(t *testing.T) {
 	setup := func() (
 		*ProdAgent,
 		*testdoubles.Database,
-		*types.Subscriber,
+		*db.Subscriber,
 		context.Context) {
 		f := newProdAgentTestFixture()
-		sub := &types.Subscriber{
+		sub := &db.Subscriber{
 			Email:     testEmail,
 			Uid:       tu.TestUid,
-			Status:    types.SubscriberVerified,
+			Status:    db.SubscriberVerified,
 			Timestamp: tu.TestTimestamp,
 		}
 		return f.agent, f.db, sub, context.Background()
@@ -467,13 +464,13 @@ func TestRemove(t *testing.T) {
 		*ProdAgent,
 		*testdoubles.Database,
 		*testdoubles.Suppressor,
-		*types.Subscriber,
+		*db.Subscriber,
 		context.Context) {
 		f := newProdAgentTestFixture()
-		sub := &types.Subscriber{
+		sub := &db.Subscriber{
 			Email:     testEmail,
 			Uid:       tu.TestUid,
-			Status:    types.SubscriberVerified,
+			Status:    db.SubscriberVerified,
 			Timestamp: tu.TestTimestamp,
 		}
 		return f.agent, f.db, f.suppressor, sub, context.Background()
@@ -517,13 +514,13 @@ func TestRestore(t *testing.T) {
 		*ProdAgent,
 		*testdoubles.Database,
 		*testdoubles.Suppressor,
-		*types.Subscriber,
+		*db.Subscriber,
 		context.Context) {
 		f := newProdAgentTestFixture()
-		expectedSub := &types.Subscriber{
+		expectedSub := &db.Subscriber{
 			Email:     testEmail,
 			Uid:       tu.TestUid,
-			Status:    types.SubscriberVerified,
+			Status:    db.SubscriberVerified,
 			Timestamp: tu.TestTimestamp,
 		}
 		return f.agent, f.db, f.suppressor, expectedSub, context.Background()
