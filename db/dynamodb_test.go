@@ -322,8 +322,7 @@ func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
 	client = &TestDynamoDbClient{}
 	dyndb = &DynamoDb{client, "subscribers-table"}
 
-	client.addSubscribers(testPendingSubscribers)
-	client.addSubscribers(testVerifiedSubscribers)
+	client.addSubscribers(testSubscribers)
 	return
 }
 
