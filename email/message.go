@@ -118,7 +118,7 @@ func appendNewlineIfNeeded(s string) string {
 	return s + "\n"
 }
 
-func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Subscriber) error {
+func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Recipient) error {
 	w := &writer{buf: b}
 
 	w.Write(mt.from)
@@ -170,7 +170,7 @@ var contentEncodingQuotedPrintable = []byte(
 	"Content-Transfer-Encoding: quoted-printable\r\n\r\n",
 )
 
-func (mt *MessageTemplate) emitTextOnly(w *writer, sub *Subscriber) {
+func (mt *MessageTemplate) emitTextOnly(w *writer, sub *Recipient) {
 	w.Write(contentTypeHeader)
 	w.WriteLine(textContentType)
 	w.Write(contentEncodingQuotedPrintable)
@@ -182,7 +182,7 @@ func (mt *MessageTemplate) emitTextOnly(w *writer, sub *Subscriber) {
 	}
 }
 
-func (mt *MessageTemplate) emitMultipart(w *writer, sub *Subscriber) {
+func (mt *MessageTemplate) emitMultipart(w *writer, sub *Recipient) {
 	mpw := multipart.NewWriter(w)
 	contentType := mime.FormatMediaType(
 		"multipart/alternative",

@@ -339,13 +339,13 @@ func TestNewMessageTemplate(t *testing.T) {
 	})
 }
 
-var testSubscriber *Subscriber = &Subscriber{
+var testRecipient *Recipient = &Recipient{
 	Email: "subscriber@foo.com",
 	Uid:   uuid.MustParse(testUid),
 }
 
-func newTestSubscriber() *Subscriber {
-	var sub Subscriber = *testSubscriber
+func newTestRecipient() *Recipient {
+	var sub Recipient = *testRecipient
 	return &sub
 }
 
@@ -372,9 +372,9 @@ var decodedTextContent = string(convertToCrlf(testMessage.TextBody)) +
 	string(instantiatedTextFooter)
 
 func TestEmitTextOnly(t *testing.T) {
-	setup := func() (*strings.Builder, *writer, *tu.ErrWriter, *Subscriber) {
+	setup := func() (*strings.Builder, *writer, *tu.ErrWriter, *Recipient) {
 		sb := &strings.Builder{}
-		sub := newTestSubscriber()
+		sub := newTestRecipient()
 		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, &tu.ErrWriter{Buf: sb}, sub
 	}
@@ -516,16 +516,16 @@ var decodedHtmlContent = string(convertToCrlf(testMessage.HtmlBody)) +
 	string(instantiatedHtmlFooter)
 
 func TestEmitMultipart(t *testing.T) {
-	setup := func() (*strings.Builder, *writer, *Subscriber) {
+	setup := func() (*strings.Builder, *writer, *Recipient) {
 		sb := &strings.Builder{}
-		sub := newTestSubscriber()
+		sub := newTestRecipient()
 		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, sub
 	}
 
 	setupWithError := func(
 		errMsg string,
-	) (*writer, *tu.ErrWriter, *Subscriber) {
+	) (*writer, *tu.ErrWriter, *Recipient) {
 		sb, w, sub := setup()
 		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
 		w.buf = ew
@@ -589,7 +589,7 @@ func assertMessageHeaders(t *testing.T, msg *mail.Message, content string) {
 
 	th := tu.TestHeader{Header: msg.Header}
 	th.Assert(t, "From", testMessage.From)
-	th.Assert(t, "To", testSubscriber.Email)
+	th.Assert(t, "To", testRecipient.Email)
 	th.Assert(t, "Subject", testMessage.Subject)
 	th.Assert(t, "List-Unsubscribe", testUnsubHeaderValue)
 	th.Assert(t, "List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
@@ -597,16 +597,16 @@ func assertMessageHeaders(t *testing.T, msg *mail.Message, content string) {
 }
 
 func TestEmitMessage(t *testing.T) {
-	setup := func() (*strings.Builder, *writer, *Subscriber) {
+	setup := func() (*strings.Builder, *writer, *Recipient) {
 		sb := &strings.Builder{}
-		sub := newTestSubscriber()
+		sub := newTestRecipient()
 		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
 		return sb, &writer{buf: sb}, sub
 	}
 
 	setupWithError := func(
 		errMsg string,
-	) (*writer, *tu.ErrWriter, *Subscriber) {
+	) (*writer, *tu.ErrWriter, *Recipient) {
 		sb, w, sub := setup()
 		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
 		w.buf = ew

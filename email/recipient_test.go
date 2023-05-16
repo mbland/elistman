@@ -15,8 +15,8 @@ import (
 )
 
 func TestSubscriber(t *testing.T) {
-	setup := func() *Subscriber {
-		sub := &Subscriber{
+	setup := func() *Recipient {
+		sub := &Recipient{
 			Email: "subscriber@foo.com",
 			Uid:   uuid.MustParse(testUid),
 		}
@@ -24,7 +24,7 @@ func TestSubscriber(t *testing.T) {
 		return sub
 	}
 
-	expectedUrlAndHeader := func(sub *Subscriber) (string, string) {
+	expectedUrlAndHeader := func(sub *Recipient) (string, string) {
 		const mailtoFmt = "mailto:%s?subject=%s%%20%s"
 		mailto := fmt.Sprintf(mailtoFmt, testUnsubEmail, sub.Email, testUid)
 		unsubUrl := testApiBaseUrl + ops.ApiPrefixUnsubscribe +
@@ -55,7 +55,7 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("EmitUnsubscribeHeaders", func(t *testing.T) {
 		emitHeadersSetup := func() (
-			*Subscriber, *strings.Builder, *tu.ErrWriter,
+			*Recipient, *strings.Builder, *tu.ErrWriter,
 		) {
 			sb := &strings.Builder{}
 			return setup(), sb, &tu.ErrWriter{Buf: sb}

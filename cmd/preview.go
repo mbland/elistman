@@ -40,7 +40,7 @@ func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	sub := &email.Subscriber{
+	sub := &email.Recipient{
 		Email: "subscriber@foo.com",
 		Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
 	}

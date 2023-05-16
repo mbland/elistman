@@ -135,7 +135,7 @@ func verifyHtmlBody(siteTitle, verifyLink string) string {
 
 func (a *ProdAgent) makeVerificationEmail(sub *db.Subscriber) []byte {
 	verifyLink := ops.VerifyUrl(a.ApiBaseUrl, sub.Email, sub.Uid)
-	recipient := &email.Subscriber{Email: sub.Email, Uid: sub.Uid}
+	recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
 	buf := &bytes.Buffer{}
 
 	msg := email.NewMessageTemplate(&email.Message{

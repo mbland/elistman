@@ -13,14 +13,14 @@ const UnsubscribeUrlTemplate = "{{UnsubscribeUrl}}"
 
 var unsubscribeUrlTemplate = []byte(UnsubscribeUrlTemplate)
 
-type Subscriber struct {
+type Recipient struct {
 	Email       string
 	Uid         uuid.UUID
 	unsubUrl    []byte
 	unsubHeader []byte
 }
 
-func (sub *Subscriber) SetUnsubscribeInfo(email, apiBaseUrl string) {
+func (sub *Recipient) SetUnsubscribeInfo(email, apiBaseUrl string) {
 	sub.unsubUrl = []byte(ops.UnsubscribeUrl(apiBaseUrl, sub.Email, sub.Uid))
 
 	sb := &strings.Builder{}
@@ -36,7 +36,7 @@ var listUnsubscribePost = []byte(
 	"List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n",
 )
 
-func (sub *Subscriber) EmitUnsubscribeHeaders(w io.Writer) (err error) {
+func (sub *Recipient) EmitUnsubscribeHeaders(w io.Writer) (err error) {
 	// If unsubHeader is empty, this is a verification message. No need for the
 	// unsubscribe info if the subscriber isn't yet verified.
 	if len(sub.unsubHeader) == 0 {
@@ -48,6 +48,6 @@ func (sub *Subscriber) EmitUnsubscribeHeaders(w io.Writer) (err error) {
 	return
 }
 
-func (sub *Subscriber) FillInUnsubscribeUrl(msg []byte) []byte {
+func (sub *Recipient) FillInUnsubscribeUrl(msg []byte) []byte {
 	return bytes.Replace(msg, unsubscribeUrlTemplate, sub.unsubUrl, 1)
 }
