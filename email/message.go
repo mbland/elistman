@@ -9,6 +9,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net/mail"
 	"net/textproto"
 	"strings"
 )
@@ -30,6 +31,9 @@ func (msg *Message) Validate() error {
 
 	if len(msg.From) == 0 {
 		addErr("missing From")
+	} else if _, err := mail.ParseAddress(msg.From); err != nil {
+		addErr("failed to parse From address \"" + msg.From + "\": " +
+			err.Error())
 	}
 	if len(msg.Subject) == 0 {
 		addErr("missing Subject")

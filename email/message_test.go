@@ -262,6 +262,16 @@ func TestMessageValidate(t *testing.T) {
 		assert.Error(t, (&Message{}).Validate(), expectedErrMsg)
 	})
 
+	t.Run("FailsIfFromAddressFailsToParse", func(t *testing.T) {
+		msg := newTestMessage()
+		msg.From = "not an address"
+
+		const expectedErrMsg = "message failed validation: " +
+			"failed to parse From address \"not an address\": " +
+			"mail: no angle-addr"
+		assert.Error(t, msg.Validate(), expectedErrMsg)
+	})
+
 	t.Run("FailsIfHtmlBodyWithoutHtmlFooter", func(t *testing.T) {
 		msg := newTestMessage()
 		msg.HtmlFooter = ""
