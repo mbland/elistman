@@ -10,9 +10,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/types"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -85,7 +86,7 @@ func (client *TestDynamoDbClient) addSubscriberRecord(sub dbAttributes) {
 	client.subscribers = append(client.subscribers, sub)
 }
 
-func (client *TestDynamoDbClient) addSubscribers(subs []*Subscriber) {
+func (client *TestDynamoDbClient) addSubscribers(subs []*types.Subscriber) {
 	for _, sub := range subs {
 		subRec := newSubscriberRecord(sub)
 		client.subscribers = append(client.subscribers, subRec)
@@ -163,7 +164,7 @@ func (client *TestDynamoDbClient) Scan(
 	return
 }
 
-func newSubscriberRecord(sub *Subscriber) dbAttributes {
+func newSubscriberRecord(sub *types.Subscriber) dbAttributes {
 	return dbAttributes{
 		"email":            &dbString{Value: sub.Email},
 		"uid":              &dbString{Value: sub.Uid.String()},
@@ -201,7 +202,7 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	_, err = dyndb.Get(ctx, testEmail)
 	checkIsExternalError(t, err)
 
-	err = dyndb.Put(ctx, &Subscriber{})
+	err = dyndb.Put(ctx, &types.Subscriber{})
 	checkIsExternalError(t, err)
 
 	err = dyndb.Delete(ctx, testEmail)
@@ -211,7 +212,7 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 func TestGetAttribute(t *testing.T) {
 	attrs := dbAttributes{
 		"email":      &dbString{Value: testEmail},
-		"unexpected": &types.AttributeValueMemberBOOL{Value: false},
+		"unexpected": &dbtypes.AttributeValueMemberBOOL{Value: false},
 	}
 
 	parseString := func(attr *dbString) (string, error) {
@@ -265,8 +266,11 @@ func TestParseSubscriber(t *testing.T) {
 		subscriber, err := parseSubscriber(attrs)
 
 		assert.NilError(t, err)
-		assert.DeepEqual(t, subscriber, &Subscriber{
-			testEmail, testUid, SubscriberVerified, testTimestamp,
+		assert.DeepEqual(t, subscriber, &types.Subscriber{
+			Email:     testEmail,
+			Uid:       testUid,
+			Status:    types.SubscriberVerified,
+			Timestamp: testTimestamp,
 		})
 	})
 
@@ -280,7 +284,7 @@ func TestParseSubscriber(t *testing.T) {
 
 		const errFmt = "has neither '%s' or '%s' attributes"
 		expected := fmt.Sprintf(
-			errFmt, SubscriberPending, SubscriberVerified,
+			errFmt, types.SubscriberPending, types.SubscriberVerified,
 		)
 		assert.ErrorContains(t, err, expected)
 	})
@@ -299,7 +303,7 @@ func TestParseSubscriber(t *testing.T) {
 
 		const errFmt = "contains both '%s' and '%s' attributes"
 		expected := fmt.Sprintf(
-			errFmt, SubscriberPending, SubscriberVerified,
+			errFmt, types.SubscriberPending, types.SubscriberVerified,
 		)
 		assert.ErrorContains(t, err, expected)
 	})
@@ -332,12 +336,12 @@ func TestProcessSubscribersInState(t *testing.T) {
 	setup := func() (
 		dyndb *DynamoDb,
 		client *TestDynamoDbClient,
-		subs *[]*Subscriber,
+		subs *[]*types.Subscriber,
 		f SubscriberFunc,
 	) {
 		dyndb, client = setupDbWithSubscribers()
-		subs = &[]*Subscriber{}
-		f = SubscriberFunc(func(s *Subscriber) bool {
+		subs = &[]*types.Subscriber{}
+		f = SubscriberFunc(func(s *types.Subscriber) bool {
 			*subs = append(*subs, s)
 			return true
 		})
@@ -348,7 +352,9 @@ func TestProcessSubscribersInState(t *testing.T) {
 		t.Run("WithoutPagination", func(t *testing.T) {
 			dynDb, client, subs, f := setup()
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(
+				ctx, types.SubscriberVerified, f,
+			)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
@@ -359,7 +365,9 @@ func TestProcessSubscribersInState(t *testing.T) {
 			dynDb, client, subs, f := setup()
 			client.scanSize = 1
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(
+				ctx, types.SubscriberVerified, f,
+			)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
@@ -368,12 +376,14 @@ func TestProcessSubscribersInState(t *testing.T) {
 
 		t.Run("WithoutProcessingAllSubscribers", func(t *testing.T) {
 			dynDb, _, subs, _ := setup()
-			f := SubscriberFunc(func(s *Subscriber) bool {
+			f := SubscriberFunc(func(s *types.Subscriber) bool {
 				*subs = append(*subs, s)
 				return s.Email != testVerifiedSubscribers[1].Email
 			})
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(
+				ctx, types.SubscriberVerified, f,
+			)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, testVerifiedSubscribers[:2], *subs)
@@ -385,7 +395,9 @@ func TestProcessSubscribersInState(t *testing.T) {
 			dynDb, client, _, f := setup()
 			client.SetServerError("scanning error")
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(
+				ctx, types.SubscriberVerified, f,
+			)
 
 			assert.ErrorContains(t, err, "scanning error")
 			assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
@@ -393,14 +405,16 @@ func TestProcessSubscribersInState(t *testing.T) {
 
 		t.Run("IfParseSubscriberFails", func(t *testing.T) {
 			dynDb, client, _, f := setup()
-			status := SubscriberVerified
+			status := types.SubscriberVerified
 			client.addSubscriberRecord(dbAttributes{
 				"email":        &dbString{Value: "bad-uid@foo.com"},
 				"uid":          &dbString{Value: "not a uid"},
 				string(status): toDynamoDbTimestamp(testTimestamp),
 			})
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribersInState(
+				ctx, types.SubscriberVerified, f,
+			)
 
 			expectedErr := "failed to parse subscriber: " +
 				"failed to parse 'uid' from: "

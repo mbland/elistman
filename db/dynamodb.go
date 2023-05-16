@@ -12,6 +12,7 @@ import (
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/types"
 )
 
 type DynamoDbClient interface {
@@ -61,12 +62,14 @@ type DynamoDb struct {
 const DynamoDbPrimaryKey = "email"
 
 // Sparse Global Secondary Index for records containing a "pending" attribute.
-const DynamoDbPendingIndexName = string(SubscriberPending)
-const DynamoDbPendingIndexPartitionKey = string(SubscriberPending)
+const DynamoDbPendingIndexName = string(types.SubscriberPending)
+const DynamoDbPendingIndexPartitionKey = string(types.SubscriberPending)
 
 // Sparse Global Secondary Index for records containing a "verified" attribute.
-const DynamoDbVerifiedIndexName string = string(SubscriberVerified)
-const DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
+const DynamoDbVerifiedIndexName string = string(types.SubscriberVerified)
+const DynamoDbVerifiedIndexPartitionKey string = string(
+	types.SubscriberVerified,
+)
 
 var DynamoDbIndexProjection *dbtypes.Projection = &dbtypes.Projection{
 	ProjectionType: dbtypes.ProjectionTypeAll,
@@ -134,7 +137,7 @@ func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *dbtypes.TimeToLiveSpecification, err error) {
 	spec := &dbtypes.TimeToLiveSpecification{
-		AttributeName: aws.String(string(SubscriberPending)),
+		AttributeName: aws.String(string(types.SubscriberPending)),
 		Enabled:       aws.Bool(true),
 	}
 	input := &dynamodb.UpdateTimeToLiveInput{
@@ -172,9 +175,11 @@ type dbParser struct {
 	attrs dbAttributes
 }
 
-func parseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
+func parseSubscriber(attrs dbAttributes) (
+	subscriber *types.Subscriber, err error,
+) {
 	p := dbParser{attrs}
-	s := &Subscriber{}
+	s := &types.Subscriber{}
 	errs := make([]error, 0, 3)
 	addErr := func(e error) {
 		errs = append(errs, e)
@@ -187,20 +192,26 @@ func parseSubscriber(attrs dbAttributes) (subscriber *Subscriber, err error) {
 		addErr(err)
 	}
 
-	_, pending := attrs[string(SubscriberPending)]
-	_, verified := attrs[string(SubscriberVerified)]
+	_, pending := attrs[string(types.SubscriberPending)]
+	_, verified := attrs[string(types.SubscriberVerified)]
 
-	s.Status = SubscriberPending
+	s.Status = types.SubscriberPending
 	if verified {
-		s.Status = SubscriberVerified
+		s.Status = types.SubscriberVerified
 	}
 
 	if pending && verified {
-		const errFmt = "contains both '%s' and '%s' attributes"
-		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
+		addErr(fmt.Errorf(
+			"contains both '%s' and '%s' attributes",
+			types.SubscriberPending,
+			types.SubscriberVerified,
+		))
 	} else if !(pending || verified) {
-		const errFmt = "has neither '%s' or '%s' attributes"
-		addErr(fmt.Errorf(errFmt, SubscriberPending, SubscriberVerified))
+		addErr(fmt.Errorf(
+			"has neither '%s' or '%s' attributes",
+			types.SubscriberPending,
+			types.SubscriberVerified,
+		))
 	} else if s.Timestamp, err = p.GetTime(string(s.Status)); err != nil {
 		addErr(err)
 	}
@@ -258,7 +269,7 @@ func getAttribute[T any, V any](
 
 func (db *DynamoDb) Get(
 	ctx context.Context, email string,
-) (subscriber *Subscriber, err error) {
+) (subscriber *types.Subscriber, err error) {
 	input := &dynamodb.GetItemInput{
 		Key: subscriberKey(email), TableName: aws.String(db.TableName),
 	}
@@ -274,7 +285,9 @@ func (db *DynamoDb) Get(
 	return
 }
 
-func (db *DynamoDb) Put(ctx context.Context, sub *Subscriber) (err error) {
+func (db *DynamoDb) Put(
+	ctx context.Context, sub *types.Subscriber,
+) (err error) {
 	input := &dynamodb.PutItemInput{
 		Item: dbAttributes{
 			"email":            &dbString{Value: sub.Email},
@@ -300,7 +313,7 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 }
 
 func (db *DynamoDb) ProcessSubscribersInState(
-	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
+	ctx context.Context, status types.SubscriberStatus, sp SubscriberProcessor,
 ) error {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(db.TableName),
