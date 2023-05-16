@@ -198,19 +198,19 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	err = dyndb.DeleteTable(ctx)
 	checkIsExternalError(t, err)
 
-	_, err = dyndb.Get(ctx, TestEmail)
+	_, err = dyndb.Get(ctx, testutils.TestEmail)
 	checkIsExternalError(t, err)
 
 	err = dyndb.Put(ctx, &Subscriber{})
 	checkIsExternalError(t, err)
 
-	err = dyndb.Delete(ctx, TestEmail)
+	err = dyndb.Delete(ctx, testutils.TestEmail)
 	checkIsExternalError(t, err)
 }
 
 func TestGetAttribute(t *testing.T) {
 	attrs := dbAttributes{
-		"email":      &dbString{Value: TestEmail},
+		"email":      &dbString{Value: testutils.TestEmail},
 		"unexpected": &types.AttributeValueMemberBOOL{Value: false},
 	}
 
@@ -222,7 +222,7 @@ func TestGetAttribute(t *testing.T) {
 		value, err := getAttribute("email", attrs, parseString)
 
 		assert.NilError(t, err)
-		assert.Equal(t, TestEmail, value)
+		assert.Equal(t, testutils.TestEmail, value)
 	})
 
 	t.Run("ErrorsIfAttributeNotPresent", func(t *testing.T) {
@@ -257,16 +257,19 @@ func TestGetAttribute(t *testing.T) {
 func TestParseSubscriber(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		attrs := dbAttributes{
-			"email":    &dbString{Value: TestEmail},
-			"uid":      &dbString{Value: TestUid.String()},
-			"verified": toDynamoDbTimestamp(TestTimestamp),
+			"email":    &dbString{Value: testutils.TestEmail},
+			"uid":      &dbString{Value: testutils.TestUidStr},
+			"verified": toDynamoDbTimestamp(testutils.TestTimestamp),
 		}
 
 		subscriber, err := parseSubscriber(attrs)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, subscriber, &Subscriber{
-			TestEmail, TestUid, SubscriberVerified, TestTimestamp,
+			Email:     testutils.TestEmail,
+			Uid:       testutils.TestUid,
+			Status:    SubscriberVerified,
+			Timestamp: testutils.TestTimestamp,
 		})
 	})
 
@@ -288,9 +291,9 @@ func TestParseSubscriber(t *testing.T) {
 	t.Run("ErrorsIfContainsBothPendingAndVerified", func(t *testing.T) {
 		attrs := dbAttributes{
 			"email":    &dbString{Value: "foo@bar.com"},
-			"uid":      &dbString{Value: TestUid.String()},
-			"pending":  toDynamoDbTimestamp(TestTimestamp),
-			"verified": toDynamoDbTimestamp(TestTimestamp),
+			"uid":      &dbString{Value: testutils.TestUidStr},
+			"pending":  toDynamoDbTimestamp(testutils.TestTimestamp),
+			"verified": toDynamoDbTimestamp(testutils.TestTimestamp),
 		}
 
 		subscriber, err := parseSubscriber(attrs)
@@ -306,8 +309,8 @@ func TestParseSubscriber(t *testing.T) {
 
 	t.Run("ErrorsIfTimestampIsNotAnInteger", func(t *testing.T) {
 		attrs := dbAttributes{
-			"email":    &dbString{Value: TestEmail},
-			"uid":      &dbString{Value: TestUid.String()},
+			"email":    &dbString{Value: testutils.TestEmail},
+			"uid":      &dbString{Value: testutils.TestUidStr},
 			"verified": &dbNumber{Value: "not an int"},
 		}
 
@@ -397,7 +400,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 			client.addSubscriberRecord(dbAttributes{
 				"email":        &dbString{Value: "bad-uid@foo.com"},
 				"uid":          &dbString{Value: "not a uid"},
-				string(status): toDynamoDbTimestamp(TestTimestamp),
+				string(status): toDynamoDbTimestamp(testutils.TestTimestamp),
 			})
 
 			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)

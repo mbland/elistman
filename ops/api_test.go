@@ -9,6 +9,9 @@ import (
 	"gotest.tools/assert"
 )
 
+const TestEmail = "foo@bar.com"
+const TestUidStr = "00000000-1111-2222-3333-444444444444"
+
 func TestApiEndpoints(t *testing.T) {
 	const baseUrl = "https://foo.com/email"
 
