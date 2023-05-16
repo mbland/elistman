@@ -79,6 +79,19 @@ func (msg *Message) Validate(validators ...MessageValidatorFunc) error {
 	return nil
 }
 
+// CheckDomain ensures Message.From is from the expected domain.
+func CheckDomain(domain string) MessageValidatorFunc {
+	return func(_ *Message, _, addr string) (err error) {
+		// If the address failed to parse, addr will be empty. No need to add an
+		// extra error message, as Message.Validate will have emitted one for
+		// the parse failure.
+		if addr != "" && strings.Split(addr, "@")[1] != domain {
+			return errors.New("domain of From address is not " + domain)
+		}
+		return
+	}
+}
+
 type MessageTemplate struct {
 	from       []byte
 	subject    []byte

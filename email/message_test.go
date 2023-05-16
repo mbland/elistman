@@ -325,6 +325,24 @@ func TestMessageValidate(t *testing.T) {
 	})
 }
 
+func TestCheckDomain(t *testing.T) {
+	checkDomain := CheckDomain("foo.com")
+
+	t.Run("Succeeds", func(t *testing.T) {
+		assert.NilError(t, checkDomain(nil, "", "user@foo.com"))
+	})
+
+	t.Run("FailsIfAddressDoesNotMatchDomain", func(t *testing.T) {
+		const expectedMsg = "domain of From address is not foo.com"
+
+		assert.Error(t, checkDomain(nil, "", "user@bar.com"), expectedMsg)
+	})
+
+	t.Run("SucceedsIfAddressFailedToParseAndIsEmpty", func(t *testing.T) {
+		assert.NilError(t, checkDomain(nil, "", ""))
+	})
+}
+
 func byteStringsEqual(t *testing.T, expected, actual []byte) {
 	t.Helper()
 	assert.Check(t, is.Equal(string(expected), string(actual)))
