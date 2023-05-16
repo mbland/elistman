@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -29,6 +28,7 @@ type SubscriptionAgent interface {
 type ProdAgent struct {
 	SenderAddress    string
 	EmailSiteTitle   string
+	EmailDomainName  string
 	UnsubscribeEmail string
 	ApiBaseUrl       string
 	NewUid           func() (uuid.UUID, error)
@@ -136,19 +136,13 @@ func verifyHtmlBody(siteTitle, verifyLink string) string {
 func (a *ProdAgent) makeVerificationEmail(sub *db.Subscriber) []byte {
 	verifyLink := ops.VerifyUrl(a.ApiBaseUrl, sub.Email, sub.Uid)
 	recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
-	buf := &bytes.Buffer{}
-
-	msg := email.NewMessageTemplate(&email.Message{
+	mt := email.NewMessageTemplate(&email.Message{
 		From:     a.SenderAddress,
 		Subject:  verifySubjectPrefix + a.EmailSiteTitle,
 		TextBody: verifyTextBody(a.EmailSiteTitle, verifyLink),
 		HtmlBody: verifyHtmlBody(a.EmailSiteTitle, verifyLink),
 	})
-
-	// Don't check the EmitMessage error because bytes.Buffer can essentially
-	// never return an error. If it runs out of memory, it panics.
-	msg.EmitMessage(buf, recipient)
-	return buf.Bytes()
+	return mt.GenerateMessage(recipient)
 }
 
 func (a *ProdAgent) Verify(
@@ -218,6 +212,35 @@ func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 	sub := &db.Subscriber{Email: address, Status: db.SubscriberVerified}
 	if err = a.putSubscriber(ctx, sub); err == nil {
 		err = a.Suppressor.Unsuppress(ctx, address)
+	}
+	return
+}
+
+func (a *ProdAgent) Send(ctx context.Context, msg *email.Message) (err error) {
+	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err != nil {
+		return err
+	}
+
+	mt := email.NewMessageTemplate(msg)
+
+	var sendErr error
+	sender := db.SubscriberFunc(func(sub *db.Subscriber) bool {
+		recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
+		recipient.SetUnsubscribeInfo(a.UnsubscribeEmail, a.ApiBaseUrl)
+
+		msg := mt.GenerateMessage(recipient)
+		var msgId string
+
+		if msgId, sendErr = a.Mailer.Send(ctx, sub.Email, msg); sendErr != nil {
+			return false
+		}
+		a.Log.Printf("sent %s to %s", msgId, sub.Email)
+		return true
+	})
+
+	err = a.Db.ProcessSubscribersInState(ctx, db.SubscriberVerified, sender)
+	if err = errors.Join(err, sendErr); err != nil {
+		err = fmt.Errorf("error sending message to list: %w", err)
 	}
 	return
 }

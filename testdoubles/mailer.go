@@ -22,19 +22,24 @@ func NewMailer() *Mailer {
 func (m *Mailer) Send(
 	ctx context.Context, recipient string, msg []byte,
 ) (messageId string, err error) {
-	m.RecipientMessages[recipient] = msg
-	return m.MessageIds[recipient], m.RecipientErrors[recipient]
+	if err = m.RecipientErrors[recipient]; err == nil {
+		messageId = m.MessageIds[recipient]
+		m.RecipientMessages[recipient] = msg
+	}
+	return
 }
 
-func (m *Mailer) GetMessageTo(t *testing.T, recipient string) string {
+func (m *Mailer) GetMessageTo(
+	t *testing.T, recipient string,
+) (msgId, msg string) {
 	t.Helper()
-	var msg []byte
+	var rawMsg []byte
 	var ok bool
 
-	if msg, ok = m.RecipientMessages[recipient]; !ok {
+	if rawMsg, ok = m.RecipientMessages[recipient]; !ok {
 		t.Fatalf("did not receive a message to %s", recipient)
 	}
-	return string(msg)
+	return m.MessageIds[recipient], string(rawMsg)
 }
 
 func (m *Mailer) AssertNoMessageSent(t *testing.T, recipient string) {
