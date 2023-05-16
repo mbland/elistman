@@ -233,8 +233,19 @@ var testTemplate *MessageTemplate = &MessageTemplate{
 }
 
 func TestMessageValidate(t *testing.T) {
+	newTestMessage := func() *Message {
+		return &Message{
+			From:       testMessage.From,
+			Subject:    testMessage.Subject,
+			TextBody:   testMessage.TextBody,
+			TextFooter: testMessage.TextFooter,
+			HtmlBody:   testMessage.HtmlBody,
+			HtmlFooter: testMessage.HtmlFooter,
+		}
+	}
+
 	t.Run("Succeeds", func(t *testing.T) {
-		assert.NilError(t, testMessage.Validate())
+		assert.NilError(t, newTestMessage().Validate())
 	})
 
 	t.Run("EmptyMessageFails", func(t *testing.T) {
@@ -252,27 +263,18 @@ func TestMessageValidate(t *testing.T) {
 	})
 
 	t.Run("FailsIfHtmlBodyWithoutHtmlFooter", func(t *testing.T) {
-		msg := &Message{
-			From:       "foo@bar.com",
-			Subject:    "Missing HtmlFooter",
-			TextBody:   "OK",
-			TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
-			HtmlBody:   "<!DOCTYPE html><html><head></head><body>OK<br/>",
-		}
+		msg := newTestMessage()
+		msg.HtmlFooter = ""
 
 		const expectedErrMsg = "message failed validation: HtmlFooter missing"
 		assert.Error(t, msg.Validate(), expectedErrMsg)
 	})
 
 	t.Run("FailsIfFootersMissingUnsubscribeTemplate", func(t *testing.T) {
-		msg := &Message{
-			From:       "foo@bar.com",
-			Subject:    "Fubar Footers",
-			TextBody:   "OK",
-			TextFooter: "Fubar",
-			HtmlBody:   "<!DOCTYPE html><html><head></head><body>OK<br/>",
-			HtmlFooter: "Fubar</body></html>",
-		}
+		msg := newTestMessage()
+		msg.TextFooter = "no unsubscribe template"
+		msg.HtmlFooter = "no unsubscribe template"
+
 		expectedErrMsg := strings.Join(
 			[]string{
 				"message failed validation: " +
@@ -286,13 +288,8 @@ func TestMessageValidate(t *testing.T) {
 	})
 
 	t.Run("FailsIfHtmlFooterWithoutHtmlBody", func(t *testing.T) {
-		msg := &Message{
-			From:       "foo@bar.com",
-			Subject:    "HtmlBody missing",
-			TextBody:   "OK",
-			TextFooter: "Unsubscribe: " + UnsubscribeUrlTemplate,
-			HtmlFooter: "Fubar</body></html>",
-		}
+		msg := newTestMessage()
+		msg.HtmlBody = ""
 		expectedErrMsg := "message failed validation: " +
 			"HtmlFooter present, but HtmlBody missing"
 
