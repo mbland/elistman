@@ -5,6 +5,7 @@ package email
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/mail"
 	"net/textproto"
@@ -304,6 +305,23 @@ func TestMessageValidate(t *testing.T) {
 			"HtmlFooter present, but HtmlBody missing"
 
 		assert.Error(t, msg.Validate(), expectedErrMsg)
+	})
+
+	t.Run("FailsIfMessageValidatorFuncReturnsError", func(t *testing.T) {
+		msg := newTestMessage()
+		msg.From = "Foo Bar <foo@bar.com>"
+		okFunc := func(*Message, string, string) error {
+			return nil
+		}
+		errFunc := func(m *Message, n, a string) error {
+			return fmt.Errorf(
+				"testing From: \"%s <%s>\" Subject: %s", n, a, m.Subject,
+			)
+		}
+		expectedErrorMsg := "message failed validation: " +
+			"testing From: \"" + msg.From + "\" Subject: " + msg.Subject
+
+		assert.Error(t, msg.Validate(okFunc, errFunc), expectedErrorMsg)
 	})
 }
 

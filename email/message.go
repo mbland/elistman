@@ -23,17 +23,30 @@ type Message struct {
 	HtmlFooter string
 }
 
-func (msg *Message) Validate() error {
+// MessageValidatorFunc is the interface for Message.Validate validators.
+//
+// These functions are applied after all other Message.Validate checks,
+// including the parsing of the From address. Validate passes the result of a
+// successful parse via the fromName and fromAddress parameters.
+type MessageValidatorFunc func(msg *Message, fromName, fromAddress string) error
+
+func (msg *Message) Validate(validators ...MessageValidatorFunc) error {
 	errs := make([]error, 0, 5)
 	addErr := func(msg string) {
 		errs = append(errs, errors.New(msg))
 	}
 
+	var fromName string
+	var fromAddress string
+
 	if len(msg.From) == 0 {
 		addErr("missing From")
-	} else if _, err := mail.ParseAddress(msg.From); err != nil {
+	} else if addr, err := mail.ParseAddress(msg.From); err != nil {
 		addErr("failed to parse From address \"" + msg.From + "\": " +
 			err.Error())
+	} else {
+		fromName = addr.Name
+		fromAddress = addr.Address
 	}
 	if len(msg.Subject) == 0 {
 		addErr("missing Subject")
@@ -55,6 +68,11 @@ func (msg *Message) Validate() error {
 	} else if len(msg.HtmlFooter) != 0 {
 		addErr("HtmlFooter present, but HtmlBody missing")
 	}
+
+	for _, vf := range validators {
+		errs = append(errs, vf(msg, fromName, fromAddress))
+	}
+
 	if err := errors.Join(errs...); err != nil {
 		return fmt.Errorf("message failed validation: %w", err)
 	}
