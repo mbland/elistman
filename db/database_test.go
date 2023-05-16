@@ -11,11 +11,11 @@ import (
 
 func TestSubscriber(t *testing.T) {
 	t.Run("EmitsExpectedString", func(t *testing.T) {
-		sub := &Subscriber{testEmail, testUid, SubscriberPending, testTimestamp}
+		sub := &Subscriber{TestEmail, TestUid, SubscriberPending, TestTimestamp}
 
 		const strFmt = "Email: %s, Uid: %s, Status: %s, Timestamp: %s"
 		expected := fmt.Sprintf(
-			strFmt, testEmail, testUid, string(SubscriberPending), testTimeStr,
+			strFmt, TestEmail, TestUid, string(SubscriberPending), TestTimeStr,
 		)
 		assert.Equal(t, expected, sub.String())
 	})

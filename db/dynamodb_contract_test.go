@@ -274,7 +274,7 @@ func TestDynamoDb(t *testing.T) {
 		emails := make(
 			[]string,
 			0,
-			len(testPendingSubscribers)+len(testVerifiedSubscribers),
+			len(TestPendingSubscribers)+len(TestVerifiedSubscribers),
 		)
 
 		putSubscribers := func(t *testing.T, subs []*Subscriber) {
@@ -295,8 +295,8 @@ func TestDynamoDb(t *testing.T) {
 		}
 
 		setup := func(t *testing.T) {
-			putSubscribers(t, testPendingSubscribers)
-			putSubscribers(t, testVerifiedSubscribers)
+			putSubscribers(t, TestPendingSubscribers)
+			putSubscribers(t, TestVerifiedSubscribers)
 			waitIfTestingAgainstAws()
 		}
 
@@ -323,7 +323,7 @@ func TestDynamoDb(t *testing.T) {
 			assert.NilError(t, err)
 			// The ordering here isn't necessarily guaranteed, but expected
 			// to be the same as insertion.
-			assert.DeepEqual(t, testVerifiedSubscribers, *subs)
+			assert.DeepEqual(t, TestVerifiedSubscribers, *subs)
 		})
 	})
 }
