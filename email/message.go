@@ -153,24 +153,32 @@ func appendNewlineIfNeeded(s string) string {
 	return s + "\n"
 }
 
-func (mt *MessageTemplate) EmitMessage(b io.Writer, sub *Recipient) error {
+func (mt *MessageTemplate) GenerateMessage(r *Recipient) []byte {
+	// Don't check the EmitMessage error because bytes.Buffer can essentially
+	// never return an error. If it runs out of memory, it panics.
+	buf := &bytes.Buffer{}
+	mt.EmitMessage(buf, r)
+	return buf.Bytes()
+}
+
+func (mt *MessageTemplate) EmitMessage(b io.Writer, r *Recipient) error {
 	w := &writer{buf: b}
 
 	w.Write(mt.from)
 	w.Write(toHeaderPrefix)
-	w.WriteLine(sub.Email)
+	w.WriteLine(r.Email)
 	w.Write(mt.subject)
-	sub.EmitUnsubscribeHeaders(w)
+	r.EmitUnsubscribeHeaders(w)
 	w.Write(mimeVersion)
 
 	if len(mt.htmlBody) == 0 {
-		mt.emitTextOnly(w, sub)
+		mt.emitTextOnly(w, r)
 	} else {
-		mt.emitMultipart(w, sub)
+		mt.emitMultipart(w, r)
 	}
 
 	if w.err != nil {
-		w.err = fmt.Errorf("error emitting message to %s: %s", sub.Email, w.err)
+		w.err = fmt.Errorf("error emitting message to %s: %s", r.Email, w.err)
 	}
 	return w.err
 }

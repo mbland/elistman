@@ -388,8 +388,9 @@ var testRecipient *Recipient = &Recipient{
 }
 
 func newTestRecipient() *Recipient {
-	var sub Recipient = *testRecipient
-	return &sub
+	var r Recipient = *testRecipient
+	r.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
+	return &r
 }
 
 var instantiatedTextFooter = []byte("\r\n" +
@@ -417,9 +418,8 @@ var decodedTextContent = string(convertToCrlf(testMessage.TextBody)) +
 func TestEmitTextOnly(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *tu.ErrWriter, *Recipient) {
 		sb := &strings.Builder{}
-		sub := newTestRecipient()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
-		return sb, &writer{buf: sb}, &tu.ErrWriter{Buf: sb}, sub
+		r := newTestRecipient()
+		return sb, &writer{buf: sb}, &tu.ErrWriter{Buf: sb}, r
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
@@ -561,9 +561,8 @@ var decodedHtmlContent = string(convertToCrlf(testMessage.HtmlBody)) +
 func TestEmitMultipart(t *testing.T) {
 	setup := func() (*strings.Builder, *writer, *Recipient) {
 		sb := &strings.Builder{}
-		sub := newTestRecipient()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
-		return sb, &writer{buf: sb}, sub
+		r := newTestRecipient()
+		return sb, &writer{buf: sb}, r
 	}
 
 	setupWithError := func(
@@ -639,61 +638,44 @@ func assertMessageHeaders(t *testing.T, msg *mail.Message, content string) {
 	th.Assert(t, "MIME-Version", "1.0")
 }
 
-func TestEmitMessage(t *testing.T) {
-	setup := func() (*strings.Builder, *writer, *Recipient) {
-		sb := &strings.Builder{}
-		sub := newTestRecipient()
-		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
-		return sb, &writer{buf: sb}, sub
+func TestEmitMessageReturnsWriteErrors(t *testing.T) {
+	ew := &tu.ErrWriter{
+		Buf:     &strings.Builder{},
+		Err:     errors.New("write MIME-Version error"),
+		ErrorOn: "MIME-Version",
 	}
+	r := newTestRecipient()
 
-	setupWithError := func(
-		errMsg string,
-	) (*writer, *tu.ErrWriter, *Recipient) {
-		sb, w, sub := setup()
-		ew := &tu.ErrWriter{Buf: sb, Err: errors.New(errMsg)}
-		w.buf = ew
-		return w, ew, sub
-	}
+	err := testTemplate.EmitMessage(&writer{buf: ew}, r)
 
-	t.Run("EmitsPlaintextMessage", func(t *testing.T) {
-		sb, w, sub := setup()
+	expected := "error emitting message to " + r.Email +
+		": write MIME-Version error"
+	assert.Error(t, err, expected)
+}
+
+func TestGenerateMessage(t *testing.T) {
+	r := newTestRecipient()
+
+	t.Run("GeneratesPlaintextMessage", func(t *testing.T) {
 		textTemplate := *testTemplate
 		textTemplate.htmlBody = []byte{}
 
-		err := textTemplate.EmitMessage(w, sub)
+		content := string(textTemplate.GenerateMessage(r))
 
-		assert.NilError(t, err)
-		content := sb.String()
 		msg, qpr := tu.ParseTextMessage(t, content)
 		assert.Equal(t, expectedHeaders+textOnlyContent, content)
 		assertMessageHeaders(t, msg, content)
 		tu.AssertDecodedContent(t, qpr, decodedTextContent)
 	})
 
-	t.Run("EmitsMultipartMessage", func(t *testing.T) {
-		sb, w, sub := setup()
+	t.Run("GeneratesMultipartMessage", func(t *testing.T) {
+		content := string(testTemplate.GenerateMessage(r))
 
-		err := testTemplate.EmitMessage(w, sub)
-
-		assert.NilError(t, err)
-		content := sb.String()
 		msg, boundary, pr := tu.ParseMultipartMessageAndBoundary(t, content)
 		assert.Equal(t, expectedHeaders+multipartContent(boundary), content)
 		assertMessageHeaders(t, msg, content)
 		tu.AssertNextPart(t, pr, "text/plain", decodedTextContent)
 		tu.AssertNextPart(t, pr, "text/html", decodedHtmlContent)
-	})
-
-	t.Run("ReturnsWriteErrors", func(t *testing.T) {
-		w, ew, sub := setupWithError("write MIME-Version error")
-		ew.ErrorOn = "MIME-Version"
-
-		err := testTemplate.EmitMessage(w, sub)
-
-		expected := "error emitting message to " + sub.Email +
-			": write MIME-Version error"
-		assert.Error(t, err, expected)
 	})
 }
 
