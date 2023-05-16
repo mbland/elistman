@@ -6,24 +6,24 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/testdata"
 	"gotest.tools/assert"
 )
 
 func TestSubscriber(t *testing.T) {
 	t.Run("EmitsExpectedString", func(t *testing.T) {
 		sub := &Subscriber{
-			Email:     testutils.TestEmail,
-			Uid:       testutils.TestUid,
+			Email:     testdata.TestEmail,
+			Uid:       testdata.TestUid,
 			Status:    SubscriberPending,
-			Timestamp: testutils.TestTimestamp}
+			Timestamp: testdata.TestTimestamp}
 
 		expected := fmt.Sprintf(
 			"Email: %s, Uid: %s, Status: %s, Timestamp: %s",
-			testutils.TestEmail,
-			testutils.TestUid,
+			testdata.TestEmail,
+			testdata.TestUid,
 			string(SubscriberPending),
-			testutils.TestTimeStr,
+			testdata.TestTimeStr,
 		)
 		assert.Equal(t, expected, sub.String())
 	})

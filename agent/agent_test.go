@@ -12,6 +12,7 @@ import (
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
+	td "github.com/mbland/elistman/testdata"
 	"github.com/mbland/elistman/testdoubles"
 	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -26,16 +27,16 @@ const testUnsubBaseUrl = "https://foo.com/email/"
 
 var pendingSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
-	Uid:       tu.TestUid,
+	Uid:       td.TestUid,
 	Status:    db.SubscriberPending,
-	Timestamp: tu.TestTimestamp.Add(timeToLiveDuration),
+	Timestamp: td.TestTimestamp.Add(timeToLiveDuration),
 }
 
 var verifiedSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       uuid.MustParse("55555555-6666-7777-8888-999999999999"),
 	Status:    db.SubscriberVerified,
-	Timestamp: tu.TestTimestamp,
+	Timestamp: td.TestTimestamp,
 }
 
 type prodAgentTestFixture struct {
@@ -49,10 +50,10 @@ type prodAgentTestFixture struct {
 
 func newProdAgentTestFixture() *prodAgentTestFixture {
 	newUid := func() (uuid.UUID, error) {
-		return tu.TestUid, nil
+		return td.TestUid, nil
 	}
 	currentTime := func() time.Time {
-		return tu.TestTimestamp
+		return td.TestTimestamp
 	}
 	db := testdoubles.NewDatabase()
 	av := testdoubles.NewAddressValidator()
@@ -277,7 +278,7 @@ func TestGetSubscriber(t *testing.T) {
 		agent, dbase, ctx := setup()
 		assert.NilError(t, dbase.Put(ctx, pendingSubscriber))
 
-		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+		sub, err := agent.getSubscriber(ctx, testEmail, td.TestUid)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, pendingSubscriber, sub)
@@ -286,7 +287,7 @@ func TestGetSubscriber(t *testing.T) {
 	t.Run("ReturnsNilSubscriberAndNilErrorIfNotFound", func(t *testing.T) {
 		agent, _, ctx := setup()
 
-		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+		sub, err := agent.getSubscriber(ctx, testEmail, td.TestUid)
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(sub))
@@ -309,7 +310,7 @@ func TestGetSubscriber(t *testing.T) {
 			return makeServerError("error getting " + address)
 		}
 
-		sub, err := agent.getSubscriber(ctx, testEmail, tu.TestUid)
+		sub, err := agent.getSubscriber(ctx, testEmail, td.TestUid)
 
 		assert.Assert(t, is.Nil(sub))
 		assertServerErrorContains(t, err, "error getting "+testEmail)
@@ -325,9 +326,9 @@ func TestVerify(t *testing.T) {
 		f := newProdAgentTestFixture()
 		sub := &db.Subscriber{
 			Email:     testEmail,
-			Uid:       tu.TestUid,
+			Uid:       td.TestUid,
 			Status:    db.SubscriberPending,
-			Timestamp: tu.TestTimestamp,
+			Timestamp: td.TestTimestamp,
 		}
 		return f.agent, f.db, sub, context.Background()
 	}
@@ -406,9 +407,9 @@ func TestUnsubscribe(t *testing.T) {
 		f := newProdAgentTestFixture()
 		sub := &db.Subscriber{
 			Email:     testEmail,
-			Uid:       tu.TestUid,
+			Uid:       td.TestUid,
 			Status:    db.SubscriberVerified,
-			Timestamp: tu.TestTimestamp,
+			Timestamp: td.TestTimestamp,
 		}
 		return f.agent, f.db, sub, context.Background()
 	}
@@ -469,9 +470,9 @@ func TestRemove(t *testing.T) {
 		f := newProdAgentTestFixture()
 		sub := &db.Subscriber{
 			Email:     testEmail,
-			Uid:       tu.TestUid,
+			Uid:       td.TestUid,
 			Status:    db.SubscriberVerified,
-			Timestamp: tu.TestTimestamp,
+			Timestamp: td.TestTimestamp,
 		}
 		return f.agent, f.db, f.suppressor, sub, context.Background()
 	}
@@ -519,9 +520,9 @@ func TestRestore(t *testing.T) {
 		f := newProdAgentTestFixture()
 		expectedSub := &db.Subscriber{
 			Email:     testEmail,
-			Uid:       tu.TestUid,
+			Uid:       td.TestUid,
 			Status:    db.SubscriberVerified,
-			Timestamp: tu.TestTimestamp,
+			Timestamp: td.TestTimestamp,
 		}
 		return f.agent, f.db, f.suppressor, expectedSub, context.Background()
 	}

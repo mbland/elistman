@@ -5,7 +5,7 @@ package ops
 import (
 	"testing"
 
-	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/testdata"
 	"gotest.tools/assert"
 )
 
@@ -17,28 +17,28 @@ func TestApiEndpoints(t *testing.T) {
 
 	t.Run("VerifyUrl", func(t *testing.T) {
 		const expected = baseUrl + ApiPrefixVerify +
-			testutils.TestEmail + "/" + testutils.TestUidStr
+			testdata.TestEmail + "/" + testdata.TestUidStr
 
-		actual := VerifyUrl(baseUrl, testutils.TestEmail, testutils.TestUid)
+		actual := VerifyUrl(baseUrl, testdata.TestEmail, testdata.TestUid)
 
 		assert.Equal(t, expected, actual)
 	})
 
 	t.Run("VerifyUrlTrimsBaseUrlTrailingSlash", func(t *testing.T) {
 		const expected = baseUrl + ApiPrefixVerify +
-			testutils.TestEmail + "/" + testutils.TestUidStr
+			testdata.TestEmail + "/" + testdata.TestUidStr
 
-		actual := VerifyUrl(baseUrl+"/", testutils.TestEmail, testutils.TestUid)
+		actual := VerifyUrl(baseUrl+"/", testdata.TestEmail, testdata.TestUid)
 
 		assert.Equal(t, expected, actual)
 	})
 
 	t.Run("UnsubscribeUrl", func(t *testing.T) {
 		const expected = baseUrl + ApiPrefixUnsubscribe +
-			testutils.TestEmail + "/" + testutils.TestUidStr
+			testdata.TestEmail + "/" + testdata.TestUidStr
 
 		actual := UnsubscribeUrl(
-			baseUrl, testutils.TestEmail, testutils.TestUid,
+			baseUrl, testdata.TestEmail, testdata.TestUid,
 		)
 
 		assert.Equal(t, expected, actual)
@@ -47,10 +47,10 @@ func TestApiEndpoints(t *testing.T) {
 	t.Run("UnsubscribeMailto", func(t *testing.T) {
 		const unsubEmail = "unsubscribe@foo.com"
 		const expected = "mailto:" + unsubEmail + "?subject=" +
-			testutils.TestEmail + "%20" + testutils.TestUidStr
+			testdata.TestEmail + "%20" + testdata.TestUidStr
 
 		actual := UnsubscribeMailto(
-			unsubEmail, testutils.TestEmail, testutils.TestUid,
+			unsubEmail, testdata.TestEmail, testdata.TestUid,
 		)
 
 		assert.Equal(t, expected, actual)

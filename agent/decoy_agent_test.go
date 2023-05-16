@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/testdata"
 	"gotest.tools/assert"
 )
 
@@ -19,11 +19,11 @@ func TestDecoyAgent(t *testing.T) {
 	assert.Equal(t, ops.VerifyLinkSent, result)
 	assert.NilError(t, err)
 
-	result, err = da.Verify(ctx, "foo@bar.com", testutils.TestUid)
+	result, err = da.Verify(ctx, "foo@bar.com", testdata.TestUid)
 	assert.Equal(t, ops.Subscribed, result)
 	assert.NilError(t, err)
 
-	result, err = da.Unsubscribe(ctx, "foo@bar.com", testutils.TestUid)
+	result, err = da.Unsubscribe(ctx, "foo@bar.com", testdata.TestUid)
 	assert.Equal(t, ops.Unsubscribed, result)
 	assert.NilError(t, err)
 
