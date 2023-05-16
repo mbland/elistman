@@ -3,6 +3,7 @@
 package email
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/textproto"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
@@ -681,16 +683,31 @@ func TestGenerateMessage(t *testing.T) {
 
 func TestNewListMessageTemplateFromJson(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		mt, err := NewListMessageTemplateFromJson([]byte(ExampleMessageJson))
+		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
+
+		mt, err := NewListMessageTemplateFromJson(buf)
 
 		assert.NilError(t, err)
 		assert.Assert(t, mt != nil)
 	})
 
+	t.Run("ErrorsIfReadingBufferFails", func(t *testing.T) {
+		testErr := errors.New("simulated I/O error")
+
+		mt, err := NewListMessageTemplateFromJson(iotest.ErrReader(testErr))
+
+		assert.Assert(t, is.Nil(mt))
+		const expectedMsg = "failed to read JSON from input"
+		assert.ErrorContains(t, err, expectedMsg)
+		assert.Assert(t, tu.ErrorIs(err, testErr))
+	})
+
 	t.Run("ErrorsIfParsingJsonFails", func(t *testing.T) {
-		mt, err := NewListMessageTemplateFromJson(
+		buf := bytes.NewBuffer(
 			[]byte("{ \"definitely not proper JSON\": foobar}"),
 		)
+
+		mt, err := NewListMessageTemplateFromJson(buf)
 
 		assert.Assert(t, is.Nil(mt))
 		const expectedMsg = "failed to parse message input from JSON"
@@ -698,9 +715,14 @@ func TestNewListMessageTemplateFromJson(t *testing.T) {
 	})
 
 	t.Run("ErrorsIfValidationFails", func(t *testing.T) {
-		mt, err := NewListMessageTemplateFromJson([]byte("{}"))
+		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
+		vf := CheckDomain("force-an-error.com")
+
+		mt, err := NewListMessageTemplateFromJson(buf, vf)
 
 		assert.Assert(t, is.Nil(mt))
-		assert.ErrorContains(t, err, "message failed validation: ")
+		const expectedMsg = "message failed validation: " +
+			"domain of From address is not force-an-error.com"
+		assert.Error(t, err, expectedMsg)
 	})
 }

@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/google/uuid"
@@ -30,13 +29,9 @@ func init() {
 }
 
 func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
-	var rawJson []byte
-	if rawJson, err = io.ReadAll(os.Stdin); err != nil {
-		return fmt.Errorf("failed to read standard input: %w", err)
-	}
+	mt, err := email.NewListMessageTemplateFromJson(os.Stdin)
 
-	var mt *email.MessageTemplate
-	if mt, err = email.NewListMessageTemplateFromJson(rawJson); err != nil {
+	if err != nil {
 		return err
 	}
 

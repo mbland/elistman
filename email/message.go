@@ -102,12 +102,15 @@ type MessageTemplate struct {
 }
 
 func NewListMessageTemplateFromJson(
-	msgJson []byte,
+	r io.Reader, validators ...MessageValidatorFunc,
 ) (mt *MessageTemplate, err error) {
+	var msgJson []byte
 	msg := &Message{}
-	if err = json.Unmarshal(msgJson, msg); err != nil {
+	if msgJson, err = io.ReadAll(r); err != nil {
+		err = fmt.Errorf("failed to read JSON from input: %w", err)
+	} else if err = json.Unmarshal(msgJson, msg); err != nil {
 		err = fmt.Errorf("failed to parse message input from JSON: %w", err)
-	} else if err = msg.Validate(); err == nil {
+	} else if err = msg.Validate(validators...); err == nil {
 		mt = NewMessageTemplate(msg)
 	}
 	return
