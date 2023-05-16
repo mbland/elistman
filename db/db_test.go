@@ -17,12 +17,42 @@ var testUid uuid.UUID = testutils.TestUid
 var testTimestamp time.Time = testutils.TestTimestamp
 
 var testSubscribers []*Subscriber = []*Subscriber{
-	{"foo@test.com", testUid, SubscriberVerified, testTimestamp},
-	{"quux@test.com", testUid, SubscriberPending, testTimestamp},
-	{"bar@test.com", testUid, SubscriberVerified, testTimestamp},
-	{"xyzzy@test.com", testUid, SubscriberPending, testTimestamp},
-	{"baz@test.com", testUid, SubscriberVerified, testTimestamp},
-	{"plugh@test.com", testUid, SubscriberPending, testTimestamp},
+	{
+		Email:     "foo@test.com",
+		Uid:       testUid,
+		Status:    SubscriberVerified,
+		Timestamp: testTimestamp,
+	},
+	{
+		Email:     "quux@test.com",
+		Uid:       testUid,
+		Status:    SubscriberPending,
+		Timestamp: testTimestamp,
+	},
+	{
+		Email:     "bar@test.com",
+		Uid:       testUid,
+		Status:    SubscriberVerified,
+		Timestamp: testTimestamp,
+	},
+	{
+		Email:     "xyzzy@test.com",
+		Uid:       testUid,
+		Status:    SubscriberPending,
+		Timestamp: testTimestamp,
+	},
+	{
+		Email:     "baz@test.com",
+		Uid:       testUid,
+		Status:    SubscriberVerified,
+		Timestamp: testTimestamp,
+	},
+	{
+		Email:     "plugh@test.com",
+		Uid:       testUid,
+		Status:    SubscriberPending,
+		Timestamp: testTimestamp,
+	},
 }
 
 var testPendingSubscribers []*Subscriber = []*Subscriber{
