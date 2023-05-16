@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 
-	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/types"
 )
 
@@ -20,7 +19,7 @@ type Database interface {
 //
 // Database.Get returns this error when the underlying database request
 // succeeded, but there was no such Subscriber.
-const ErrSubscriberNotFound = ops.SentinelError("is not a subscriber")
+const ErrSubscriberNotFound = types.SentinelError("is not a subscriber")
 
 // A SubscriberProcessor performs an operation on a Subscriber.
 //

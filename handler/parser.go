@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/types"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=eventOperationType
@@ -57,7 +58,7 @@ type ParseError struct {
 
 // Inspired by the example from the "Customizing error tests with Is and As
 // methods" section of https://go.dev/blog/go1.13-errors.
-const ErrUserInput = ops.SentinelError("invalid user input")
+const ErrUserInput = types.SentinelError("invalid user input")
 
 func (e *ParseError) Error() string {
 	return e.Type.String() + ": " + e.Message
