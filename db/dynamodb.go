@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
 )
@@ -68,51 +68,51 @@ const DynamoDbPendingIndexPartitionKey = string(SubscriberPending)
 const DynamoDbVerifiedIndexName string = string(SubscriberVerified)
 const DynamoDbVerifiedIndexPartitionKey string = string(SubscriberVerified)
 
-var DynamoDbIndexProjection *types.Projection = &types.Projection{
-	ProjectionType: types.ProjectionTypeAll,
+var DynamoDbIndexProjection *dbtypes.Projection = &dbtypes.Projection{
+	ProjectionType: dbtypes.ProjectionTypeAll,
 }
 
 var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
-	AttributeDefinitions: []types.AttributeDefinition{
+	AttributeDefinitions: []dbtypes.AttributeDefinition{
 		{
 			AttributeName: aws.String(DynamoDbPrimaryKey),
-			AttributeType: types.ScalarAttributeTypeS,
+			AttributeType: dbtypes.ScalarAttributeTypeS,
 		},
 		{
 			AttributeName: aws.String(DynamoDbPendingIndexPartitionKey),
-			AttributeType: types.ScalarAttributeTypeN,
+			AttributeType: dbtypes.ScalarAttributeTypeN,
 		},
 		{
 			AttributeName: aws.String(DynamoDbVerifiedIndexPartitionKey),
-			AttributeType: types.ScalarAttributeTypeN,
+			AttributeType: dbtypes.ScalarAttributeTypeN,
 		},
 	},
-	KeySchema: []types.KeySchemaElement{
+	KeySchema: []dbtypes.KeySchemaElement{
 		{
 			AttributeName: aws.String(DynamoDbPrimaryKey),
-			KeyType:       types.KeyTypeHash,
+			KeyType:       dbtypes.KeyTypeHash,
 		},
 	},
-	BillingMode: types.BillingModePayPerRequest,
-	GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+	BillingMode: dbtypes.BillingModePayPerRequest,
+	GlobalSecondaryIndexes: []dbtypes.GlobalSecondaryIndex{
 		{
 			IndexName: aws.String(DynamoDbPendingIndexName),
-			KeySchema: []types.KeySchemaElement{
+			KeySchema: []dbtypes.KeySchemaElement{
 				{
 					AttributeName: aws.String(DynamoDbPendingIndexPartitionKey),
-					KeyType:       types.KeyTypeHash,
+					KeyType:       dbtypes.KeyTypeHash,
 				},
 			},
 			Projection: DynamoDbIndexProjection,
 		},
 		{
 			IndexName: aws.String(DynamoDbVerifiedIndexName),
-			KeySchema: []types.KeySchemaElement{
+			KeySchema: []dbtypes.KeySchemaElement{
 				{
 					AttributeName: aws.String(
 						DynamoDbVerifiedIndexPartitionKey,
 					),
-					KeyType: types.KeyTypeHash,
+					KeyType: dbtypes.KeyTypeHash,
 				},
 			},
 			Projection: DynamoDbIndexProjection,
@@ -132,8 +132,8 @@ func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 
 func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
-) (ttlSpec *types.TimeToLiveSpecification, err error) {
-	spec := &types.TimeToLiveSpecification{
+) (ttlSpec *dbtypes.TimeToLiveSpecification, err error) {
+	spec := &dbtypes.TimeToLiveSpecification{
 		AttributeName: aws.String(string(SubscriberPending)),
 		Enabled:       aws.Bool(true),
 	}
@@ -159,9 +159,9 @@ func (db *DynamoDb) DeleteTable(ctx context.Context) (err error) {
 }
 
 type (
-	dbString     = types.AttributeValueMemberS
-	dbNumber     = types.AttributeValueMemberN
-	dbAttributes = map[string]types.AttributeValue
+	dbString     = dbtypes.AttributeValueMemberS
+	dbNumber     = dbtypes.AttributeValueMemberN
+	dbAttributes = map[string]dbtypes.AttributeValue
 )
 
 func subscriberKey(email string) dbAttributes {

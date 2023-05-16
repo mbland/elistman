@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
-	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	sestypes "github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"github.com/mbland/elistman/ops"
 )
 
@@ -47,7 +47,7 @@ func (mailer *SesMailer) Send(
 	sesMsg := &ses.SendRawEmailInput{
 		Destinations:         []string{recipient},
 		ConfigurationSetName: aws.String(mailer.ConfigSet),
-		RawMessage:           &types.RawMessage{Data: msg},
+		RawMessage:           &sestypes.RawMessage{Data: msg},
 	}
 	var output *ses.SendRawEmailOutput
 
@@ -67,17 +67,17 @@ func (mailer *SesMailer) Bounce(
 	recipients []string,
 	timestamp time.Time,
 ) (bounceMessageId string, err error) {
-	recipientInfo := make([]types.BouncedRecipientInfo, len(recipients))
+	recipientInfo := make([]sestypes.BouncedRecipientInfo, len(recipients))
 
 	for i, recipient := range recipients {
 		recipientInfo[i].Recipient = aws.String(recipient)
-		recipientInfo[i].BounceType = types.BounceTypeContentRejected
+		recipientInfo[i].BounceType = sestypes.BounceTypeContentRejected
 	}
 
 	input := &ses.SendBounceInput{
 		BounceSender:      aws.String("mailer-daemon@" + emailDomain),
 		OriginalMessageId: aws.String(messageId),
-		MessageDsn: &types.MessageDsn{
+		MessageDsn: &sestypes.MessageDsn{
 			ReportingMta: aws.String("dns; " + emailDomain),
 			ArrivalDate:  aws.Time(timestamp.Truncate(time.Second)),
 		},

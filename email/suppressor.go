@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
+	sesv2types "github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 	"github.com/mbland/elistman/ops"
 )
 
@@ -55,7 +55,7 @@ func (mailer *SesSuppressor) IsSuppressed(
 	ctx context.Context, email string,
 ) (verdict bool, err error) {
 	input := &sesv2.GetSuppressedDestinationInput{EmailAddress: &email}
-	var notFoundErr *types.NotFoundException
+	var notFoundErr *sesv2types.NotFoundException
 
 	if _, err = mailer.Client.GetSuppressedDestination(ctx, input); err == nil {
 		verdict = true
@@ -71,7 +71,7 @@ func (mailer *SesSuppressor) IsSuppressed(
 func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 	input := &sesv2.PutSuppressedDestinationInput{
 		EmailAddress: aws.String(email),
-		Reason:       types.SuppressionListReasonBounce,
+		Reason:       sesv2types.SuppressionListReasonBounce,
 	}
 
 	_, err := mailer.Client.PutSuppressedDestination(ctx, input)
@@ -82,11 +82,13 @@ func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
 	return err
 }
 
-func (mailer *SesSuppressor) Unsuppress(ctx context.Context, email string) error {
+func (mailer *SesSuppressor) Unsuppress(
+	ctx context.Context, email string,
+) error {
 	input := &sesv2.DeleteSuppressedDestinationInput{
 		EmailAddress: aws.String(email),
 	}
-	var notFoundErr *types.NotFoundException
+	var notFoundErr *sesv2types.NotFoundException
 
 	_, err := mailer.Client.DeleteSuppressedDestination(ctx, input)
 
