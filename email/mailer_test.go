@@ -76,6 +76,7 @@ func TestSend(t *testing.T) {
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.Equal(t, "", msgId)
+		assert.ErrorContains(t, err, "send to "+recipient+" failed")
 		assert.ErrorContains(t, err, "SendRawEmail error")
 		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})

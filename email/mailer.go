@@ -52,7 +52,7 @@ func (mailer *SesMailer) Send(
 	var output *ses.SendRawEmailOutput
 
 	if output, err = mailer.Client.SendRawEmail(ctx, sesMsg); err != nil {
-		err = ops.AwsError("send failed", err)
+		err = ops.AwsError("send to "+recipient+" failed", err)
 	} else {
 		messageId = aws.ToString(output.MessageId)
 	}
