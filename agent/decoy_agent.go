@@ -51,3 +51,7 @@ func (a *DecoyAgent) Remove(ctx context.Context, email string) error {
 func (a *DecoyAgent) Restore(ctx context.Context, email string) error {
 	return nil
 }
+
+func (a *DecoyAgent) Send(ctx context.Context, msg *email.Message) error {
+	return nil
+}

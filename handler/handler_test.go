@@ -13,6 +13,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
+	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -31,6 +32,7 @@ type testAgentCalls struct {
 	Method string
 	Email  string
 	Uid    uuid.UUID
+	Msg    *email.Message
 }
 
 func (a *testAgent) Subscribe(
@@ -44,7 +46,9 @@ func (a *testAgent) Subscribe(
 func (a *testAgent) Verify(
 	ctx context.Context, email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
-	a.Calls = append(a.Calls, testAgentCalls{"Verify", email, uid})
+	a.Calls = append(a.Calls, testAgentCalls{
+		Method: "Verify", Email: email, Uid: uid,
+	})
 	a.Email = email
 	a.Uid = uid
 	return a.ReturnValue, a.Error
@@ -53,7 +57,9 @@ func (a *testAgent) Verify(
 func (a *testAgent) Unsubscribe(
 	ctx context.Context, email string, uid uuid.UUID,
 ) (ops.OperationResult, error) {
-	a.Calls = append(a.Calls, testAgentCalls{"Unsubscribe", email, uid})
+	a.Calls = append(a.Calls, testAgentCalls{
+		Method: "Unsubscribe", Email: email, Uid: uid,
+	})
 	a.Email = email
 	a.Uid = uid
 	return a.ReturnValue, a.Error
@@ -68,6 +74,11 @@ func (a *testAgent) Remove(ctx context.Context, email string) error {
 func (a *testAgent) Restore(ctx context.Context, email string) error {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Restore", Email: email})
 	a.Email = email
+	return a.Error
+}
+
+func (a *testAgent) Send(ctx context.Context, msg *email.Message) error {
+	a.Calls = append(a.Calls, testAgentCalls{Method: "Send", Msg: msg})
 	return a.Error
 }
 

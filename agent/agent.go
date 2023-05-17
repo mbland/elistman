@@ -23,6 +23,7 @@ type SubscriptionAgent interface {
 	) (ops.OperationResult, error)
 	Remove(ctx context.Context, email string) error
 	Restore(ctx context.Context, email string) error
+	Send(ctx context.Context, msg *email.Message) error
 }
 
 type ProdAgent struct {
