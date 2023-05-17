@@ -298,17 +298,6 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestHandleEvent(t *testing.T) {
-	t.Run("ReturnsErrorOnUnexpectedEvent", func(t *testing.T) {
-		f := newHandlerFixture()
-		f.event.Unknown = []byte(`{ "foo": "bar" }`)
-
-		response, err := f.handler.HandleEvent(f.ctx, f.event)
-
-		assert.Equal(t, nil, response)
-		const errFmt = "unexpected event type: %s: %s"
-		assert.Error(t, err, fmt.Sprintf(errFmt, UnknownEvent, f.event.Unknown))
-	})
-
 	t.Run("ReturnsSuccessfulApiResponse", func(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Type = ApiRequest
@@ -378,5 +367,29 @@ func TestHandleEvent(t *testing.T) {
 		f.logs.AssertContains(
 			t, "send: subject: \""+email.ExampleMessage.Subject+"\"",
 		)
+	})
+
+	t.Run("ReturnsErrorOnUnknownEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		f.event.Unknown = []byte(`{ "foo": "bar" }`)
+
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
+
+		assert.Equal(t, nil, response)
+		const errFmt = "unknown event: %s"
+		assert.Error(t, err, fmt.Sprintf(errFmt, f.event.Unknown))
+	})
+
+	t.Run("ReturnsErrorOnUnexpectedEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		// To simulate an unexpected event, screw up the event.Type of an
+		// otherwise empty event.
+		f.event.Type = UnknownEvent - 1
+
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
+
+		assert.Equal(t, nil, response)
+		const errFmt = "unexpected event type: %s: %+v"
+		assert.Error(t, err, fmt.Sprintf(errFmt, f.event.Type, f.event))
 	})
 }

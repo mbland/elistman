@@ -68,9 +68,14 @@ func (h *Handler) HandleEvent(
 		h.sns.HandleEvent(ctx, event.SnsEvent)
 	case SendEvent:
 		result = h.send.HandleEvent(ctx, event.SendEvent)
+	case UnknownEvent:
+		// An unknown event is one that Event.UnmarshalJSON knows nothing about.
+		err = fmt.Errorf("unknown event: %s", string(event.Unknown))
 	default:
-		const errFmt = "unexpected event type: %s: %s"
-		err = fmt.Errorf(errFmt, event.Type, string(event.Unknown))
+		// An unexpected event is one that Event.UnmarshalJSON can parse,
+		// but this function knows nothing about.
+		const errFmt = "unexpected event type: %s: %+v"
+		err = fmt.Errorf(errFmt, event.Type, event)
 	}
 	return
 }
