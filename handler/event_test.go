@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/email"
 	"gotest.tools/assert"
 )
 
@@ -127,6 +128,29 @@ func TestSnsEvent(t *testing.T) {
 						Message: "stringified JSON object, unmarshalled later",
 					},
 				},
+			},
+		},
+	})
+}
+
+func TestSendEvent(t *testing.T) {
+	e := Event{}
+
+	err := e.UnmarshalJSON([]byte(email.ExampleMessageJson))
+
+	assert.NilError(t, err)
+	assert.DeepEqual(t, e, Event{
+		Type: SendEvent,
+		SendEvent: &email.SendEvent{
+			Message: email.Message{
+				From:       "Foo Bar <foobar@example.com>",
+				Subject:    "Test object",
+				TextBody:   "Hello, World!",
+				TextFooter: "Unsubscribe: " + email.UnsubscribeUrlTemplate,
+				HtmlBody: "<!DOCTYPE html><html><head></head>" +
+					"<body>Hello, World!<br/>",
+				HtmlFooter: "<a href='" + email.UnsubscribeUrlTemplate +
+					"'>Unsubscribe</a></body></html>",
 			},
 		},
 	})

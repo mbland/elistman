@@ -12,11 +12,12 @@ func _() {
 	_ = x[ApiRequest-1]
 	_ = x[MailtoEvent-2]
 	_ = x[SnsEvent-3]
+	_ = x[SendEvent-4]
 }
 
-const _EventType_name = "NullEventApiRequestMailtoEventSnsEvent"
+const _EventType_name = "NullEventApiRequestMailtoEventSnsEventSendEvent"
 
-var _EventType_index = [...]uint8{0, 9, 19, 30, 38}
+var _EventType_index = [...]uint8{0, 9, 19, 30, 38, 47}
 
 func (i EventType) String() string {
 	if i < 0 || i >= EventType(len(_EventType_index)-1) {

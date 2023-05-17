@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/email"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=EventType
@@ -15,6 +16,7 @@ const (
 	ApiRequest
 	MailtoEvent
 	SnsEvent
+	SendEvent
 )
 
 type Event struct {
@@ -22,6 +24,7 @@ type Event struct {
 	ApiRequest  *events.APIGatewayV2HTTPRequest
 	MailtoEvent *events.SimpleEmailEvent
 	SnsEvent    *events.SNSEvent
+	SendEvent   *email.SendEvent
 }
 
 // Inspired by:
@@ -43,6 +46,10 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.Type = SnsEvent
 		event.SnsEvent = &events.SNSEvent{}
 		return json.Unmarshal(data, event.SnsEvent)
+	} else if bytes.Contains(data, []byte(email.UnsubscribeUrlTemplate)) {
+		event.Type = SendEvent
+		event.SendEvent = &email.SendEvent{}
+		return json.Unmarshal(data, event.SendEvent)
 	}
 	return nil
 }
