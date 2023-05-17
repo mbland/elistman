@@ -4,11 +4,15 @@
 package cmd
 
 import (
+	"io"
 	"os"
+	"strings"
 
 	"github.com/mbland/elistman/email"
 	"github.com/spf13/cobra"
 )
+
+var emitExample bool
 
 var previewCmd = &cobra.Command{
 	Use:   "preview",
@@ -19,13 +23,19 @@ var previewCmd = &cobra.Command{
 
 If the input passes validation, it then emits a raw email message to standard
 output representing what would be sent to each mailing list member.`,
-	RunE: previewRawMessage,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var input io.Reader = os.Stdin
+		if emitExample {
+			input = strings.NewReader(email.ExampleMessageJson)
+		}
+		return email.EmitPreviewMessageFromJson(input, os.Stdout)
+	},
 }
 
 func init() {
+	previewCmd.Flags().BoolVarP(
+		&emitExample, "example", "x", false,
+		"Use the help example to generate the preview",
+	)
 	rootCmd.AddCommand(previewCmd)
-}
-
-func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
-	return email.EmitPreviewMessageFromJson(os.Stdin, os.Stdout)
 }
