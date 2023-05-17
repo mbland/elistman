@@ -145,36 +145,6 @@ check_response_for() {
   passing_results+=("$(printf '%s: %s' "$name" "$actual")")
 }
 
-printf_info 'SUITE: Success\n'
-
-expect_status_from_endpoint 'successful subscribe using urlencoded params' \
-  POST 'subscribe' \
-  303 "$VERIFY_LINK_SENT_PATH" \
-  'application/x-www-form-urlencoded' 'email=mbland@acm.org'
-
-expect_status_from_endpoint 'successful subscribe using form-data' \
-  POST 'subscribe' \
-  303 "$VERIFY_LINK_SENT_PATH" \
-  'multipart/form-data' 'email=mbland@acm.org'
-
-expect_status_from_endpoint 'successful verify' \
-  GET 'verify/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  303 "$SUBSCRIBED_PATH"
-
-expect_status_from_endpoint 'unsubscribe' \
-  GET 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  303 "$UNSUBSCRIBED_PATH"
-
-expect_status_from_endpoint 'one-click unsubscribe using urlencoded params' \
-  POST 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  200 "" \
-  'application/x-www-form-urlencoded' 'List-Unsubscribe=One-Click'
-
-expect_status_from_endpoint 'one-click unsubscribe using form-data' \
-  POST 'unsubscribe/mbland%40acm.org/00000000-1111-2222-3333-444444444444' \
-  200 "" \
-  'multipart/form-data' 'List-Unsubscribe=One-Click'
-
 printf_info 'SUITE: Not found (403 locally, 404 in prod)\n'
 
 not_found_status=404
