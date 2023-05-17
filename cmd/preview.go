@@ -29,7 +29,7 @@ func init() {
 }
 
 func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
-	mt, err := email.NewListMessageTemplateFromJson(os.Stdin)
+	mt, err := email.NewMessageTemplateFromJson(os.Stdin)
 
 	if err != nil {
 		return err

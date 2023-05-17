@@ -101,7 +101,7 @@ type MessageTemplate struct {
 	htmlFooter []byte
 }
 
-func NewListMessageTemplateFromJson(
+func NewMessageTemplateFromJson(
 	r io.Reader, validators ...MessageValidatorFunc,
 ) (mt *MessageTemplate, err error) {
 	var msgJson []byte

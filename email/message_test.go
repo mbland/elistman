@@ -681,11 +681,11 @@ func TestGenerateMessage(t *testing.T) {
 	})
 }
 
-func TestNewListMessageTemplateFromJson(t *testing.T) {
+func TestNewMessageTemplateFromJson(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
 
-		mt, err := NewListMessageTemplateFromJson(buf)
+		mt, err := NewMessageTemplateFromJson(buf)
 
 		assert.NilError(t, err)
 		assert.Assert(t, mt != nil)
@@ -694,7 +694,7 @@ func TestNewListMessageTemplateFromJson(t *testing.T) {
 	t.Run("ErrorsIfReadingBufferFails", func(t *testing.T) {
 		testErr := errors.New("simulated I/O error")
 
-		mt, err := NewListMessageTemplateFromJson(iotest.ErrReader(testErr))
+		mt, err := NewMessageTemplateFromJson(iotest.ErrReader(testErr))
 
 		assert.Assert(t, is.Nil(mt))
 		const expectedMsg = "failed to read JSON from input"
@@ -707,7 +707,7 @@ func TestNewListMessageTemplateFromJson(t *testing.T) {
 			[]byte("{ \"definitely not proper JSON\": foobar}"),
 		)
 
-		mt, err := NewListMessageTemplateFromJson(buf)
+		mt, err := NewMessageTemplateFromJson(buf)
 
 		assert.Assert(t, is.Nil(mt))
 		const expectedMsg = "failed to parse message input from JSON"
@@ -718,7 +718,7 @@ func TestNewListMessageTemplateFromJson(t *testing.T) {
 		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
 		vf := CheckDomain("force-an-error.com")
 
-		mt, err := NewListMessageTemplateFromJson(buf, vf)
+		mt, err := NewMessageTemplateFromJson(buf, vf)
 
 		assert.Assert(t, is.Nil(mt))
 		const expectedMsg = "message failed validation: " +
