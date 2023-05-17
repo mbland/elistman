@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -295,8 +296,7 @@ func TestDynamoDb(t *testing.T) {
 		}
 
 		setup := func(t *testing.T) {
-			putSubscribers(t, TestPendingSubscribers)
-			putSubscribers(t, TestVerifiedSubscribers)
+			putSubscribers(t, TestSubscribers)
 			waitIfTestingAgainstAws()
 		}
 
@@ -311,6 +311,15 @@ func TestDynamoDb(t *testing.T) {
 		setup(t)
 		defer teardown()
 
+		sorted := func(subs []*Subscriber) (r []*Subscriber) {
+			r = make([]*Subscriber, len(subs))
+			copy(r, subs)
+			sort.Slice(r, func(i, j int) bool {
+				return r[i].Email < r[j].Email
+			})
+			return
+		}
+
 		t.Run("Succeeds", func(t *testing.T) {
 			subs := &[]*Subscriber{}
 			f := SubscriberFunc(func(s *Subscriber) bool {
@@ -321,9 +330,7 @@ func TestDynamoDb(t *testing.T) {
 			err := testDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
-			// The ordering here isn't necessarily guaranteed, but expected
-			// to be the same as insertion.
-			assert.DeepEqual(t, TestVerifiedSubscribers, *subs)
+			assert.DeepEqual(t, sorted(TestVerifiedSubscribers), sorted(*subs))
 		})
 	})
 }
