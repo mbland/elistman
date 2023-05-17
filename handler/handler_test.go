@@ -364,4 +364,20 @@ func TestHandleEvent(t *testing.T) {
 		f.logs.AssertContains(t, `Subject:"This is an email sent to the list"`)
 		f.logs.AssertContains(t, "success")
 	})
+
+	t.Run("HandleSuccessfulSendEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		f.event.Type = SendEvent
+		f.event.SendEvent = &email.SendEvent{Message: *email.ExampleMessage}
+		f.agent.NumSent = 27
+
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
+
+		assert.NilError(t, err)
+		expected := &email.SendResponse{Success: true, NumSent: f.agent.NumSent}
+		assert.DeepEqual(t, expected, response)
+		f.logs.AssertContains(
+			t, "send: subject: \""+email.ExampleMessage.Subject+"\"",
+		)
+	})
 }

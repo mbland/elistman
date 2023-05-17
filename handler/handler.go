@@ -13,6 +13,7 @@ type Handler struct {
 	api    *apiHandler
 	mailto *mailtoHandler
 	sns    *snsHandler
+	send   *sendHandler
 }
 
 func NewHandler(
@@ -38,6 +39,7 @@ func NewHandler(
 		api,
 		&mailtoHandler{emailDomain, unsubAddr, agent, bouncer, logger},
 		&snsHandler{agent, logger},
+		&sendHandler{agent, logger},
 	}, nil
 }
 
@@ -64,6 +66,8 @@ func (h *Handler) HandleEvent(
 		result = h.mailto.HandleEvent(ctx, event.MailtoEvent)
 	case SnsEvent:
 		h.sns.HandleEvent(ctx, event.SnsEvent)
+	case SendEvent:
+		result = h.send.HandleEvent(ctx, event.SendEvent)
 	default:
 		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
 	}
