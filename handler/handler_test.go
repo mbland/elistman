@@ -21,11 +21,11 @@ import (
 )
 
 type testAgent struct {
-	Email       string
-	Uid         uuid.UUID
-	ReturnValue ops.OperationResult
-	Error       error
-	Calls       []testAgentCalls
+	Email    string
+	Uid      uuid.UUID
+	OpResult ops.OperationResult
+	Error    error
+	Calls    []testAgentCalls
 }
 
 type testAgentCalls struct {
@@ -40,7 +40,7 @@ func (a *testAgent) Subscribe(
 ) (ops.OperationResult, error) {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Subscribe", Email: email})
 	a.Email = email
-	return a.ReturnValue, a.Error
+	return a.OpResult, a.Error
 }
 
 func (a *testAgent) Verify(
@@ -51,7 +51,7 @@ func (a *testAgent) Verify(
 	})
 	a.Email = email
 	a.Uid = uid
-	return a.ReturnValue, a.Error
+	return a.OpResult, a.Error
 }
 
 func (a *testAgent) Unsubscribe(
@@ -62,7 +62,7 @@ func (a *testAgent) Unsubscribe(
 	})
 	a.Email = email
 	a.Uid = uid
-	return a.ReturnValue, a.Error
+	return a.OpResult, a.Error
 }
 
 func (a *testAgent) Remove(ctx context.Context, email string) error {
@@ -312,7 +312,7 @@ func TestHandleEvent(t *testing.T) {
 	t.Run("ReturnsSuccessfulApiResponse", func(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Type = ApiRequest
-		f.agent.ReturnValue = ops.VerifyLinkSent
+		f.agent.OpResult = ops.VerifyLinkSent
 
 		req := apiGatewayRequest(http.MethodPost, ops.ApiPrefixSubscribe)
 		req.Headers = map[string]string{
@@ -336,7 +336,7 @@ func TestHandleEvent(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Type = MailtoEvent
 		f.event.MailtoEvent = simpleEmailEvent()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 
 		response, err := f.handler.HandleEvent(f.ctx, f.event)
 

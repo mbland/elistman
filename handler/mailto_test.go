@@ -145,7 +145,7 @@ func TestIsSpam(t *testing.T) {
 func TestHandleMailtoEvent(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		f := newMailtoHandlerFixture()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
@@ -206,7 +206,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 	t.Run("LogsIfUnsubscribeFails", func(t *testing.T) {
 		f := newMailtoHandlerFixture()
-		f.agent.ReturnValue = ops.Invalid
+		f.agent.OpResult = ops.Invalid
 
 		f.handler.handleMailtoEvent(f.ctx, f.event)
 
@@ -216,7 +216,7 @@ func TestHandleMailtoEvent(t *testing.T) {
 
 func TestMailtoHandlerHandleEvent(t *testing.T) {
 	f := newMailtoHandlerFixture()
-	f.agent.ReturnValue = ops.Unsubscribed
+	f.agent.OpResult = ops.Unsubscribed
 
 	response := f.handler.HandleEvent(f.ctx, simpleEmailEvent())
 

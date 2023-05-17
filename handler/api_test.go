@@ -365,7 +365,7 @@ func TestLogOperationResult(t *testing.T) {
 func TestPerformOperation(t *testing.T) {
 	t.Run("SubscribeSucceeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.VerifyLinkSent
+		f.agent.OpResult = ops.VerifyLinkSent
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -380,7 +380,7 @@ func TestPerformOperation(t *testing.T) {
 
 	t.Run("VerifySucceeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Subscribed
+		f.agent.OpResult = ops.Subscribed
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -397,7 +397,7 @@ func TestPerformOperation(t *testing.T) {
 
 	t.Run("UnsubscribeSucceeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 
 		result, err := f.handler.performOperation(
 			f.ctx,
@@ -461,7 +461,7 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("Successful", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 
 		response, err := f.handler.handleApiRequest(
 			f.ctx, newUnsubscribeRequest(),
@@ -500,7 +500,7 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("ReturnsHttp200IfOneClickUnsubscribe", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 		req := newUnsubscribeRequest()
 		req.Method = http.MethodPost
 		req.ContentType = "application/x-www-form-urlencoded"
@@ -514,7 +514,7 @@ func TestHandleApiRequest(t *testing.T) {
 
 	t.Run("ReturnsErrorIfNoRedirectForOpResult", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.Unsubscribed
+		f.agent.OpResult = ops.Unsubscribed
 		delete(f.handler.Redirects, ops.Unsubscribed)
 
 		response, err := f.handler.handleApiRequest(
@@ -561,7 +561,7 @@ func TestApiHandleEvent(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		f := newApiHandlerFixture()
-		f.agent.ReturnValue = ops.VerifyLinkSent
+		f.agent.OpResult = ops.VerifyLinkSent
 
 		res := f.handler.HandleEvent(f.ctx, req)
 
