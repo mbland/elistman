@@ -602,13 +602,16 @@ func TestSend(t *testing.T) {
 	) {
 		t.Helper()
 
-		msgId, msg := mailer.GetMessageTo(t, sub.Email)
+		msgId, m := mailer.GetMessageTo(t, sub.Email)
 		unsubUrl := ops.UnsubscribeUrl(testUnsubBaseUrl, sub.Email, sub.Uid)
 		unsubMailto := ops.UnsubscribeMailto(testUnsubEmail, sub.Email, sub.Uid)
+		expectedLogMsg := fmt.Sprintf(
+			"sent \"%s\" id: %s to: %s", msg.Subject, msgId, sub.Email,
+		)
 		assert.Equal(t, mailer.MessageIds[sub.Email], msgId)
-		assert.Assert(t, is.Contains(msg, unsubUrl))
-		assert.Assert(t, is.Contains(msg, unsubMailto))
-		logs.AssertContains(t, "sent "+msgId+" to "+sub.Email)
+		assert.Assert(t, is.Contains(m, unsubUrl))
+		assert.Assert(t, is.Contains(m, unsubMailto))
+		logs.AssertContains(t, expectedLogMsg)
 	}
 
 	assertSentToVerifiedSubscribers := func(
@@ -634,35 +637,41 @@ func TestSend(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		agent, _, mailer, logs, ctx := setup()
 
-		err := agent.Send(ctx, msg)
+		numSent, err := agent.Send(ctx, msg)
 
 		assert.NilError(t, err)
 		assertSentToVerifiedSubscribers(t, mailer, logs)
 		assertDidNotSendToPendingSubscribers(t, mailer)
+		assert.Equal(t, len(db.TestVerifiedSubscribers), numSent)
 	})
 
 	t.Run("FailsIfMessageFailsValidation", func(t *testing.T) {
-		agent, _, mailer, _, ctx := setup()
+		agent, _, _, _, ctx := setup()
 		badMsg := *msg
 		badMsg.From = ""
 
-		err := agent.Send(ctx, &badMsg)
+		numSent, err := agent.Send(ctx, &badMsg)
 
-		assert.ErrorContains(t, err, "missing From")
-		assert.Equal(t, 0, len(mailer.RecipientMessages))
+		const expectedErrMsg = "message failed validation: missing From"
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assert.Equal(t, 0, numSent)
 	})
 
 	t.Run("FailsIfProcessSubscribersInStateFails", func(t *testing.T) {
-		agent, dbase, mailer, _, ctx := setup()
+		agent, dbase, _, _, ctx := setup()
 		procSubsErr := errors.New("ProcSubsInState error")
 		dbase.SimulateProcSubsErr = func(_ string) error {
 			return procSubsErr
 		}
 
-		err := agent.Send(ctx, msg)
+		numSent, err := agent.Send(ctx, msg)
 
+		expectedErrMsg := fmt.Sprintf(
+			"error sending \"%s\" to list: ProcSubsInState error", msg.Subject,
+		)
+		assert.Error(t, err, expectedErrMsg)
 		assert.Assert(t, tu.ErrorIs(err, procSubsErr))
-		assert.Equal(t, 0, len(mailer.RecipientMessages))
+		assert.Equal(t, 0, numSent)
 	})
 
 	t.Run("StopsProcessingAndFailsIfSendFails", func(t *testing.T) {
@@ -671,13 +680,13 @@ func TestSend(t *testing.T) {
 		sendErr := errors.New("Mailer.Send failed")
 		mailer.RecipientErrors[secondSub.Email] = sendErr
 
-		err := agent.Send(ctx, msg)
+		numSent, err := agent.Send(ctx, msg)
 
 		assert.Assert(t, tu.ErrorIs(err, sendErr))
 		assertSentToVerifiedSubscriber(
 			t, 0, db.TestVerifiedSubscribers[0], mailer, logs,
 		)
 		mailer.AssertNoMessageSent(t, secondSub.Email)
-		assert.Equal(t, 1, len(mailer.RecipientMessages))
+		assert.Equal(t, 1, numSent)
 	})
 }

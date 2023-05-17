@@ -23,7 +23,7 @@ type SubscriptionAgent interface {
 	) (ops.OperationResult, error)
 	Remove(ctx context.Context, email string) error
 	Restore(ctx context.Context, email string) error
-	Send(ctx context.Context, msg *email.Message) error
+	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
 }
 
 type ProdAgent struct {
@@ -217,31 +217,35 @@ func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 	return
 }
 
-func (a *ProdAgent) Send(ctx context.Context, msg *email.Message) (err error) {
+func (a *ProdAgent) Send(
+	ctx context.Context, msg *email.Message,
+) (numSent int, err error) {
 	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err != nil {
-		return err
+		return
 	}
 
 	mt := email.NewMessageTemplate(msg)
-
 	var sendErr error
+
 	sender := db.SubscriberFunc(func(sub *db.Subscriber) bool {
 		recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
 		recipient.SetUnsubscribeInfo(a.UnsubscribeEmail, a.ApiBaseUrl)
 
-		msg := mt.GenerateMessage(recipient)
+		m := mt.GenerateMessage(recipient)
 		var msgId string
 
-		if msgId, sendErr = a.Mailer.Send(ctx, sub.Email, msg); sendErr != nil {
+		if msgId, sendErr = a.Mailer.Send(ctx, sub.Email, m); sendErr != nil {
 			return false
 		}
-		a.Log.Printf("sent %s to %s", msgId, sub.Email)
+		a.Log.Printf("sent \"%s\" id: %s to: %s", msg.Subject, msgId, sub.Email)
+		numSent++
 		return true
 	})
 
 	err = a.Db.ProcessSubscribersInState(ctx, db.SubscriberVerified, sender)
 	if err = errors.Join(err, sendErr); err != nil {
-		err = fmt.Errorf("error sending message to list: %w", err)
+		const errFmt = "error sending \"%s\" to list: %w"
+		err = fmt.Errorf(errFmt, msg.Subject, err)
 	}
 	return
 }

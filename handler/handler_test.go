@@ -24,6 +24,7 @@ type testAgent struct {
 	Email    string
 	Uid      uuid.UUID
 	OpResult ops.OperationResult
+	NumSent  int
 	Error    error
 	Calls    []testAgentCalls
 }
@@ -77,9 +78,9 @@ func (a *testAgent) Restore(ctx context.Context, email string) error {
 	return a.Error
 }
 
-func (a *testAgent) Send(ctx context.Context, msg *email.Message) error {
+func (a *testAgent) Send(_ context.Context, msg *email.Message) (int, error) {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Send", Msg: msg})
-	return a.Error
+	return a.NumSent, a.Error
 }
 
 const testEmailDomain = "mike-bland.com"
