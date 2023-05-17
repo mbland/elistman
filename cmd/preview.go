@@ -4,10 +4,8 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/mbland/elistman/email"
 	"github.com/spf13/cobra"
 )
@@ -29,20 +27,5 @@ func init() {
 }
 
 func previewRawMessage(cmd *cobra.Command, args []string) (err error) {
-	mt, err := email.NewMessageTemplateFromJson(os.Stdin)
-
-	if err != nil {
-		return err
-	}
-
-	sub := &email.Recipient{
-		Email: "subscriber@foo.com",
-		Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
-	}
-	sub.SetUnsubscribeInfo("unsubscribe@bar.com", "https://bar.com/email/")
-
-	if err = mt.EmitMessage(os.Stdout, sub); err != nil {
-		return fmt.Errorf("failed to emit preview message: %w", err)
-	}
-	return nil
+	return email.EmitPreviewMessageFromJson(os.Stdin, os.Stdout)
 }

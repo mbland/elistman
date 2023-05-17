@@ -4,6 +4,13 @@ package email
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"testing"
+	"testing/iotest"
+
+	tu "github.com/mbland/elistman/testutils"
+	"gotest.tools/assert"
 )
 
 const testUnsubEmail = "unsubscribe@foo.com"
@@ -35,4 +42,45 @@ func (ts *TestSuppressor) Suppress(ctx context.Context, email string) error {
 func (ts *TestSuppressor) Unsuppress(ctx context.Context, email string) error {
 	ts.unsuppressedEmail = email
 	return ts.unsuppressErr
+}
+
+func TestEmitPreviewMessageFromJson(t *testing.T) {
+
+	t.Run("Succeeds", func(t *testing.T) {
+		input := strings.NewReader(ExampleMessageJson)
+		output := &strings.Builder{}
+
+		err := EmitPreviewMessageFromJson(input, output)
+
+		assert.NilError(t, err)
+		msg, _, pr := tu.ParseMultipartMessageAndBoundary(t, output.String())
+		assert.Assert(t, msg != nil)
+		textPart := tu.GetNextPartContent(t, pr, "text/plain")
+		assert.Assert(t, textPart != "")
+		htmlPart := tu.GetNextPartContent(t, pr, "text/html")
+		assert.Assert(t, htmlPart != "")
+	})
+
+	t.Run("FailsIfInputRaisesError", func(t *testing.T) {
+		testErr := errors.New("simulated I/O error")
+		input := iotest.ErrReader(testErr)
+		output := &strings.Builder{}
+
+		err := EmitPreviewMessageFromJson(input, output)
+
+		assert.Assert(t, tu.ErrorIs(err, testErr))
+	})
+
+	t.Run("FailsIfOutputRaisesError", func(t *testing.T) {
+		input := strings.NewReader(ExampleMessageJson)
+		output := &tu.ErrWriter{
+			Buf:     &strings.Builder{},
+			ErrorOn: "Hello, World!",
+			Err:     errors.New("simulated I/O error"),
+		}
+
+		err := EmitPreviewMessageFromJson(input, output)
+
+		assert.Assert(t, tu.ErrorIs(err, output.Err))
+	})
 }

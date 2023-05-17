@@ -653,6 +653,7 @@ func TestEmitMessageReturnsWriteErrors(t *testing.T) {
 	expected := "error emitting message to " + r.Email +
 		": write MIME-Version error"
 	assert.Error(t, err, expected)
+	assert.Assert(t, tu.ErrorIs(err, ew.Err))
 }
 
 func TestGenerateMessage(t *testing.T) {

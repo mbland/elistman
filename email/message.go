@@ -201,7 +201,7 @@ func (mt *MessageTemplate) EmitMessage(b io.Writer, r *Recipient) error {
 	}
 
 	if w.err != nil {
-		w.err = fmt.Errorf("error emitting message to %s: %s", r.Email, w.err)
+		w.err = fmt.Errorf("error emitting message to %s: %w", r.Email, w.err)
 	}
 	return w.err
 }
