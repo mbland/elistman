@@ -23,6 +23,31 @@ type Message struct {
 	HtmlFooter string
 }
 
+func NewMessageFromJson(
+	r io.Reader, validators ...MessageValidatorFunc,
+) (msg *Message, err error) {
+	var msgJson []byte
+	newMsg := &Message{}
+	if msgJson, err = io.ReadAll(r); err != nil {
+		err = fmt.Errorf("failed to read JSON from input: %w", err)
+	} else if err = json.Unmarshal(msgJson, newMsg); err != nil {
+		err = fmt.Errorf("failed to parse message input from JSON: %w", err)
+	} else if err = newMsg.Validate(validators...); err == nil {
+		msg = newMsg
+	}
+	return
+}
+
+func MustParseMessageFromJson(
+	r io.Reader, validators ...MessageValidatorFunc,
+) (msg *Message) {
+	var err error
+	if msg, err = NewMessageFromJson(r, validators...); err != nil {
+		panic(err.Error())
+	}
+	return msg
+}
+
 // MessageValidatorFunc is the interface for Message.Validate validators.
 //
 // These functions are applied after all other Message.Validate checks,
@@ -104,13 +129,8 @@ type MessageTemplate struct {
 func NewMessageTemplateFromJson(
 	r io.Reader, validators ...MessageValidatorFunc,
 ) (mt *MessageTemplate, err error) {
-	var msgJson []byte
-	msg := &Message{}
-	if msgJson, err = io.ReadAll(r); err != nil {
-		err = fmt.Errorf("failed to read JSON from input: %w", err)
-	} else if err = json.Unmarshal(msgJson, msg); err != nil {
-		err = fmt.Errorf("failed to parse message input from JSON: %w", err)
-	} else if err = msg.Validate(validators...); err == nil {
+	var msg *Message
+	if msg, err = NewMessageFromJson(r, validators...); err == nil {
 		mt = NewMessageTemplate(msg)
 	}
 	return

@@ -681,22 +681,22 @@ func TestGenerateMessage(t *testing.T) {
 	})
 }
 
-func TestNewMessageTemplateFromJson(t *testing.T) {
+func TestNewMessageFromJson(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
 
-		mt, err := NewMessageTemplateFromJson(buf)
+		msg, err := NewMessageFromJson(buf)
 
 		assert.NilError(t, err)
-		assert.Assert(t, mt != nil)
+		assert.Assert(t, msg != nil)
 	})
 
 	t.Run("ErrorsIfReadingBufferFails", func(t *testing.T) {
 		testErr := errors.New("simulated I/O error")
 
-		mt, err := NewMessageTemplateFromJson(iotest.ErrReader(testErr))
+		msg, err := NewMessageFromJson(iotest.ErrReader(testErr))
 
-		assert.Assert(t, is.Nil(mt))
+		assert.Assert(t, is.Nil(msg))
 		const expectedMsg = "failed to read JSON from input"
 		assert.ErrorContains(t, err, expectedMsg)
 		assert.Assert(t, tu.ErrorIs(err, testErr))
@@ -707,9 +707,9 @@ func TestNewMessageTemplateFromJson(t *testing.T) {
 			[]byte("{ \"definitely not proper JSON\": foobar}"),
 		)
 
-		mt, err := NewMessageTemplateFromJson(buf)
+		msg, err := NewMessageFromJson(buf)
 
-		assert.Assert(t, is.Nil(mt))
+		assert.Assert(t, is.Nil(msg))
 		const expectedMsg = "failed to parse message input from JSON"
 		assert.ErrorContains(t, err, expectedMsg)
 	})
@@ -718,11 +718,56 @@ func TestNewMessageTemplateFromJson(t *testing.T) {
 		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
 		vf := CheckDomain("force-an-error.com")
 
-		mt, err := NewMessageTemplateFromJson(buf, vf)
+		msg, err := NewMessageFromJson(buf, vf)
 
-		assert.Assert(t, is.Nil(mt))
+		assert.Assert(t, is.Nil(msg))
 		const expectedMsg = "message failed validation: " +
 			"domain of From address is not force-an-error.com"
 		assert.Error(t, err, expectedMsg)
+	})
+}
+
+func TestMustParseMessageFromJson(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
+
+		msg := MustParseMessageFromJson(buf)
+
+		assert.Assert(t, msg != nil)
+	})
+
+	t.Run("PanicsIfNewMessageFails", func(t *testing.T) {
+		testErr := errors.New("simulated I/O error")
+		defer func() {
+			if r := recover(); r != nil {
+				assert.Assert(t, is.Contains(r, testErr.Error()))
+			} else {
+				t.Fatal("expected panic, but didn't")
+			}
+		}()
+
+		msg := MustParseMessageFromJson(iotest.ErrReader(testErr))
+
+		assert.Assert(t, is.Nil(msg))
+	})
+}
+
+func TestNewMessageTemplateFromJson(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		buf := bytes.NewBuffer([]byte(ExampleMessageJson))
+
+		mt, err := NewMessageTemplateFromJson(buf)
+
+		assert.NilError(t, err)
+		assert.Assert(t, mt != nil)
+	})
+
+	t.Run("ErrorsIfNewMessageFails", func(t *testing.T) {
+		testErr := errors.New("simulated I/O error")
+
+		mt, err := NewMessageTemplateFromJson(iotest.ErrReader(testErr))
+
+		assert.Assert(t, is.Nil(mt))
+		assert.Assert(t, tu.ErrorIs(err, testErr))
 	})
 }

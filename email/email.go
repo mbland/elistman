@@ -1,5 +1,9 @@
 package email
 
+import (
+	"strings"
+)
+
 const ExampleMessageJson = `  {
     "From": "Foo Bar <foobar@example.com>",
     "Subject": "Test object",
@@ -9,3 +13,7 @@ const ExampleMessageJson = `  {
     "HtmlFooter": "<a href='` + UnsubscribeUrlTemplate +
 	`'>Unsubscribe</a></body></html>"
   }`
+
+var ExampleMessage *Message = MustParseMessageFromJson(
+	strings.NewReader(ExampleMessageJson),
+)
