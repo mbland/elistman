@@ -300,14 +300,13 @@ func TestNewHandler(t *testing.T) {
 func TestHandleEvent(t *testing.T) {
 	t.Run("ReturnsErrorOnUnexpectedEvent", func(t *testing.T) {
 		f := newHandlerFixture()
+		f.event.Unknown = []byte(`{ "foo": "bar" }`)
 
 		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.Equal(t, nil, response)
-		expected := fmt.Sprintf(
-			"unexpected event type: %s: %+v", NullEvent, f.event,
-		)
-		assert.Error(t, err, expected)
+		const errFmt = "unexpected event type: %s: %s"
+		assert.Error(t, err, fmt.Sprintf(errFmt, UnknownEvent, f.event.Unknown))
 	})
 
 	t.Run("ReturnsSuccessfulApiResponse", func(t *testing.T) {

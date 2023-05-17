@@ -12,7 +12,7 @@ import (
 type EventType int
 
 const (
-	NullEvent EventType = iota
+	UnknownEvent EventType = iota
 	ApiRequest
 	MailtoEvent
 	SnsEvent
@@ -25,6 +25,7 @@ type Event struct {
 	MailtoEvent *events.SimpleEmailEvent
 	SnsEvent    *events.SNSEvent
 	SendEvent   *email.SendEvent
+	Unknown     []byte
 }
 
 // Inspired by:
@@ -51,5 +52,6 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.SendEvent = &email.SendEvent{}
 		return json.Unmarshal(data, event.SendEvent)
 	}
+	event.Unknown = data
 	return nil
 }

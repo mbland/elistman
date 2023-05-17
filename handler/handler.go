@@ -69,7 +69,8 @@ func (h *Handler) HandleEvent(
 	case SendEvent:
 		result = h.send.HandleEvent(ctx, event.SendEvent)
 	default:
-		err = fmt.Errorf("unexpected event type: %s: %+v", event.Type, event)
+		const errFmt = "unexpected event type: %s: %s"
+		err = fmt.Errorf(errFmt, event.Type, string(event.Unknown))
 	}
 	return
 }
