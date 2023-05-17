@@ -333,6 +333,12 @@ target page specified in the [Location HTTP header][].
 
 ## Unimplemented/possible future features
 
+### Sending a test message to a specific address
+
+This would involve extending email.SendEvent, sendHandler.HandleEvent, and
+agent.SubscriptionAgent. Should be easy, but it will have to come after the
+initial production launch.
+
 ### Send rate throttling
 
 - [Managing your Amazon SES sending limits][]
