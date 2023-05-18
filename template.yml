@@ -60,6 +60,7 @@ Resources:
               - "dynamoDb:GetItem"
               - "dynamoDb:PutItem"
               - "dynamoDb:DeleteItem"
+              - "dynamoDb:Scan"
             Resource:
               - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SubscribersTableName}"
               - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SubscribersTableName}/index/*"
