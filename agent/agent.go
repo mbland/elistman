@@ -112,13 +112,18 @@ const verifyTextFormat = `` +
 If you did not subscribe, please ignore this email.
 `
 
-const verifyHtmlFormat = `` +
-	`<!DOCTYPE html>
-<html>
-<head><title>Verify your email subscription to %s</title></head>
+const verifyHtmlFormat = `<!DOCTYPE html ` +
+	`PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ` +
+	`"https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="https://www.w3.org/1999/xhtml" lang="en-us">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />	
+<title>Verify your email subscription to %s</title>
+</head>
 <body>
 <p>Please verify your email subscription to %s by clicking:</p>
-<ul><li><a href=\"%s\">%s</a></li></ul>
+<ul><li><a href="%s">%s</a></li></ul>
 <p>If you did not subscribe, please ignore this email.</p>
 </body>
 </html>

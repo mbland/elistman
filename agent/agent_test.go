@@ -159,7 +159,8 @@ func TestMakeVerificationEmail(t *testing.T) {
 
 		htmlPart := tu.GetNextPartContent(t, pr, "text/html")
 		assert.Assert(t, is.Contains(htmlPart, agent.EmailSiteTitle))
-		assert.Assert(t, is.Contains(htmlPart, verifyLink))
+		verifyAnchor := "<a href=\"" + verifyLink + "\">" + verifyLink + "</a>"
+		assert.Assert(t, is.Contains(htmlPart, verifyAnchor))
 	})
 }
 
