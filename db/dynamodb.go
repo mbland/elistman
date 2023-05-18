@@ -130,6 +130,15 @@ func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	return
 }
 
+func (db *DynamoDb) WaitForTable(
+	ctx context.Context, maxWait time.Duration,
+) error {
+	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
+	waiter := dynamodb.NewTableExistsWaiter(db.Client)
+
+	return waiter.Wait(ctx, input, maxWait)
+}
+
 func (db *DynamoDb) UpdateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *dbtypes.TimeToLiveSpecification, err error) {

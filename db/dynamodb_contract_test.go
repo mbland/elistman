@@ -67,7 +67,7 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 		return
 	} else if err = dynDb.CreateTable(ctx); err != nil {
 		err = teardownDbWithError(err)
-	} else if err = waitForTable(ctx, dynDb); err != nil {
+	} else if err = dynDb.WaitForTable(ctx, maxTableWaitDuration); err != nil {
 		err = teardownDbWithError(err)
 	} else {
 		teardown = func() error {
@@ -136,15 +136,6 @@ func localDbConfig() (*aws.Config, string, error) {
 		return nil, "", err
 	}
 	return dbConfig, endpoint, nil
-}
-
-func waitForTable(ctx context.Context, dynDb *DynamoDb) error {
-	input := &dynamodb.DescribeTableInput{
-		TableName: aws.String(dynDb.TableName),
-	}
-	waiter := dynamodb.NewTableExistsWaiter(dynDb.Client)
-
-	return waiter.Wait(ctx, input, maxTableWaitDuration)
 }
 
 func newTestSubscriber() *Subscriber {
