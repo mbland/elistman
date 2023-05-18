@@ -10,9 +10,12 @@ import (
 	"gotest.tools/assert"
 )
 
-func TestUnknownEvent(t *testing.T) {
-	unknownEvent := UnknownEvent - 1
-	assert.Equal(t, "EventType(-1)", unknownEvent.String())
+func TestEventTypeStrings(t *testing.T) {
+	// Just need a little coverage of the stringer-generated code.
+	assert.Equal(t, "ApiRequest", ApiRequest.String())
+
+	invalidEvent := UnknownEvent - 1
+	assert.Equal(t, "EventType(-1)", invalidEvent.String())
 }
 
 func TestUnmarshalNullEventIsNop(t *testing.T) {
