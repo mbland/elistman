@@ -69,6 +69,9 @@ Resources:
             Action:
               - "ses:SendRawEmail"
               - "ses:SendBounce"
+              - "ses:GetSuppressedDestination"
+              - "ses:PutSuppressedDestination"
+              - "ses:DeleteSuppressedDestination"
             Resource:
               - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
               - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${AWS::StackName}"
