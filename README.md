@@ -176,11 +176,33 @@ $ aws apigatewayv2 get-domain-names
 }
 ```
 
+### Build the `elistman` CLI
+
+Build the `elistman` command line interface program in the root directory via:
+
+```sh
+go build
+```
+
+Run the command and check the output to see if it was successful:
+
+```sh
+$ ./elistman
+
+Mailing list system providing address validation and unsubscribe URIs
+
+Usage:
+  elistman [command]
+
+Available Commands:
+  ...
+```
+
 ### Create the DynamoDB table
 
-Run the `bin/create-subscribers-table.sh` script to create the DynamoDB table,
-using a table name of your choice. Then run `aws dynamodb list-tables` to
-confirm that the new table is present.
+Run `elistman create-subscribers-table <TABLE_NAME>` to create the DynamoDB
+table, replacing `<TABLE_NAME>` with a table name of your choice. Then run `aws
+dynamodb list-tables` to confirm that the new table is present.
 
 ## Deployment
 
@@ -189,10 +211,21 @@ Create a `deploy.env` file in the root directory of the following form
 
 ```sh
 API_DOMAIN_NAME="api.mike-bland.com"
-API_ROUTE_KEY="email"
+API_MAPPING_KEY="email"
 EMAIL_DOMAIN_NAME="mike-bland.com"
+EMAIL_SITE_TITLE="Mike Bland"
 SENDER_NAME="Mike Bland's blog"
-SUBSCRIBERS_TABLE_NAME="TABLE_NAME"
+SENDER_USER_NAME="posts"
+UNSUBSCRIBE_USER_NAME="unsubscribe"
+RECEIPT_RULE_SET_NAME="mike-bland.com"
+SUBSCRIBERS_TABLE_NAME="<TABLE_NAME>"
+
+INVALID_REQUEST_PATH="/subscribe/malformed.html"
+ALREADY_SUBSCRIBED_PATH="/subscribe/already-subscribed.html"
+VERIFY_LINK_SENT_PATH="/subscribe/confirm.html"
+SUBSCRIBED_PATH="/subscribe/hello.html"
+NOT_SUBSCRIBED_PATH="/unsubscribe/not-subscribed.html"
+UNSUBSCRIBED_PATH="/unsubscribe/goodbye.html"
 ```
 
 Then run `make deploy`.
