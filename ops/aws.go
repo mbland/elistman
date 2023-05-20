@@ -1,9 +1,12 @@
 package ops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go"
 )
 
@@ -16,4 +19,11 @@ func AwsError(prefix string, err error) error {
 		return fmt.Errorf("%w: %s: %s", ErrExternal, prefix, err)
 	}
 	return fmt.Errorf("%s: %s", prefix, err)
+}
+
+func LoadDefaultAwsConfig() (cfg aws.Config, err error) {
+	if cfg, err = config.LoadDefaultConfig(context.Background()); err != nil {
+		err = fmt.Errorf("failed to load AWS config: %s", err)
+	}
+	return
 }

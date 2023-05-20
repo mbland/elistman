@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
 func TestSesSuppressor(t *testing.T) {
-	cfg, err := testutils.LoadDefaultAwsConfig()
+	cfg, err := ops.LoadDefaultAwsConfig()
 	assert.NilError(t, err)
 
 	logs := testutils.Logs{}

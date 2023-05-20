@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
-	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/ops"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -26,7 +26,7 @@ func init() {
 }
 
 func TestValidateAddressSucceedsUsingLiveDnsService(t *testing.T) {
-	cfg, err := testutils.LoadDefaultAwsConfig()
+	cfg, err := ops.LoadDefaultAwsConfig()
 	assert.NilError(t, err)
 
 	suppressor := &SesSuppressor{sesv2.NewFromConfig(cfg)}

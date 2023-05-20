@@ -11,13 +11,6 @@ import (
 	"github.com/aws/smithy-go"
 )
 
-func LoadDefaultAwsConfig() (cfg aws.Config, err error) {
-	if cfg, err = config.LoadDefaultConfig(context.Background()); err != nil {
-		err = fmt.Errorf("failed to load AWS config: %s", err)
-	}
-	return
-}
-
 type EndpointResolver struct {
 	endpoints map[string]*aws.Endpoint
 }

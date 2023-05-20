@@ -82,7 +82,7 @@ func setupAwsDynamoDb(
 ) (dynDb *DynamoDb, teardown func() error, err error) {
 	var cfg aws.Config
 
-	if cfg, err = testutils.LoadDefaultAwsConfig(); err == nil {
+	if cfg, err = ops.LoadDefaultAwsConfig(); err == nil {
 		dynDb = &DynamoDb{dynamodb.NewFromConfig(cfg), tableName}
 		teardown = func() error { return nil }
 	}
