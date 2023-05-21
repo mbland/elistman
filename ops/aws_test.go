@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/aws/smithy-go"
@@ -42,5 +43,30 @@ func TestAwsError(t *testing.T) {
 		)
 		assert.Error(t, err, expected)
 		assert.Assert(t, testutils.ErrorIs(err, ErrExternal))
+	})
+}
+
+func TestLoadDefaultAwsConfig(t *testing.T) {
+	t.Run("SucceedsIfValidConfigIsAvailable", func(t *testing.T) {
+		_, err := LoadDefaultAwsConfig()
+
+		assert.NilError(t, err)
+	})
+
+	t.Run("FailsOnInvalidConfig", func(t *testing.T) {
+		// Simulate an invalid config by setting a deliberately bogus
+		// environment variable value. This one is known to accept only "true,"
+		// "false," or "auto."
+		const varName = "AWS_ENABLE_ENDPOINT_DISCOVERY"
+		orig := os.Getenv(varName)
+		os.Setenv(varName, "bogus")
+		defer os.Setenv(varName, orig)
+
+		_, err := LoadDefaultAwsConfig()
+
+		const expectedErrMsg = "failed to load AWS config: " +
+			"invalid value for environment variable, " + varName +
+			"=bogus, need true, false or auto"
+		assert.Error(t, err, expectedErrMsg)
 	})
 }
