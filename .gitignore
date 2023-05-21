@@ -13,4 +13,4 @@ coverage.out
 .aws-sam/
 *.env
 lambda/lambda
-tmp/
+_tmp/
