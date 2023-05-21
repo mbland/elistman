@@ -8,20 +8,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	ltypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/ops"
 	"github.com/spf13/cobra"
 )
 
-var sendCmd = &cobra.Command{
-	Use:   "send",
-	Short: "Send an email message to the mailing list",
-	Long: `Reads a JSON object from standard input describing a message:
+const sendDescription = `` +
+	`Reads a JSON object from standard input describing a message:
 
 ` + email.ExampleMessageJson + `
 
@@ -29,33 +26,44 @@ If the input passes validation, it then sends a copy of the message to each
 mailing list member, customized with their unsubscribe URIs.
 
 It takes one argument, the ARN of the Lambda function to invoke to send the
-message.`,
-	Args: cobra.ExactArgs(1),
-	RunE: SendMessage,
-}
+message.`
 
 func init() {
-	rootCmd.AddCommand(sendCmd)
+	rootCmd.AddCommand(newSendCmd(ops.LoadDefaultAwsConfig, NewLambdaClient))
 }
 
-func SendMessage(cmd *cobra.Command, args []string) (err error) {
-	lambdaArn := args[0]
-	var cfg aws.Config
+func newSendCmd(
+	loadAwsConfig AwsConfigFactoryFunc, newLambdaClient LambdaClientFactoryFunc,
+) *cobra.Command {
+	runFunc := func(cfg aws.Config, cmd *cobra.Command, args []string) error {
+		lambdaArn := args[0]
+		cmd.SilenceUsage = true
+		return SendMessage(cmd, newLambdaClient(cfg), lambdaArn)
+	}
+
+	return &cobra.Command{
+		Use:   "send",
+		Short: "Send an email message to the mailing list",
+		Long:  sendDescription,
+		Args:  cobra.ExactArgs(1),
+		RunE:  NewAwsCommandFunc(loadAwsConfig, runFunc),
+	}
+}
+
+func SendMessage(
+	cmd *cobra.Command, client LambdaClient, lambdaArn string,
+) (err error) {
 	var msg *email.Message
 
-	if cfg, err = config.LoadDefaultConfig(context.Background()); err != nil {
-		return
-	} else if msg, err = email.NewMessageFromJson(os.Stdin); err != nil {
+	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
 		return
 	}
 
 	evt := email.SendEvent{Message: *msg}
-	client := lambda.NewFromConfig(cfg)
 	var payload []byte
 
 	if payload, err = json.Marshal(&evt); err != nil {
-		err = fmt.Errorf("error creating Lambda payload: %s", err)
-		return
+		return fmt.Errorf("error creating Lambda payload: %s", err)
 	}
 
 	input := &lambda.InvokeInput{
@@ -71,23 +79,23 @@ func SendMessage(cmd *cobra.Command, args []string) (err error) {
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeInput
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeOutput
 	if output, err = client.Invoke(context.Background(), input); err != nil {
-		err = fmt.Errorf("error invoking Lambda function: %s", err)
+		return fmt.Errorf("error invoking Lambda function: %s", err)
 	} else if output.StatusCode != http.StatusOK {
 		const errFmt = "received non-200 response: %s"
-		err = fmt.Errorf(errFmt, http.StatusText(int(output.StatusCode)))
+		return fmt.Errorf(errFmt, http.StatusText(int(output.StatusCode)))
 	} else if output.FunctionError != nil {
 		const errFmt = "error executing Lambda function: %s: %s"
 		funcErr := aws.ToString(output.FunctionError)
-		err = fmt.Errorf(errFmt, funcErr, string(output.Payload))
+		return fmt.Errorf(errFmt, funcErr, string(output.Payload))
 	} else if err = json.Unmarshal(output.Payload, &response); err != nil {
 		const errFmt = "failed to unmarshal Lambda response payload: %s: %s"
-		err = fmt.Errorf(errFmt, err, string(output.Payload))
+		return fmt.Errorf(errFmt, err, string(output.Payload))
 	} else if !response.Success {
 		const errFmt = "sending failed after sending to %d recipients: %s"
-		err = fmt.Errorf(errFmt, response.NumSent, response.Details)
+		return fmt.Errorf(errFmt, response.NumSent, response.Details)
 	} else {
 		const successFmt = "Sent the message successfully to %d recipients.\n"
-		fmt.Printf(successFmt, response.NumSent)
+		cmd.Printf(successFmt, response.NumSent)
 	}
 	return
 }
