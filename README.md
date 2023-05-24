@@ -4,9 +4,6 @@ Mailing list system providing address validation and unsubscribe URIs.
 
 Source: <https://github.com/mbland/elistman>
 
-_**NOTE:** This project is just beginning. When it's operational, I'll remove
-this notice._
-
 [![License](https://img.shields.io/github/license/mbland/elistman.svg)](https://github.com/mbland/elistman/blob/main/LICENSE.txt)
 [![CI/CD pipeline status](https://github.com/mbland/elistman/actions/workflows/pipeline.yaml/badge.svg)](https://github.com/mbland/elistman/actions/workflows/pipeline.yaml?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/mbland/elistman/badge.svg?branch=main)](https://coveralls.io/github/mbland/elistman?branch=main)
@@ -15,8 +12,7 @@ _(Try force reloading the page to get the latest badges if this is a return
 visit. [The browser cache may hide the latest
 results](https://stackoverflow.com/a/37894321).)_
 
-Only serves one list at a time as defined by deployment parameters. (_I may
-change this in a future version._)
+Only serves one list at a time as defined by deployment parameters.
 
 Implemented in [Go][] using the following [Amazon Web Services][]:
 
@@ -30,8 +26,8 @@ Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
 deploying the Lambda function, binding to the API Gateway, managing permissions,
 and other configuration parameters.
 
-Based on implementation hints from [victoriadrake/simple-subscribe][], but
-otherwise contains original code.
+Initially based on implementation hints from [victoriadrake/simple-subscribe][],
+but otherwise contains original code.
 
 ## Prerequisites
 
