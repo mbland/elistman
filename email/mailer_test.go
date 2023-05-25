@@ -13,29 +13,6 @@ import (
 	"gotest.tools/assert"
 )
 
-type TestSes struct {
-	rawEmailInput  *ses.SendRawEmailInput
-	rawEmailOutput *ses.SendRawEmailOutput
-	rawEmailErr    error
-	bounceInput    *ses.SendBounceInput
-	bounceOutput   *ses.SendBounceOutput
-	bounceErr      error
-}
-
-func (ses *TestSes) SendRawEmail(
-	_ context.Context, input *ses.SendRawEmailInput, _ ...func(*ses.Options),
-) (*ses.SendRawEmailOutput, error) {
-	ses.rawEmailInput = input
-	return ses.rawEmailOutput, ses.rawEmailErr
-}
-
-func (ses *TestSes) SendBounce(
-	_ context.Context, input *ses.SendBounceInput, _ ...func(*ses.Options),
-) (*ses.SendBounceOutput, error) {
-	ses.bounceInput = input
-	return ses.bounceOutput, ses.bounceErr
-}
-
 func TestSend(t *testing.T) {
 	setup := func() (*TestSes, *SesMailer, context.Context) {
 		testSes := &TestSes{

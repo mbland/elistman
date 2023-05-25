@@ -9,6 +9,8 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
@@ -16,6 +18,68 @@ import (
 const testUnsubEmail = "unsubscribe@foo.com"
 const testApiBaseUrl = "https://foo.com/email"
 const testUid = "00000000-1111-2222-3333-444444444444"
+
+type TestSes struct {
+	rawEmailInput  *ses.SendRawEmailInput
+	rawEmailOutput *ses.SendRawEmailOutput
+	rawEmailErr    error
+	bounceInput    *ses.SendBounceInput
+	bounceOutput   *ses.SendBounceOutput
+	bounceErr      error
+}
+
+func (ses *TestSes) SendRawEmail(
+	_ context.Context, input *ses.SendRawEmailInput, _ ...func(*ses.Options),
+) (*ses.SendRawEmailOutput, error) {
+	ses.rawEmailInput = input
+	return ses.rawEmailOutput, ses.rawEmailErr
+}
+
+func (ses *TestSes) SendBounce(
+	_ context.Context, input *ses.SendBounceInput, _ ...func(*ses.Options),
+) (*ses.SendBounceOutput, error) {
+	ses.bounceInput = input
+	return ses.bounceOutput, ses.bounceErr
+}
+
+type TestSesV2 struct {
+	getInput     *sesv2.GetSuppressedDestinationInput
+	getOutput    *sesv2.GetSuppressedDestinationOutput
+	getError     error
+	putInput     *sesv2.PutSuppressedDestinationInput
+	putOutput    *sesv2.PutSuppressedDestinationOutput
+	putError     error
+	deleteInput  *sesv2.DeleteSuppressedDestinationInput
+	deleteOutput *sesv2.DeleteSuppressedDestinationOutput
+	deleteError  error
+}
+
+func (ses *TestSesV2) GetSuppressedDestination(
+	_ context.Context,
+	input *sesv2.GetSuppressedDestinationInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.GetSuppressedDestinationOutput, error) {
+	ses.getInput = input
+	return ses.getOutput, ses.getError
+}
+
+func (ses *TestSesV2) PutSuppressedDestination(
+	_ context.Context,
+	input *sesv2.PutSuppressedDestinationInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.PutSuppressedDestinationOutput, error) {
+	ses.putInput = input
+	return ses.putOutput, ses.putError
+}
+
+func (ses *TestSesV2) DeleteSuppressedDestination(
+	_ context.Context,
+	input *sesv2.DeleteSuppressedDestinationInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.DeleteSuppressedDestinationOutput, error) {
+	ses.deleteInput = input
+	return ses.deleteOutput, ses.deleteError
+}
 
 type TestSuppressor struct {
 	checkedEmail       string

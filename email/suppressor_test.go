@@ -1,3 +1,5 @@
+//go:build small_tests || all_tests
+
 package email
 
 import (
@@ -5,51 +7,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
-
-type TestSesV2 struct {
-	getInput     *sesv2.GetSuppressedDestinationInput
-	getOutput    *sesv2.GetSuppressedDestinationOutput
-	getError     error
-	putInput     *sesv2.PutSuppressedDestinationInput
-	putOutput    *sesv2.PutSuppressedDestinationOutput
-	putError     error
-	deleteInput  *sesv2.DeleteSuppressedDestinationInput
-	deleteOutput *sesv2.DeleteSuppressedDestinationOutput
-	deleteError  error
-}
-
-func (ses *TestSesV2) GetSuppressedDestination(
-	_ context.Context,
-	input *sesv2.GetSuppressedDestinationInput,
-	_ ...func(*sesv2.Options),
-) (*sesv2.GetSuppressedDestinationOutput, error) {
-	ses.getInput = input
-	return ses.getOutput, ses.getError
-}
-
-func (ses *TestSesV2) PutSuppressedDestination(
-	_ context.Context,
-	input *sesv2.PutSuppressedDestinationInput,
-	_ ...func(*sesv2.Options),
-) (*sesv2.PutSuppressedDestinationOutput, error) {
-	ses.putInput = input
-	return ses.putOutput, ses.putError
-}
-
-func (ses *TestSesV2) DeleteSuppressedDestination(
-	_ context.Context,
-	input *sesv2.DeleteSuppressedDestinationInput,
-	_ ...func(*sesv2.Options),
-) (*sesv2.DeleteSuppressedDestinationOutput, error) {
-	ses.deleteInput = input
-	return ses.deleteOutput, ses.deleteError
-}
 
 func notFoundException() error {
 	// Wrap the error to make sure the implementation is using errors.As
