@@ -8,10 +8,6 @@ import (
 )
 
 type SesApi interface {
-	SendRawEmail(
-		context.Context, *ses.SendRawEmailInput, ...func(*ses.Options),
-	) (*ses.SendRawEmailOutput, error)
-
 	SendBounce(
 		context.Context, *ses.SendBounceInput, ...func(*ses.Options),
 	) (*ses.SendBounceOutput, error)
