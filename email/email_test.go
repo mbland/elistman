@@ -43,15 +43,15 @@ func (ses *TestSes) SendBounce(
 }
 
 type TestSesV2 struct {
-	getInput     *sesv2.GetSuppressedDestinationInput
-	getOutput    *sesv2.GetSuppressedDestinationOutput
-	getError     error
-	putInput     *sesv2.PutSuppressedDestinationInput
-	putOutput    *sesv2.PutSuppressedDestinationOutput
-	putError     error
-	deleteInput  *sesv2.DeleteSuppressedDestinationInput
-	deleteOutput *sesv2.DeleteSuppressedDestinationOutput
-	deleteError  error
+	getSupDestInput     *sesv2.GetSuppressedDestinationInput
+	getSupDestOutput    *sesv2.GetSuppressedDestinationOutput
+	getSupDestError     error
+	putSupDestInput     *sesv2.PutSuppressedDestinationInput
+	putSupDestOutput    *sesv2.PutSuppressedDestinationOutput
+	putSupDestError     error
+	deleteSupDestInput  *sesv2.DeleteSuppressedDestinationInput
+	deleteSupDestOutput *sesv2.DeleteSuppressedDestinationOutput
+	deleteSupDestError  error
 }
 
 func (ses *TestSesV2) GetSuppressedDestination(
@@ -59,8 +59,8 @@ func (ses *TestSesV2) GetSuppressedDestination(
 	input *sesv2.GetSuppressedDestinationInput,
 	_ ...func(*sesv2.Options),
 ) (*sesv2.GetSuppressedDestinationOutput, error) {
-	ses.getInput = input
-	return ses.getOutput, ses.getError
+	ses.getSupDestInput = input
+	return ses.getSupDestOutput, ses.getSupDestError
 }
 
 func (ses *TestSesV2) PutSuppressedDestination(
@@ -68,8 +68,8 @@ func (ses *TestSesV2) PutSuppressedDestination(
 	input *sesv2.PutSuppressedDestinationInput,
 	_ ...func(*sesv2.Options),
 ) (*sesv2.PutSuppressedDestinationOutput, error) {
-	ses.putInput = input
-	return ses.putOutput, ses.putError
+	ses.putSupDestInput = input
+	return ses.putSupDestOutput, ses.putSupDestError
 }
 
 func (ses *TestSesV2) DeleteSuppressedDestination(
@@ -77,8 +77,8 @@ func (ses *TestSesV2) DeleteSuppressedDestination(
 	input *sesv2.DeleteSuppressedDestinationInput,
 	_ ...func(*sesv2.Options),
 ) (*sesv2.DeleteSuppressedDestinationOutput, error) {
-	ses.deleteInput = input
-	return ses.deleteOutput, ses.deleteError
+	ses.deleteSupDestInput = input
+	return ses.deleteSupDestOutput, ses.deleteSupDestError
 }
 
 type TestSuppressor struct {

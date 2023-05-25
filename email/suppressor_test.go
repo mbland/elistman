@@ -37,7 +37,7 @@ func TestIsSuppressed(t *testing.T) {
 
 	t.Run("ReturnsFalseIfNotSuppressed", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.getError = notFoundException()
+		testSesV2.getSupDestError = notFoundException()
 
 		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
@@ -47,7 +47,7 @@ func TestIsSuppressed(t *testing.T) {
 
 	t.Run("ReturnsErrorIfUnexpectedFailure", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.getError = testutils.AwsServerError("not a 404")
+		testSesV2.getSupDestError = testutils.AwsServerError("not a 404")
 
 		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
@@ -77,7 +77,7 @@ func TestSuppress(t *testing.T) {
 
 	t.Run("ReturnsAnError", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.putError = testutils.AwsServerError("testing")
+		testSesV2.putSupDestError = testutils.AwsServerError("testing")
 
 		err := suppressor.Suppress(ctx, "foo@bar.com")
 
@@ -104,7 +104,7 @@ func TestUnsuppress(t *testing.T) {
 
 	t.Run("SucceedsEvenIfUserIsNotSuppressed", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.deleteError = notFoundException()
+		testSesV2.deleteSupDestError = notFoundException()
 
 		err := suppressor.Unsuppress(ctx, "foo@bar.com")
 
@@ -113,7 +113,7 @@ func TestUnsuppress(t *testing.T) {
 
 	t.Run("ReturnsAnError", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
-		testSesV2.deleteError = testutils.AwsServerError("testing")
+		testSesV2.deleteSupDestError = testutils.AwsServerError("testing")
 
 		err := suppressor.Unsuppress(ctx, "foo@bar.com")
 
