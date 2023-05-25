@@ -5,11 +5,9 @@ package email
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
-	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -78,57 +76,6 @@ func TestSend(t *testing.T) {
 		assert.Equal(t, "", msgId)
 		assert.ErrorContains(t, err, "send to "+recipient+" failed")
 		assert.ErrorContains(t, err, "SendRawEmail error")
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
-	})
-}
-
-func TestBounce(t *testing.T) {
-	setup := func() (*TestSes, *SesMailer, context.Context) {
-		testSes := &TestSes{
-			bounceInput:  &ses.SendBounceInput{},
-			bounceOutput: &ses.SendBounceOutput{},
-		}
-		mailer := &SesMailer{Client: testSes}
-		return testSes, mailer, context.Background()
-	}
-
-	emailDomain := "foo.com"
-	messageId := "deadbeef"
-	recipients := []string{"plugh@foo.com"}
-	timestamp, _ := time.Parse(time.RFC1123Z, "Fri, 18 Sep 1970 12:45:00 +0000")
-
-	t.Run("Succeeds", func(t *testing.T) {
-		testSes, mailer, ctx := setup()
-		testBouncedMessageId := "0123456789"
-		testSes.bounceOutput.MessageId = aws.String(testBouncedMessageId)
-
-		bouncedId, err := mailer.Bounce(
-			ctx, emailDomain, messageId, recipients, timestamp,
-		)
-
-		assert.NilError(t, err)
-		assert.Equal(t, testBouncedMessageId, bouncedId)
-
-		input := testSes.bounceInput
-		assert.Assert(t, input != nil)
-		assert.Equal(t, len(recipients), len(input.BouncedRecipientInfoList))
-		bouncedRecipient := input.BouncedRecipientInfoList[0]
-		assert.Equal(t, recipients[0], aws.ToString(bouncedRecipient.Recipient))
-		assert.Equal(
-			t, types.BounceTypeContentRejected, bouncedRecipient.BounceType,
-		)
-	})
-
-	t.Run("ReturnsErrorIfSendBounceFails", func(t *testing.T) {
-		testSes, mailer, ctx := setup()
-		testSes.bounceErr = testutils.AwsServerError("SendBounce error")
-
-		bouncedId, err := mailer.Bounce(
-			ctx, emailDomain, messageId, recipients, timestamp,
-		)
-
-		assert.Equal(t, "", bouncedId)
-		assert.ErrorContains(t, err, "SendBounce error")
 		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})
 }

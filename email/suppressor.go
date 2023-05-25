@@ -31,26 +31,6 @@ type SesSuppressor struct {
 	Client SesV2Api
 }
 
-type SesV2Api interface {
-	GetSuppressedDestination(
-		context.Context,
-		*sesv2.GetSuppressedDestinationInput,
-		...func(*sesv2.Options),
-	) (*sesv2.GetSuppressedDestinationOutput, error)
-
-	PutSuppressedDestination(
-		context.Context,
-		*sesv2.PutSuppressedDestinationInput,
-		...func(*sesv2.Options),
-	) (*sesv2.PutSuppressedDestinationOutput, error)
-
-	DeleteSuppressedDestination(
-		context.Context,
-		*sesv2.DeleteSuppressedDestinationInput,
-		...func(*sesv2.Options),
-	) (*sesv2.DeleteSuppressedDestinationOutput, error)
-}
-
 func (mailer *SesSuppressor) IsSuppressed(
 	ctx context.Context, email string,
 ) (verdict bool, err error) {

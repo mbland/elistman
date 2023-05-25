@@ -30,10 +30,6 @@ func buildHandler() (h *handler.Handler, err error) {
 		return
 	}
 
-	sesMailer := &email.SesMailer{
-		Client:    ses.NewFromConfig(cfg),
-		ConfigSet: opts.ConfigurationSet,
-	}
 	suppressor := &email.SesSuppressor{
 		Client: sesv2.NewFromConfig(cfg),
 	}
@@ -65,14 +61,19 @@ func buildHandler() (h *handler.Handler, err error) {
 				Suppressor: suppressor,
 				Resolver:   net.DefaultResolver,
 			},
-			Mailer:     sesMailer,
+			Mailer: &email.SesMailer{
+				Client:    ses.NewFromConfig(cfg),
+				ConfigSet: opts.ConfigurationSet,
+			},
 			Suppressor: suppressor,
 			Log:        logger,
 		},
 		opts.RedirectPaths,
 		handler.ResponseTemplate,
 		opts.UnsubscribeUserName,
-		sesMailer,
+		&email.SesBouncer{
+			Client: ses.NewFromConfig(cfg),
+		},
 		logger,
 	)
 	return
