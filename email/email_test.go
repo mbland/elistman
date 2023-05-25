@@ -52,6 +52,9 @@ type TestSesV2 struct {
 	deleteSupDestInput  *sesv2.DeleteSuppressedDestinationInput
 	deleteSupDestOutput *sesv2.DeleteSuppressedDestinationOutput
 	deleteSupDestError  error
+	sendEmailInput      *sesv2.SendEmailInput
+	sendEmailOutput     *sesv2.SendEmailOutput
+	sendEmailError      error
 }
 
 func (ses *TestSesV2) GetSuppressedDestination(
@@ -79,6 +82,15 @@ func (ses *TestSesV2) DeleteSuppressedDestination(
 ) (*sesv2.DeleteSuppressedDestinationOutput, error) {
 	ses.deleteSupDestInput = input
 	return ses.deleteSupDestOutput, ses.deleteSupDestError
+}
+
+func (ses *TestSesV2) SendEmail(
+	_ context.Context,
+	input *sesv2.SendEmailInput,
+	_ ...func(*sesv2.Options),
+) (*sesv2.SendEmailOutput, error) {
+	ses.sendEmailInput = input
+	return ses.sendEmailOutput, ses.sendEmailError
 }
 
 type TestSuppressor struct {
