@@ -1,3 +1,5 @@
+//go:build small_tests || all_tests
+
 package ops
 
 import (
@@ -47,6 +49,12 @@ func TestAwsError(t *testing.T) {
 }
 
 func TestLoadDefaultAwsConfig(t *testing.T) {
+
+	// Technically, this should be a medium test, since it depends on the
+	// environment being configured correctly. However, it's so fast, the
+	// environment should always be configured correctly, and it's so easy to
+	// fix. It seems best to tag it small so it always runs and shows problems
+	// with the environment before any larger tests run.
 	t.Run("SucceedsIfValidConfigIsAvailable", func(t *testing.T) {
 		_, err := LoadDefaultAwsConfig()
 

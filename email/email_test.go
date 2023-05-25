@@ -1,4 +1,4 @@
-//go:build small_tests || medium_tests || all_tests
+//go:build small_tests || all_tests
 
 package email
 

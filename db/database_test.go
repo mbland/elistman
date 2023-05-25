@@ -1,4 +1,4 @@
-//go:build small_tests || contract_tests || all_tests
+//go:build small_tests || all_tests
 
 package db
 
