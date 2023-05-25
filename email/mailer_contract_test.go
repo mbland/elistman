@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"gotest.tools/assert"
 )
 
@@ -45,7 +45,7 @@ func TestSendWithLiveSes(t *testing.T) {
 		}
 
 		return &SesMailer{
-			Client:    ses.NewFromConfig(cfg),
+			Client:    sesv2.NewFromConfig(cfg),
 			ConfigSet: configurationSetName,
 		}, ctx
 	}

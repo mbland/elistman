@@ -7,17 +7,17 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
 func TestSend(t *testing.T) {
-	setup := func() (*TestSes, *SesMailer, context.Context) {
-		testSes := &TestSes{
-			rawEmailInput:  &ses.SendRawEmailInput{},
-			rawEmailOutput: &ses.SendRawEmailOutput{},
+	setup := func() (*TestSesV2, *SesMailer, context.Context) {
+		testSes := &TestSesV2{
+			sendEmailInput:  &sesv2.SendEmailInput{},
+			sendEmailOutput: &sesv2.SendEmailOutput{},
 		}
 		mailer := &SesMailer{Client: testSes, ConfigSet: "config-set-name"}
 		return testSes, mailer, context.Background()
@@ -29,25 +29,25 @@ func TestSend(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.rawEmailOutput.MessageId = aws.String(testMsgId)
+		testSes.sendEmailOutput.MessageId = aws.String(testMsgId)
 
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.NilError(t, err)
 		assert.Equal(t, testMsgId, msgId)
 
-		input := testSes.rawEmailInput
+		input := testSes.sendEmailInput
 		assert.Assert(t, input != nil)
-		assert.DeepEqual(t, []string{recipient}, input.Destinations)
+		assert.DeepEqual(t, []string{recipient}, input.Destination.ToAddresses)
 		assert.Equal(
 			t, mailer.ConfigSet, aws.ToString(input.ConfigurationSetName),
 		)
-		assert.DeepEqual(t, testMsg, input.RawMessage.Data)
+		assert.DeepEqual(t, testMsg, input.Content.Raw.Data)
 	})
 
 	t.Run("ReturnsErrorIfSendFails", func(t *testing.T) {
 		testSes, mailer, ctx := setup()
-		testSes.rawEmailErr = testutils.AwsServerError("SendRawEmail error")
+		testSes.sendEmailError = testutils.AwsServerError("SendRawEmail error")
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.Equal(t, "", msgId)

@@ -62,7 +62,7 @@ func buildHandler() (h *handler.Handler, err error) {
 				Resolver:   net.DefaultResolver,
 			},
 			Mailer: &email.SesMailer{
-				Client:    ses.NewFromConfig(cfg),
+				Client:    sesv2.NewFromConfig(cfg),
 				ConfigSet: opts.ConfigurationSet,
 			},
 			Suppressor: suppressor,
