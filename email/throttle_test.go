@@ -29,6 +29,7 @@ type sesThrottleFixture struct {
 }
 
 func newSesThrottleFixture() *sesThrottleFixture {
+	capacity, _ := types.NewCapacity(0.75)
 	f := &sesThrottleFixture{
 		ctx:    context.Background(),
 		client: &TestSesV2{},
@@ -37,7 +38,7 @@ func newSesThrottleFixture() *sesThrottleFixture {
 			Max24HourSend:   50000.0,
 			SentLast24Hours: 25000.0,
 		},
-		capacity: types.NewCapacity(0.75),
+		capacity: capacity,
 		created:  testdata.TestTimestamp,
 	}
 	f.client.getAccountOutput = &sesv2.GetAccountOutput{SendQuota: f.quota}

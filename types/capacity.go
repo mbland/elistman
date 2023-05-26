@@ -2,19 +2,25 @@ package types
 
 import "fmt"
 
+const ErrInvalidCapacity = SentinelError("capacity not within range [0,1]")
+
 type Capacity struct {
 	cap float64
 }
 
-func NewCapacity(cap float64) Capacity {
+func NewCapacity(cap float64) (Capacity, error) {
 	if cap < 0.0 || cap > 1.0 {
-		panic(fmt.Sprintf("capacity must be within range [0,1], got: %v", cap))
+		return Capacity{}, fmt.Errorf("%w: %v", ErrInvalidCapacity, cap)
 	}
-	return Capacity{cap}
+	return Capacity{cap}, nil
 }
 
 func (c Capacity) Value() float64 {
 	return c.cap
+}
+
+func (c Capacity) Equal(other Capacity) bool {
+	return c.cap == other.cap
 }
 
 func (c Capacity) String() string {
