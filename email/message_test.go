@@ -739,13 +739,7 @@ func TestMustParseMessageFromJson(t *testing.T) {
 
 	t.Run("PanicsIfNewMessageFails", func(t *testing.T) {
 		testErr := errors.New("simulated I/O error")
-		defer func() {
-			if r := recover(); r != nil {
-				assert.Assert(t, is.Contains(r, testErr.Error()))
-			} else {
-				t.Fatal("expected panic, but didn't")
-			}
-		}()
+		defer tu.ExpectPanic(t, testErr.Error())
 
 		msg := MustParseMessageFromJson(iotest.ErrReader(testErr))
 
