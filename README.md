@@ -215,6 +215,7 @@ SENDER_USER_NAME="posts"
 UNSUBSCRIBE_USER_NAME="unsubscribe"
 RECEIPT_RULE_SET_NAME="mike-bland.com"
 SUBSCRIBERS_TABLE_NAME="<TABLE_NAME>"
+MAX_BULK_SEND_CAPACITY="0.8"
 
 INVALID_REQUEST_PATH="/subscribe/malformed.html"
 ALREADY_SUBSCRIBED_PATH="/subscribe/already-subscribed.html"

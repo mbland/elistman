@@ -23,6 +23,12 @@ Parameters:
     Type: String
   SubscribersTableName:
     Type: String
+  MaxBulkSendCapacity:
+    Type: Number
+    MinValue: "0"
+    MaxValue: "1"
+    Default:  "0.8"
+    Description: Portion of quota to use for bulk sending, in range [0.0,1.0]
   InvalidRequestPath:
     Type: String
   AlreadySubscribedPath:
@@ -94,6 +100,7 @@ Resources:
           UNSUBSCRIBE_USER_NAME: !Ref UnsubscribeUserName
           SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
           CONFIGURATION_SET: !Ref SendingConfigurationSet
+          MAX_BULK_SEND_CAPACITY: !Ref MaxBulkSendCapacity
           INVALID_REQUEST_PATH: !Ref InvalidRequestPath
           ALREADY_SUBSCRIBED_PATH: !Ref AlreadySubscribedPath
           VERIFY_LINK_SENT_PATH: !Ref VerifyLinkSentPath

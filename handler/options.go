@@ -1,7 +1,12 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"strings"
+
+	"github.com/mbland/elistman/types"
 )
 
 type RedirectPaths struct {
@@ -23,6 +28,7 @@ type Options struct {
 	UnsubscribeUserName  string
 	SubscribersTableName string
 	ConfigurationSet     string
+	MaxBulkSendCapacity  types.Capacity
 
 	RedirectPaths RedirectPaths
 }
@@ -37,13 +43,14 @@ func (e *UndefinedEnvVarsError) Error() string {
 }
 
 func GetOptions(getenv func(string) string) (*Options, error) {
-	env := environment{getenv: getenv}
+	env := environment{getenv: getenv, errors: make([]error, 0)}
 	return env.options()
 }
 
 type environment struct {
 	getenv        func(string) string
 	undefinedVars []string
+	errors        []error
 }
 
 func (env *environment) options() (*Options, error) {
@@ -57,6 +64,7 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.UnsubscribeUserName, "UNSUBSCRIBE_USER_NAME")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
 	env.assign(&opts.ConfigurationSet, "CONFIGURATION_SET")
+	env.assignCapacity(&opts.MaxBulkSendCapacity, "MAX_BULK_SEND_CAPACITY")
 
 	redirects := &opts.RedirectPaths
 	env.assignRedirect(&redirects.Invalid, "INVALID_REQUEST_PATH")
@@ -67,7 +75,11 @@ func (env *environment) options() (*Options, error) {
 	env.assignRedirect(&redirects.Unsubscribed, "UNSUBSCRIBED_PATH")
 
 	if len(env.undefinedVars) != 0 {
-		return nil, &UndefinedEnvVarsError{UndefinedVars: env.undefinedVars}
+		undefErr := &UndefinedEnvVarsError{UndefinedVars: env.undefinedVars}
+		env.errors = append(env.errors, undefErr)
+	}
+	if err := errors.Join(env.errors...); err != nil {
+		return nil, err
 	}
 	return &opts, nil
 }
@@ -77,6 +89,26 @@ func (env *environment) assign(opt *string, varname string) {
 		env.undefinedVars = append(env.undefinedVars, varname)
 	} else {
 		*opt = value
+	}
+}
+
+func (env *environment) assignCapacity(opt *types.Capacity, varname string) {
+	var capStr string
+	var capRaw float64
+	var err error
+
+	env.assign(&capStr, varname)
+	addErr := func(err error) {
+		const errFmt = "invalid %s: %w"
+		env.errors = append(env.errors, fmt.Errorf(errFmt, varname, err))
+	}
+
+	if len(capStr) == 0 {
+		return
+	} else if capRaw, err = strconv.ParseFloat(capStr, 64); err != nil {
+		addErr(err)
+	} else if *opt, err = types.NewCapacity(capRaw); err != nil {
+		addErr(err)
 	}
 }
 
