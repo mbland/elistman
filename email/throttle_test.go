@@ -13,48 +13,16 @@ import (
 	sesv2types "github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 	"github.com/mbland/elistman/testdata"
 	"github.com/mbland/elistman/testutils"
+	"github.com/mbland/elistman/types"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
-
-func TestCapacity(t *testing.T) {
-	t.Run("CreatedSuccessfully", func(t *testing.T) {
-		cap := NewCapacity(0.5)
-
-		assert.Equal(t, "50.00%", cap.String())
-		assert.Equal(t, 50, cap.MaxAvailable(100))
-	})
-
-	t.Run("CreatedSuccessfullyAtUpperAndLowerBounds", func(t *testing.T) {
-		lowerCap := NewCapacity(0.0)
-		upperCap := NewCapacity(1.0)
-
-		assert.Equal(t, 0.0, lowerCap.cap)
-		assert.Equal(t, 1.0, upperCap.cap)
-	})
-
-	t.Run("PanicsIfNegative", func(t *testing.T) {
-		defer testutils.ExpectPanic(t, "got: -0.1")
-
-		cap := NewCapacity(-0.1)
-
-		assert.Assert(t, is.Nil(cap))
-	})
-
-	t.Run("PanicsIfGreaterThanOne", func(t *testing.T) {
-		defer testutils.ExpectPanic(t, "got: 1.1")
-
-		cap := NewCapacity(1.1)
-
-		assert.Assert(t, is.Nil(cap))
-	})
-}
 
 type sesThrottleFixture struct {
 	ctx           context.Context
 	client        *TestSesV2
 	quota         *sesv2types.SendQuota
-	capacity      Capacity
+	capacity      types.Capacity
 	created       time.Time
 	sleepDuration time.Duration
 	sleep         func(time.Duration)
@@ -69,7 +37,7 @@ func newSesThrottleFixture() *sesThrottleFixture {
 			Max24HourSend:   50000.0,
 			SentLast24Hours: 25000.0,
 		},
-		capacity: NewCapacity(0.75),
+		capacity: types.NewCapacity(0.75),
 		created:  testdata.TestTimestamp,
 	}
 	f.client.getAccountOutput = &sesv2.GetAccountOutput{SendQuota: f.quota}
@@ -112,7 +80,7 @@ func TestNewSesThrottleIncludingRefresh(t *testing.T) {
 		assert.Equal(t, time.Second, f.sleepDuration)
 		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
 		assert.Equal(t, int(f.quota.SentLast24Hours), throttle.SentLast24Hours)
-		assert.Equal(t, f.capacity.cap, throttle.MaxBulkCapacity.cap)
+		assert.Equal(t, f.capacity.Value(), throttle.MaxBulkCapacity.Value())
 		assert.Equal(t, 37500, throttle.MaxBulkSendable)
 	})
 

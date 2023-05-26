@@ -34,26 +34,14 @@ type SesThrottle struct {
 	Sleep           func(time.Duration)
 	Max24HourSend   int
 	SentLast24Hours int
-	MaxBulkCapacity Capacity
+	MaxBulkCapacity types.Capacity
 	MaxBulkSendable int
-}
-
-type Capacity struct {
-	cap float64
-}
-
-func (c Capacity) String() string {
-	return fmt.Sprintf("%.2f%%", c.cap*100.0)
-}
-
-func (c Capacity) MaxAvailable(totalUnits int) int {
-	return int(float64(totalUnits) * c.cap)
 }
 
 func NewSesThrottle(
 	ctx context.Context,
 	client SesV2Api,
-	maxCap Capacity,
+	maxCap types.Capacity,
 	now time.Time,
 	sleep func(time.Duration),
 ) (t *SesThrottle, err error) {
@@ -67,13 +55,6 @@ func NewSesThrottle(
 		t = throttle
 	}
 	return
-}
-
-func NewCapacity(cap float64) Capacity {
-	if cap < 0.0 || cap > 1.0 {
-		panic(fmt.Sprintf("capacity must be within range [0,1], got: %v", cap))
-	}
-	return Capacity{cap}
 }
 
 func (t *SesThrottle) RefreshIfExpired(
