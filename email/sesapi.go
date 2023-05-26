@@ -32,9 +32,11 @@ type SesV2Api interface {
 		...func(*sesv2.Options),
 	) (*sesv2.DeleteSuppressedDestinationOutput, error)
 
+	GetAccount(
+		context.Context, *sesv2.GetAccountInput, ...func(*sesv2.Options),
+	) (*sesv2.GetAccountOutput, error)
+
 	SendEmail(
-		context.Context,
-		*sesv2.SendEmailInput,
-		...func(*sesv2.Options),
+		context.Context, *sesv2.SendEmailInput, ...func(*sesv2.Options),
 	) (*sesv2.SendEmailOutput, error)
 }
