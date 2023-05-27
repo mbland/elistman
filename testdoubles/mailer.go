@@ -6,9 +6,11 @@ import (
 )
 
 type Mailer struct {
-	RecipientMessages map[string][]byte
-	MessageIds        map[string]string
-	RecipientErrors   map[string]error
+	RecipientMessages  map[string][]byte
+	MessageIds         map[string]string
+	RecipientErrors    map[string]error
+	NumToSendRequested int
+	BulkCapError       error
 }
 
 func NewMailer() *Mailer {
@@ -17,6 +19,13 @@ func NewMailer() *Mailer {
 		MessageIds:        make(map[string]string, 10),
 		RecipientErrors:   make(map[string]error, 10),
 	}
+}
+
+func (mailer *Mailer) BulkCapacityAvailable(
+	ctx context.Context, numToSend int,
+) error {
+	mailer.NumToSendRequested = numToSend
+	return mailer.BulkCapError
 }
 
 func (m *Mailer) Send(

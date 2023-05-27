@@ -32,6 +32,16 @@ func (tt *TestThrottle) PauseBeforeNextSend(_ context.Context) error {
 	return tt.pauseBeforeSendError
 }
 
+func TestSesMailerBulkCapacityAvailablePassThroughToThrottle(t *testing.T) {
+	throttle := &TestThrottle{bulkCapError: ErrBulkSendWouldExceedCapacity}
+	mailer := &SesMailer{Throttle: throttle}
+
+	err := mailer.BulkCapacityAvailable(context.Background(), 27)
+
+	assert.Equal(t, 27, throttle.bulkCapNumToSend)
+	assert.Assert(t, testutils.ErrorIs(err, ErrBulkSendWouldExceedCapacity))
+}
+
 func TestSend(t *testing.T) {
 	setup := func() (
 		testSes *TestSesV2,
