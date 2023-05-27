@@ -104,6 +104,13 @@ func (t *SesThrottle) PauseBeforeNextSend(ctx context.Context) (err error) {
 }
 
 func (t *SesThrottle) unlimited() bool {
+	// https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_SendQuota.html
+	//
+	// Max24HourSend
+	//
+	// The maximum number of emails that you can send in the current AWS
+	// Region over a 24-hour period. A value of -1 signifies an unlimited
+	// quota. (This value is also referred to as your sending quota.)
 	return t.Max24HourSend == -1
 }
 
