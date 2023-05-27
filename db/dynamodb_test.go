@@ -106,7 +106,7 @@ func (client *TestDynamoDbClient) Scan(
 	items := make([]dbAttributes, 0, len(client.subscribers))
 
 	// Remember that our schema is to keep pending and verified subscribers
-	// partitioned across disjoin Global Secondary Indexes.
+	// partitioned across disjoint Global Secondary Indexes.
 	for _, sub := range client.subscribers {
 		if _, ok := sub[aws.ToString(input.IndexName)]; ok {
 			items = append(items, sub)

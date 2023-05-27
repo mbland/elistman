@@ -142,6 +142,15 @@ func newTestSubscriber() *Subscriber {
 	return NewSubscriber(testutils.RandomString(8) + "@example.com")
 }
 
+func sorted(subs []*Subscriber) (r []*Subscriber) {
+	r = make([]*Subscriber, len(subs))
+	copy(r, subs)
+	sort.Slice(r, func(i, j int) bool {
+		return r[i].Email < r[j].Email
+	})
+	return
+}
+
 func TestDynamoDb(t *testing.T) {
 	testDb, teardown, err := setupDynamoDb()
 
@@ -262,56 +271,29 @@ func TestDynamoDb(t *testing.T) {
 		})
 	})
 
-	t.Run("ProcessSubscribersInState", func(t *testing.T) {
-		emails := make(
-			[]string,
-			0,
-			len(TestPendingSubscribers)+len(TestVerifiedSubscribers),
-		)
+	t.Run("WithTestSubscribers", func(t *testing.T) {
+		emails := make([]string, 0, len(TestSubscribers))
 
-		putSubscribers := func(t *testing.T, subs []*Subscriber) {
-			t.Helper()
-
-			for _, sub := range subs {
-				if err := testDb.Put(ctx, sub); err != nil {
-					t.Fatalf("failed to put subscriber: %s", sub)
-				}
-				emails = append(emails, sub.Email)
+		for _, sub := range TestSubscribers {
+			if err := testDb.Put(ctx, sub); err != nil {
+				t.Fatalf("failed to put subscriber: %s", sub)
 			}
+			emails = append(emails, sub.Email)
 		}
 
-		waitIfTestingAgainstAws := func() {
-			if useAwsDb {
-				time.Sleep(time.Duration(3 * time.Second))
-			}
+		if useAwsDb {
+			time.Sleep(time.Duration(3 * time.Second))
 		}
 
-		setup := func(t *testing.T) {
-			putSubscribers(t, TestSubscribers)
-			waitIfTestingAgainstAws()
-		}
-
-		teardown := func() {
+		defer func() {
 			for _, email := range emails {
 				if err := testDb.Delete(ctx, email); err != nil {
 					t.Fatalf("failed to delete subscriber: %s", email)
 				}
 			}
-		}
+		}()
 
-		setup(t)
-		defer teardown()
-
-		sorted := func(subs []*Subscriber) (r []*Subscriber) {
-			r = make([]*Subscriber, len(subs))
-			copy(r, subs)
-			sort.Slice(r, func(i, j int) bool {
-				return r[i].Email < r[j].Email
-			})
-			return
-		}
-
-		t.Run("Succeeds", func(t *testing.T) {
+		t.Run("ProcessSubscribersInStateSucceeds", func(t *testing.T) {
 			subs := &[]*Subscriber{}
 			f := SubscriberFunc(func(s *Subscriber) bool {
 				*subs = append(*subs, s)
