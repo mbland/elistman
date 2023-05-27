@@ -27,6 +27,7 @@ PARAMETER_OVERRIDES=(
   "UnsubscribeUserName=${UNSUBSCRIBE_USER_NAME:?}"
   "ReceiptRuleSetName=${RECEIPT_RULE_SET_NAME:?}"
   "SubscribersTableName=${SUBSCRIBERS_TABLE_NAME:?}"
+  "MaxBulkSendCapacity=${MAX_BULK_SEND_CAPACITY:?}"
   "InvalidRequestPath=${INVALID_REQUEST_PATH:?}"
   "AlreadySubscribedPath=${ALREADY_SUBSCRIBED_PATH:?}"
   "VerifyLinkSentPath=${VERIFY_LINK_SENT_PATH:?}"
