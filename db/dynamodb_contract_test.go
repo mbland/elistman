@@ -271,6 +271,17 @@ func TestDynamoDb(t *testing.T) {
 		})
 	})
 
+	t.Run("CountSubscribersFails", func(t *testing.T) {
+		t.Run("IfTableDoesNotExist", func(t *testing.T) {
+			count, err := badDb.CountSubscribers(ctx)
+
+			assert.Assert(t, is.Nil(count))
+			expectedErrPrefix := "failed to count subscribers: "
+			assert.ErrorContains(t, err, expectedErrPrefix)
+			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
+		})
+	})
+
 	t.Run("WithTestSubscribers", func(t *testing.T) {
 		emails := make([]string, 0, len(TestSubscribers))
 
@@ -292,6 +303,18 @@ func TestDynamoDb(t *testing.T) {
 				}
 			}
 		}()
+
+		t.Run("CountSubscribersSucceeds", func(t *testing.T) {
+			counts, err := testDb.CountSubscribers(ctx)
+
+			assert.NilError(t, err)
+			expectedCounts := &SubscriberCounts{
+				Total:    int64(len(TestSubscribers)),
+				Pending:  int64(len(TestPendingSubscribers)),
+				Verified: int64(len(TestVerifiedSubscribers)),
+			}
+			assert.DeepEqual(t, expectedCounts, counts)
+		})
 
 		t.Run("ProcessSubscribersInStateSucceeds", func(t *testing.T) {
 			subs := &[]*Subscriber{}

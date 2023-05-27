@@ -308,6 +308,32 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	return
 }
 
+func (db *DynamoDb) CountSubscribers(
+	ctx context.Context,
+) (counts *SubscriberCounts, err error) {
+	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
+	var output *dynamodb.DescribeTableOutput
+
+	if output, err = db.Client.DescribeTable(ctx, input); err != nil {
+		err = ops.AwsError("failed to count subscribers", err)
+		return
+	}
+
+	counts = &SubscriberCounts{Total: aws.ToInt64(output.Table.ItemCount)}
+
+	for i := range output.Table.GlobalSecondaryIndexes {
+		index := &output.Table.GlobalSecondaryIndexes[i]
+
+		switch aws.ToString(index.IndexName) {
+		case string(SubscriberPending):
+			counts.Pending = aws.ToInt64(index.ItemCount)
+		case string(SubscriberVerified):
+			counts.Verified = aws.ToInt64(index.ItemCount)
+		}
+	}
+	return
+}
+
 func (db *DynamoDb) ProcessSubscribersInState(
 	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) error {
