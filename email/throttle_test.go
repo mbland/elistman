@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -84,9 +85,19 @@ func TestNewSesThrottleIncludingRefresh(t *testing.T) {
 		assert.Equal(t, time.Second, f.sleepDuration)
 		assert.Equal(t, f.refresh, throttle.RefreshInterval)
 		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
+		assert.Assert(t, throttle.unlimited() == false)
 		assert.Equal(t, int(f.quota.SentLast24Hours), throttle.SentLast24Hours)
 		assert.Equal(t, f.capacity.Value(), throttle.MaxBulkCapacity.Value())
 		assert.Equal(t, 37500, throttle.MaxBulkSendable)
+	})
+
+	t.Run("SucceedsWithUnlimitedQuota", func(t *testing.T) {
+		f := newSesThrottleFixture()
+		f.quota.Max24HourSend = float64(-1)
+
+		throttle, err := f.NewSesThrottle()
+		assert.NilError(t, err)
+		assert.Assert(t, throttle.unlimited() == true)
 	})
 
 	t.Run("FailsIfRefreshFails", func(t *testing.T) {
@@ -144,6 +155,15 @@ func TestBulkCapacityAvailable(t *testing.T) {
 		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours
 
 		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
+
+		assert.NilError(t, err)
+	})
+
+	t.Run("AlwaysSucceedsIfUnlimited", func(t *testing.T) {
+		f, throttle := setup(t)
+		throttle.Max24HourSend = -1
+
+		err := throttle.BulkCapacityAvailable(f.ctx, math.MaxInt)
 
 		assert.NilError(t, err)
 	})
@@ -213,6 +233,17 @@ func TestPauseBeforeNextSend(t *testing.T) {
 		expectedSend := origNow.Add(throttle.PauseInterval)
 		assert.Assert(t, testutils.TimesEqual(expectedSend, throttle.LastSend))
 		assert.Equal(t, throttle.Max24HourSend, throttle.SentLast24Hours)
+	})
+
+	t.Run("SucceedsWithUnlimitedQuota", func(t *testing.T) {
+		f, throttle := setup(t)
+		throttle.Max24HourSend = -1
+		throttle.SentLast24Hours = math.MaxInt - 1
+
+		err := throttle.PauseBeforeNextSend(f.ctx)
+
+		assert.NilError(t, err)
+		assert.Equal(t, math.MaxInt, throttle.SentLast24Hours)
 	})
 
 	t.Run("ErrorsIfRefreshFails", func(t *testing.T) {

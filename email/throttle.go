@@ -61,7 +61,7 @@ func NewSesThrottle(
 func (t *SesThrottle) BulkCapacityAvailable(
 	ctx context.Context, numToSend int,
 ) (err error) {
-	if err = t.refresh(ctx); err != nil {
+	if err = t.refresh(ctx); err != nil || t.unlimited() {
 		return
 	} else if (t.MaxBulkSendable - t.SentLast24Hours) < numToSend {
 		const errFmt = "%w: %d total send max, %s desired bulk capacity, " +
@@ -82,7 +82,7 @@ func (t *SesThrottle) BulkCapacityAvailable(
 func (t *SesThrottle) PauseBeforeNextSend(ctx context.Context) (err error) {
 	if err = t.refresh(ctx); err != nil {
 		return
-	} else if t.SentLast24Hours >= t.Max24HourSend {
+	} else if !t.unlimited() && t.SentLast24Hours >= t.Max24HourSend {
 		err = fmt.Errorf(
 			"%w: %d max, %d sent",
 			ErrExceededMax24HourSend,
@@ -101,6 +101,10 @@ func (t *SesThrottle) PauseBeforeNextSend(ctx context.Context) (err error) {
 	}
 	t.SentLast24Hours++
 	return
+}
+
+func (t *SesThrottle) unlimited() bool {
+	return t.Max24HourSend == -1
 }
 
 func (t *SesThrottle) refresh(ctx context.Context) (err error) {
