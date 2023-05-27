@@ -7,10 +7,10 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.18.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.25
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.24
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.6
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.7
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.34.1
 	github.com/aws/aws-sdk-go-v2/service/ses v1.15.9
-	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.17.6
+	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.18.0
 	github.com/aws/smithy-go v1.13.5
 	github.com/google/uuid v1.3.0
 	github.com/spf13/cobra v1.7.0
@@ -37,7 +37,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20230515195305-f3d0a9c9a5cc // indirect
+	golang.org/x/exp/typeparams v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
