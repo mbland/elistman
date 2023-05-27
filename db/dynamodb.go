@@ -309,26 +309,21 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 }
 
 func (db *DynamoDb) CountSubscribers(
-	ctx context.Context,
-) (counts *SubscriberCounts, err error) {
-	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
-	var output *dynamodb.DescribeTableOutput
-
-	if output, err = db.Client.DescribeTable(ctx, input); err != nil {
-		err = ops.AwsError("failed to count subscribers", err)
-		return
+	ctx context.Context, status SubscriberStatus,
+) (count int64, err error) {
+	input := &dynamodb.ScanInput{
+		TableName: aws.String(db.TableName),
+		IndexName: aws.String(string(status)),
+		Select:    dbtypes.SelectCount,
 	}
+	paginator := dynamodb.NewScanPaginator(db.Client, input)
 
-	counts = &SubscriberCounts{Total: aws.ToInt64(output.Table.ItemCount)}
-
-	for i := range output.Table.GlobalSecondaryIndexes {
-		index := &output.Table.GlobalSecondaryIndexes[i]
-
-		switch aws.ToString(index.IndexName) {
-		case string(SubscriberPending):
-			counts.Pending = aws.ToInt64(index.ItemCount)
-		case string(SubscriberVerified):
-			counts.Verified = aws.ToInt64(index.ItemCount)
+	for paginator.HasMorePages() {
+		if output, err := paginator.NextPage(ctx); err != nil {
+			errPrefix := "failed to count " + string(status) + " subscribers"
+			return -1, ops.AwsError(errPrefix, err)
+		} else {
+			count += int64(output.Count)
 		}
 	}
 	return

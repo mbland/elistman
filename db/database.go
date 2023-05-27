@@ -18,12 +18,6 @@ type Database interface {
 	) error
 }
 
-type SubscriberCounts struct {
-	Total    int64
-	Pending  int64
-	Verified int64
-}
-
 // ErrSubscriberNotFound indicates that an email address isn't subscribed.
 //
 // Database.Get returns this error when the underlying database request

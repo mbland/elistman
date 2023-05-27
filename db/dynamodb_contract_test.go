@@ -273,10 +273,13 @@ func TestDynamoDb(t *testing.T) {
 
 	t.Run("CountSubscribersFails", func(t *testing.T) {
 		t.Run("IfTableDoesNotExist", func(t *testing.T) {
-			count, err := badDb.CountSubscribers(ctx)
+			const status = SubscriberVerified
 
-			assert.Assert(t, is.Nil(count))
-			expectedErrPrefix := "failed to count subscribers: "
+			count, err := badDb.CountSubscribers(ctx, status)
+
+			assert.Equal(t, int64(-1), count)
+			expectedErrPrefix := "failed to count " + string(status) +
+				" subscribers: "
 			assert.ErrorContains(t, err, expectedErrPrefix)
 			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 		})
@@ -305,15 +308,10 @@ func TestDynamoDb(t *testing.T) {
 		}()
 
 		t.Run("CountSubscribersSucceeds", func(t *testing.T) {
-			counts, err := testDb.CountSubscribers(ctx)
+			count, err := testDb.CountSubscribers(ctx, SubscriberVerified)
 
 			assert.NilError(t, err)
-			expectedCounts := &SubscriberCounts{
-				Total:    int64(len(TestSubscribers)),
-				Pending:  int64(len(TestPendingSubscribers)),
-				Verified: int64(len(TestVerifiedSubscribers)),
-			}
-			assert.DeepEqual(t, expectedCounts, counts)
+			assert.Equal(t, int64(len(TestVerifiedSubscribers)), count)
 		})
 
 		t.Run("ProcessSubscribersInStateSucceeds", func(t *testing.T) {
