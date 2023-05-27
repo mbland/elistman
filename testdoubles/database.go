@@ -11,6 +11,7 @@ type Database struct {
 	SimulateGetErr      func(emailAddress string) error
 	SimulatePutErr      func(emailAddress string) error
 	SimulateDelErr      func(emailAddress string) error
+	SimulateCountErr    func(emailAddress string) error
 	SimulateProcSubsErr func(emailAddress string) error
 	Index               map[string]*db.Subscriber
 }
@@ -24,6 +25,7 @@ func NewDatabase() *Database {
 		SimulateGetErr:      simulateNilError,
 		SimulatePutErr:      simulateNilError,
 		SimulateDelErr:      simulateNilError,
+		SimulateCountErr:    simulateNilError,
 		SimulateProcSubsErr: simulateNilError,
 		Index:               make(map[string]*db.Subscriber, 10),
 	}
@@ -78,6 +80,23 @@ func (dbase *Database) Delete(_ context.Context, email string) error {
 	dbase.Subscribers = append(before, after...)
 	delete(dbase.Index, email)
 	return nil
+}
+
+func (dbase *Database) CountSubscribers(
+	ctx context.Context, status db.SubscriberStatus,
+) (count int64, err error) {
+	for _, sub := range dbase.Subscribers {
+		if sub.Status != status {
+			continue
+		}
+
+		if err = dbase.SimulateCountErr(sub.Email); err != nil {
+			count = -1
+			return
+		}
+		count++
+	}
+	return
 }
 
 func (dbase *Database) ProcessSubscribersInState(

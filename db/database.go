@@ -13,6 +13,7 @@ type Database interface {
 	Get(ctx context.Context, email string) (*Subscriber, error)
 	Put(ctx context.Context, subscriber *Subscriber) error
 	Delete(ctx context.Context, email string) error
+	CountSubscribers(context.Context, SubscriberStatus) (int64, error)
 	ProcessSubscribersInState(
 		context.Context, SubscriberStatus, SubscriberProcessor,
 	) error
