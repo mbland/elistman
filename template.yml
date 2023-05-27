@@ -74,7 +74,7 @@ Resources:
             Sid: SESSendEmailPolicy
             Effect: Allow
             Action:
-              - "ses:SendEmail"
+              - "ses:SendRawEmail"
               - "ses:SendBounce"
             Resource:
               - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
