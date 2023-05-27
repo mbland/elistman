@@ -80,9 +80,10 @@ Resources:
               - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailDomainName}"
               - !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${AWS::StackName}"
         - Statement:
-            Sid: SESSuppressionListPolicy
+            Sid: SESGeneralPolicy
             Effect: Allow
             Action:
+              - "ses:GetAccount"
               - "ses:GetSuppressedDestination"
               - "ses:PutSuppressedDestination"
               - "ses:DeleteSuppressedDestination"
