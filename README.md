@@ -361,6 +361,34 @@ target page specified in the [Location HTTP header][].
 
 [DynamoDB's Time To Live feature][] will eventually remove expired pending subscriber records after 24 hours.
 
+### Send rate throttling and list send quota buffering
+
+EListMan calls the SES v2 `getAccount` API method once a minute to monitor
+sending quotas and to adjust the send rate. Every individual message sent,
+including both subscription verification messages and messages sent to the list,
+will honor the current send rate.
+
+_COMING VERY SOON—implementation underway:_ The `MAX_BULK_SEND_CAPACITY`
+parameter specifies a capacity buffer to avoid exceeding the daily send limit
+when sending an email to the list. This means that `elistman send` will fail,
+before sending an email, if sending it would result in exceeding the percentage
+of the daily send quota specified by `MAX_BULK_SEND_CAPACITY`.
+
+The default is to use 80% of the available daily send quota for list messages,
+expressed as `MAX_BULK_SEND_CAPACITY="0.8"`. The remaining 20% acts as a buffer.
+For example, for a quota of 50,000 messages, up to 40,000 (50,000 * 0.8) are
+available to `elistman send` within a 24 hour period.
+
+Subscription verification messages are not affected by the
+`MAX_BULK_SEND_CAPACITY` constraint. The buffer defined by
+`MAX_BULK_SEND_CAPACITY` can ensure that there is always daily send quota
+available for such messages.
+
+- [Managing your Amazon SES sending limits][]
+- [Errors related to the sending quotas for your Amazon SES account][]
+- [How to handle a "Throttling – Maximum sending rate exceeded" error][]
+- [How to Automatically Prevent Email Throttling when Reaching Concurrency Limit][]
+
 ## Unimplemented/possible future features
 
 ### Sending a test message to a specific address
@@ -368,13 +396,6 @@ target page specified in the [Location HTTP header][].
 This would involve extending email.SendEvent, sendHandler.HandleEvent, and
 agent.SubscriptionAgent. Should be easy, but it will have to come after the
 initial production launch.
-
-### Send rate throttling
-
-- [Managing your Amazon SES sending limits][]
-- [Errors related to the sending quotas for your Amazon SES account][]
-- [How to handle a "Throttling – Maximum sending rate exceeded" error][]
-- [How to Automatically Prevent Email Throttling when Reaching Concurrency Limit][]
 
 ### Automated End-to-End tests
 
