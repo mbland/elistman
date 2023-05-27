@@ -13,14 +13,43 @@ import (
 	"gotest.tools/assert"
 )
 
+type TestThrottle struct {
+	bulkCapNumToSend     int
+	bulkCapError         error
+	pauseBeforeSendCalls int
+	pauseBeforeSendError error
+}
+
+func (tt *TestThrottle) BulkCapacityAvailable(
+	_ context.Context, numToSend int,
+) error {
+	tt.bulkCapNumToSend = numToSend
+	return tt.bulkCapError
+}
+
+func (tt *TestThrottle) PauseBeforeNextSend(_ context.Context) error {
+	tt.pauseBeforeSendCalls++
+	return tt.pauseBeforeSendError
+}
+
 func TestSend(t *testing.T) {
-	setup := func() (*TestSesV2, *SesMailer, context.Context) {
-		testSes := &TestSesV2{
+	setup := func() (
+		testSes *TestSesV2,
+		throttle *TestThrottle,
+		mailer *SesMailer,
+		ctx context.Context) {
+		testSes = &TestSesV2{
 			sendEmailInput:  &sesv2.SendEmailInput{},
 			sendEmailOutput: &sesv2.SendEmailOutput{},
 		}
-		mailer := &SesMailer{Client: testSes, ConfigSet: "config-set-name"}
-		return testSes, mailer, context.Background()
+		throttle = &TestThrottle{}
+		mailer = &SesMailer{
+			Client:    testSes,
+			ConfigSet: "config-set-name",
+			Throttle:  throttle,
+		}
+		ctx = context.Background()
+		return
 	}
 
 	testMsgId := "deadbeef"
@@ -28,13 +57,14 @@ func TestSend(t *testing.T) {
 	testMsg := []byte("raw message")
 
 	t.Run("Succeeds", func(t *testing.T) {
-		testSes, mailer, ctx := setup()
+		testSes, throttle, mailer, ctx := setup()
 		testSes.sendEmailOutput.MessageId = aws.String(testMsgId)
 
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.NilError(t, err)
 		assert.Equal(t, testMsgId, msgId)
+		assert.Equal(t, 1, throttle.pauseBeforeSendCalls)
 
 		input := testSes.sendEmailInput
 		assert.Assert(t, input != nil)
@@ -45,14 +75,27 @@ func TestSend(t *testing.T) {
 		assert.DeepEqual(t, testMsg, input.Content.Raw.Data)
 	})
 
+	t.Run("ReturnsErrorThrottleFails", func(t *testing.T) {
+		_, throttle, mailer, ctx := setup()
+		throttle.pauseBeforeSendError = ErrExceededMax24HourSend
+
+		msgId, err := mailer.Send(ctx, recipient, testMsg)
+
+		assert.Equal(t, "", msgId)
+		assert.Assert(t, testutils.ErrorIs(err, ErrExceededMax24HourSend))
+		assert.ErrorContains(t, err, "send to "+recipient+" failed")
+	})
+
 	t.Run("ReturnsErrorIfSendFails", func(t *testing.T) {
-		testSes, mailer, ctx := setup()
+		testSes, throttle, mailer, ctx := setup()
 		testSes.sendEmailError = testutils.AwsServerError("SendRawEmail error")
+
 		msgId, err := mailer.Send(ctx, recipient, testMsg)
 
 		assert.Equal(t, "", msgId)
 		assert.ErrorContains(t, err, "send to "+recipient+" failed")
 		assert.ErrorContains(t, err, "SendRawEmail error")
 		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+		assert.Equal(t, 1, throttle.pauseBeforeSendCalls)
 	})
 }

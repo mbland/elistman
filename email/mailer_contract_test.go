@@ -7,9 +7,11 @@ import (
 	"context"
 	"flag"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/mbland/elistman/types"
 	"gotest.tools/assert"
 )
 
@@ -44,9 +46,20 @@ func TestSendWithLiveSes(t *testing.T) {
 			panic("failed to load AWS config: " + err.Error())
 		}
 
+		client := sesv2.NewFromConfig(cfg)
+		maxCap, _ := types.NewCapacity(0.8)
+		throttle, err := NewSesThrottle(
+			ctx, client, maxCap, time.Sleep, time.Now, time.Minute,
+		)
+
+		if err != nil {
+			panic("failed to initialize throttle: " + err.Error())
+		}
+
 		return &SesMailer{
-			Client:    sesv2.NewFromConfig(cfg),
+			Client:    client,
 			ConfigSet: configurationSetName,
+			Throttle:  throttle,
 		}, ctx
 	}
 

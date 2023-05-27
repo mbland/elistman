@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
@@ -18,6 +19,7 @@ type Mailer interface {
 type SesMailer struct {
 	Client    SesV2Api
 	ConfigSet string
+	Throttle  Throttle
 }
 
 func (mailer *SesMailer) Send(
@@ -34,7 +36,9 @@ func (mailer *SesMailer) Send(
 	}
 	var output *sesv2.SendEmailOutput
 
-	if output, err = mailer.Client.SendEmail(ctx, sesMsg); err != nil {
+	if err = mailer.Throttle.PauseBeforeNextSend(ctx); err != nil {
+		err = fmt.Errorf("send to %s failed: %w", recipient, err)
+	} else if output, err = mailer.Client.SendEmail(ctx, sesMsg); err != nil {
 		err = ops.AwsError("send to "+recipient+" failed", err)
 	} else {
 		messageId = aws.ToString(output.MessageId)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -30,10 +31,23 @@ func buildHandler() (h *handler.Handler, err error) {
 		return
 	}
 
-	suppressor := &email.SesSuppressor{
-		Client: sesv2.NewFromConfig(cfg),
+	sesv2Client := sesv2.NewFromConfig(cfg)
+	throttle, err := email.NewSesThrottle(
+		context.Background(),
+		sesv2Client,
+		opts.MaxBulkSendCapacity,
+		time.Sleep,
+		time.Now,
+		time.Minute, // Could be configurable one day.
+	)
+
+	if err != nil {
+		return
 	}
+
+	suppressor := &email.SesSuppressor{Client: sesv2Client}
 	logger := log.Default()
+
 	h, err = handler.NewHandler(
 		opts.EmailDomainName,
 		opts.EmailSiteTitle,
@@ -62,8 +76,9 @@ func buildHandler() (h *handler.Handler, err error) {
 				Resolver:   net.DefaultResolver,
 			},
 			Mailer: &email.SesMailer{
-				Client:    sesv2.NewFromConfig(cfg),
+				Client:    sesv2Client,
 				ConfigSet: opts.ConfigurationSet,
+				Throttle:  throttle,
 			},
 			Suppressor: suppressor,
 			Log:        logger,
