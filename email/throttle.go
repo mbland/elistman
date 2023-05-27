@@ -19,7 +19,7 @@ const ErrBulkSendWouldExceedCapacity = types.SentinelError(
 )
 
 type Throttle interface {
-	BulkCapacityAvailable(ctx context.Context, numToSend int) error
+	BulkCapacityAvailable(ctx context.Context, numToSend int64) error
 	PauseBeforeNextSend(context.Context) error
 }
 
@@ -31,10 +31,10 @@ type SesThrottle struct {
 	Sleep           func(time.Duration)
 	Now             func() time.Time
 	RefreshInterval time.Duration
-	Max24HourSend   int
-	SentLast24Hours int
+	Max24HourSend   int64
+	SentLast24Hours int64
 	MaxBulkCapacity types.Capacity
-	MaxBulkSendable int
+	MaxBulkSendable int64
 }
 
 func NewSesThrottle(
@@ -59,7 +59,7 @@ func NewSesThrottle(
 }
 
 func (t *SesThrottle) BulkCapacityAvailable(
-	ctx context.Context, numToSend int,
+	ctx context.Context, numToSend int64,
 ) (err error) {
 	if err = t.refresh(ctx); err != nil || t.unlimited() {
 		return
@@ -130,8 +130,8 @@ func (t *SesThrottle) refresh(ctx context.Context) (err error) {
 	quota := output.SendQuota
 
 	t.PauseInterval = time.Duration(float64(time.Second) / quota.MaxSendRate)
-	t.Max24HourSend = int(quota.Max24HourSend)
-	t.SentLast24Hours = int(quota.SentLast24Hours)
+	t.Max24HourSend = int64(quota.Max24HourSend)
+	t.SentLast24Hours = int64(quota.SentLast24Hours)
 	t.MaxBulkSendable = t.MaxBulkCapacity.MaxAvailable(t.Max24HourSend)
 	t.Updated = now
 	return

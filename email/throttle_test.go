@@ -84,11 +84,13 @@ func TestNewSesThrottleIncludingRefresh(t *testing.T) {
 		assert.Assert(t, testutils.TimesEqual(time.Time{}, throttle.LastSend))
 		assert.Equal(t, time.Second, f.sleepDuration)
 		assert.Equal(t, f.refresh, throttle.RefreshInterval)
-		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
+		assert.Equal(t, int64(f.quota.Max24HourSend), throttle.Max24HourSend)
 		assert.Assert(t, throttle.unlimited() == false)
-		assert.Equal(t, int(f.quota.SentLast24Hours), throttle.SentLast24Hours)
+		assert.Equal(
+			t, int64(f.quota.SentLast24Hours), throttle.SentLast24Hours,
+		)
 		assert.Equal(t, f.capacity.Value(), throttle.MaxBulkCapacity.Value())
-		assert.Equal(t, 37500, throttle.MaxBulkSendable)
+		assert.Equal(t, int64(37500), throttle.MaxBulkSendable)
 	})
 
 	t.Run("SucceedsWithUnlimitedQuota", func(t *testing.T) {
@@ -130,7 +132,7 @@ func TestRefreshIfExpired(t *testing.T) {
 		err := throttle.refresh(f.ctx)
 
 		assert.NilError(t, err)
-		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
+		assert.Equal(t, int64(f.quota.Max24HourSend), throttle.Max24HourSend)
 	})
 
 	t.Run("RefreshesIfExpired", func(t *testing.T) {
@@ -140,7 +142,7 @@ func TestRefreshIfExpired(t *testing.T) {
 		err := throttle.refresh(f.ctx)
 
 		assert.NilError(t, err)
-		assert.Equal(t, int(f.quota.Max24HourSend)*2, throttle.Max24HourSend)
+		assert.Equal(t, int64(f.quota.Max24HourSend)*2, throttle.Max24HourSend)
 	})
 }
 
@@ -238,12 +240,12 @@ func TestPauseBeforeNextSend(t *testing.T) {
 	t.Run("SucceedsWithUnlimitedQuota", func(t *testing.T) {
 		f, throttle := setup(t)
 		throttle.Max24HourSend = -1
-		throttle.SentLast24Hours = math.MaxInt - 1
+		throttle.SentLast24Hours = math.MaxInt64 - 1
 
 		err := throttle.PauseBeforeNextSend(f.ctx)
 
 		assert.NilError(t, err)
-		assert.Equal(t, math.MaxInt, throttle.SentLast24Hours)
+		assert.Equal(t, int64(math.MaxInt64), throttle.SentLast24Hours)
 	})
 
 	t.Run("ErrorsIfRefreshFails", func(t *testing.T) {

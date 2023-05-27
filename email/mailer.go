@@ -11,7 +11,7 @@ import (
 )
 
 type Mailer interface {
-	BulkCapacityAvailable(ctx context.Context, numToSend int) error
+	BulkCapacityAvailable(ctx context.Context, numToSend int64) error
 
 	Send(
 		ctx context.Context, recipient string, msg []byte,
@@ -25,7 +25,7 @@ type SesMailer struct {
 }
 
 func (mailer *SesMailer) BulkCapacityAvailable(
-	ctx context.Context, numToSend int,
+	ctx context.Context, numToSend int64,
 ) error {
 	return mailer.Throttle.BulkCapacityAvailable(ctx, numToSend)
 }

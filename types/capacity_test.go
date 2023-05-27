@@ -16,7 +16,7 @@ func TestNewCapacity(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, 0.5, cap.Value())
 		assert.Equal(t, "50.00%", cap.String())
-		assert.Equal(t, 50, cap.MaxAvailable(100))
+		assert.Equal(t, int64(50), cap.MaxAvailable(100))
 	})
 
 	t.Run("CreatedSuccessfullyAtUpperAndLowerBounds", func(t *testing.T) {

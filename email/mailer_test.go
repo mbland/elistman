@@ -14,14 +14,14 @@ import (
 )
 
 type TestThrottle struct {
-	bulkCapNumToSend     int
+	bulkCapNumToSend     int64
 	bulkCapError         error
 	pauseBeforeSendCalls int
 	pauseBeforeSendError error
 }
 
 func (tt *TestThrottle) BulkCapacityAvailable(
-	_ context.Context, numToSend int,
+	_ context.Context, numToSend int64,
 ) error {
 	tt.bulkCapNumToSend = numToSend
 	return tt.bulkCapError
@@ -38,7 +38,7 @@ func TestSesMailerBulkCapacityAvailablePassThroughToThrottle(t *testing.T) {
 
 	err := mailer.BulkCapacityAvailable(context.Background(), 27)
 
-	assert.Equal(t, 27, throttle.bulkCapNumToSend)
+	assert.Equal(t, int64(27), throttle.bulkCapNumToSend)
 	assert.Assert(t, testutils.ErrorIs(err, ErrBulkSendWouldExceedCapacity))
 }
 

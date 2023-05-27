@@ -27,6 +27,6 @@ func (c Capacity) String() string {
 	return fmt.Sprintf("%.2f%%", c.cap*100.0)
 }
 
-func (c Capacity) MaxAvailable(totalUnits int) int {
-	return int(float64(totalUnits) * c.cap)
+func (c Capacity) MaxAvailable(totalUnits int64) int64 {
+	return int64(float64(totalUnits) * c.cap)
 }

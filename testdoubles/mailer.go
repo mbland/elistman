@@ -9,7 +9,7 @@ type Mailer struct {
 	RecipientMessages  map[string][]byte
 	MessageIds         map[string]string
 	RecipientErrors    map[string]error
-	NumToSendRequested int
+	NumToSendRequested int64
 	BulkCapError       error
 }
 
@@ -22,7 +22,7 @@ func NewMailer() *Mailer {
 }
 
 func (mailer *Mailer) BulkCapacityAvailable(
-	ctx context.Context, numToSend int,
+	ctx context.Context, numToSend int64,
 ) error {
 	mailer.NumToSendRequested = numToSend
 	return mailer.BulkCapError
