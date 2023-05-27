@@ -227,6 +227,8 @@ func (a *ProdAgent) Send(
 ) (numSent int, err error) {
 	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err != nil {
 		return
+	} else if err = a.checkCapacity(ctx); err != nil {
+		return
 	}
 
 	mt := email.NewMessageTemplate(msg)
@@ -253,4 +255,15 @@ func (a *ProdAgent) Send(
 		err = fmt.Errorf(errFmt, msg.Subject, err)
 	}
 	return
+}
+
+func (a *ProdAgent) checkCapacity(ctx context.Context) error {
+	numSubs, err := a.Db.CountSubscribers(ctx, db.SubscriberVerified)
+
+	if err != nil {
+		return fmt.Errorf("counting subscribers before sending failed: %w", err)
+	} else if err = a.Mailer.BulkCapacityAvailable(ctx, numSubs); err != nil {
+		return fmt.Errorf("couldn't send to %d subscribers: %w", numSubs, err)
+	}
+	return nil
 }

@@ -361,18 +361,19 @@ target page specified in the [Location HTTP header][].
 
 [DynamoDB's Time To Live feature][] will eventually remove expired pending subscriber records after 24 hours.
 
-### Send rate throttling and list send quota buffering
+### Send rate throttling and send quota capacity limiting
 
 EListMan calls the SES v2 `getAccount` API method once a minute to monitor
 sending quotas and to adjust the send rate. Every individual message sent,
 including both subscription verification messages and messages sent to the list,
 will honor the current send rate.
 
-_COMING VERY SOON—implementation underway:_ The `MAX_BULK_SEND_CAPACITY`
-parameter specifies a capacity buffer to avoid exceeding the daily send limit
-when sending an email to the list. This means that `elistman send` will fail,
-before sending an email, if sending it would result in exceeding the percentage
-of the daily send quota specified by `MAX_BULK_SEND_CAPACITY`.
+The `MAX_BULK_SEND_CAPACITY` parameter specifies what percentage of the 24 hour
+send quota may be used for sending emails to the list. This helps avoid
+exceeding the daily quota before a message has been sent to all subscribers.
+`elistman send` will fail, before sending an email, if sending it would result
+in exceeding the percentage of the daily send quota specified by
+`MAX_BULK_SEND_CAPACITY`.
 
 The default is to use 80% of the available daily send quota for list messages,
 expressed as `MAX_BULK_SEND_CAPACITY="0.8"`. The remaining 20% acts as a buffer.

@@ -658,6 +658,34 @@ func TestSend(t *testing.T) {
 		assert.Equal(t, 0, numSent)
 	})
 
+	t.Run("FailsIfCountingSubscribersFails", func(t *testing.T) {
+		agent, dbase, _, _, ctx := setup()
+		countErr := errors.New("count failed")
+		dbase.SimulateCountErr = func(_ string) error {
+			return countErr
+		}
+
+		numSent, err := agent.Send(ctx, msg)
+
+		const expectedErrMsg = "counting subscribers before sending failed: "
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assert.Assert(t, tu.ErrorIs(err, countErr))
+		assert.Equal(t, 0, numSent)
+	})
+
+	t.Run("FailsIfNoBulkCapacityAvailable", func(t *testing.T) {
+		agent, _, mailer, _, ctx := setup()
+		mailer.BulkCapError = email.ErrBulkSendWouldExceedCapacity
+
+		numSent, err := agent.Send(ctx, msg)
+
+		const errFmt = "couldn't send to %d subscribers: "
+		expectedErrMsg := fmt.Sprintf(errFmt, len(db.TestVerifiedSubscribers))
+		assert.ErrorContains(t, err, expectedErrMsg)
+		assert.Assert(t, tu.ErrorIs(err, email.ErrBulkSendWouldExceedCapacity))
+		assert.Equal(t, 0, numSent)
+	})
+
 	t.Run("FailsIfProcessSubscribersInStateFails", func(t *testing.T) {
 		agent, dbase, _, _, ctx := setup()
 		procSubsErr := errors.New("ProcSubsInState error")
