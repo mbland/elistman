@@ -23,9 +23,10 @@ type sesThrottleFixture struct {
 	client        *TestSesV2
 	quota         *sesv2types.SendQuota
 	capacity      types.Capacity
-	created       time.Time
 	sleepDuration time.Duration
 	sleep         func(time.Duration)
+	now           time.Time
+	refresh       time.Duration
 }
 
 func newSesThrottleFixture() *sesThrottleFixture {
@@ -39,7 +40,8 @@ func newSesThrottleFixture() *sesThrottleFixture {
 			SentLast24Hours: 25000.0,
 		},
 		capacity: capacity,
-		created:  testdata.TestTimestamp,
+		now:      testdata.TestTimestamp,
+		refresh:  time.Minute,
 	}
 	f.client.getAccountOutput = &sesv2.GetAccountOutput{SendQuota: f.quota}
 	f.sleep = func(sleepFor time.Duration) {
@@ -49,7 +51,8 @@ func newSesThrottleFixture() *sesThrottleFixture {
 }
 
 func (f *sesThrottleFixture) NewSesThrottle() (*SesThrottle, error) {
-	return NewSesThrottle(f.ctx, f.client, f.capacity, f.created, f.sleep)
+	now := func() time.Time { return f.now }
+	return NewSesThrottle(f.ctx, f.client, f.capacity, f.sleep, now, f.refresh)
 }
 
 func (f *sesThrottleFixture) NewSesThrottleFailOnErr(
@@ -75,10 +78,11 @@ func TestNewSesThrottleIncludingRefresh(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, f.client.getAccountInput != nil)
 		assert.Equal(t, f.client, throttle.Client)
-		assert.Equal(t, f.created, throttle.Created)
+		assert.Equal(t, f.now, throttle.Updated)
 		assert.Equal(t, time.Duration(time.Second/25), throttle.PauseInterval)
 		assert.Assert(t, testutils.TimesEqual(time.Time{}, throttle.LastSend))
 		assert.Equal(t, time.Second, f.sleepDuration)
+		assert.Equal(t, f.refresh, throttle.RefreshInterval)
 		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
 		assert.Equal(t, int(f.quota.SentLast24Hours), throttle.SentLast24Hours)
 		assert.Equal(t, f.capacity.Value(), throttle.MaxBulkCapacity.Value())
@@ -110,9 +114,9 @@ func TestRefreshIfExpired(t *testing.T) {
 
 	t.Run("DoesNothingIfNotExpired", func(t *testing.T) {
 		f, throttle := setup(t)
-		now := f.created.Add(time.Minute - time.Nanosecond)
+		f.now = throttle.Updated.Add(f.refresh - time.Nanosecond)
 
-		err := throttle.RefreshIfExpired(f.ctx, time.Minute, now)
+		err := throttle.refresh(f.ctx)
 
 		assert.NilError(t, err)
 		assert.Equal(t, int(f.quota.Max24HourSend), throttle.Max24HourSend)
@@ -120,9 +124,9 @@ func TestRefreshIfExpired(t *testing.T) {
 
 	t.Run("RefreshesIfExpired", func(t *testing.T) {
 		f, throttle := setup(t)
-		now := f.created.Add(time.Minute)
+		f.now = throttle.Updated.Add(f.refresh)
 
-		err := throttle.RefreshIfExpired(f.ctx, time.Minute, now)
+		err := throttle.refresh(f.ctx)
 
 		assert.NilError(t, err)
 		assert.Equal(t, int(f.quota.Max24HourSend)*2, throttle.Max24HourSend)
@@ -136,19 +140,30 @@ func TestBulkCapacityAvailable(t *testing.T) {
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		_, throttle := setup(t)
+		f, throttle := setup(t)
 		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours
 
-		err := throttle.BulkCapacityAvailable(numToSend)
+		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
 
 		assert.NilError(t, err)
 	})
 
+	t.Run("ErrorsIfRefreshFails", func(t *testing.T) {
+		f, throttle := setup(t)
+		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours
+		f.now = throttle.Updated.Add(f.refresh)
+		f.client.getAccountError = errors.New("test error")
+
+		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
+
+		assert.Error(t, err, "failed to get AWS account info: test error")
+	})
+
 	t.Run("ErrorsIfInsufficientCapacity", func(t *testing.T) {
-		_, throttle := setup(t)
+		f, throttle := setup(t)
 		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours + 1
 
-		err := throttle.BulkCapacityAvailable(numToSend)
+		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
 
 		assert.Assert(t, testutils.ErrorIs(err, ErrBulkSendWouldExceedCapacity))
 		const expectedFmt = "%d total send max, %s desired bulk capacity, " +
@@ -175,36 +190,47 @@ func TestPauseBeforeNextSend(t *testing.T) {
 
 	t.Run("SucceedsWithoutPausing", func(t *testing.T) {
 		f, throttle := setup(t)
-		now := f.created.Add(throttle.PauseInterval + time.Nanosecond)
+		f.now = f.now.Add(throttle.PauseInterval + time.Nanosecond)
 
-		err := throttle.PauseBeforeNextSend(now)
+		err := throttle.PauseBeforeNextSend(f.ctx)
 
 		assert.NilError(t, err)
 		assert.Equal(t, time.Duration(0), f.sleepDuration)
-		assert.Assert(t, testutils.TimesEqual(now, throttle.LastSend))
+		assert.Assert(t, testutils.TimesEqual(f.now, throttle.LastSend))
 		assert.Equal(t, throttle.Max24HourSend, throttle.SentLast24Hours)
 	})
 
 	t.Run("SucceedsAfterPause", func(t *testing.T) {
 		f, throttle := setup(t)
 		throttle.LastSend = testdata.TestTimestamp
-		now := throttle.LastSend.Add(throttle.PauseInterval / 2)
+		origNow := f.now
+		f.now = throttle.LastSend.Add(throttle.PauseInterval / 2)
 
-		err := throttle.PauseBeforeNextSend(now)
+		err := throttle.PauseBeforeNextSend(f.ctx)
 
 		assert.NilError(t, err)
 		assert.Equal(t, throttle.PauseInterval/2, f.sleepDuration)
-		expectedSend := f.created.Add(throttle.PauseInterval)
+		expectedSend := origNow.Add(throttle.PauseInterval)
 		assert.Assert(t, testutils.TimesEqual(expectedSend, throttle.LastSend))
 		assert.Equal(t, throttle.Max24HourSend, throttle.SentLast24Hours)
 	})
 
+	t.Run("ErrorsIfRefreshFails", func(t *testing.T) {
+		f, throttle := setup(t)
+		f.now = throttle.Updated.Add(f.refresh)
+		f.client.getAccountError = errors.New("test error")
+
+		err := throttle.PauseBeforeNextSend(f.ctx)
+
+		assert.Error(t, err, "failed to get AWS account info: test error")
+	})
+
 	t.Run("ErrorsIfQuotaExhausted", func(t *testing.T) {
 		f, throttle := setup(t)
-		now := f.created.Add(throttle.PauseInterval + time.Nanosecond)
+		f.now = f.now.Add(throttle.PauseInterval + time.Nanosecond)
 		throttle.SentLast24Hours = throttle.Max24HourSend
 
-		err := throttle.PauseBeforeNextSend(now)
+		err := throttle.PauseBeforeNextSend(f.ctx)
 
 		assert.Assert(t, testutils.ErrorIs(err, ErrExceededMax24HourSend))
 		expectedErr := fmt.Sprintf(

@@ -19,19 +19,18 @@ const ErrBulkSendWouldExceedCapacity = types.SentinelError(
 )
 
 type Throttle interface {
-	RefreshIfExpired(
-		ctx context.Context, maxAge time.Duration, now time.Time,
-	) error
-	BulkCapacityAvailable(numToSend int) error
-	PauseBeforeNextSend(now time.Time) error
+	BulkCapacityAvailable(ctx context.Context, numToSend int) error
+	PauseBeforeNextSend(context.Context) error
 }
 
 type SesThrottle struct {
 	Client          SesV2Api
-	Created         time.Time
+	Updated         time.Time
 	PauseInterval   time.Duration
 	LastSend        time.Time
 	Sleep           func(time.Duration)
+	Now             func() time.Time
+	RefreshInterval time.Duration
 	Max24HourSend   int
 	SentLast24Hours int
 	MaxBulkCapacity types.Capacity
@@ -42,48 +41,29 @@ func NewSesThrottle(
 	ctx context.Context,
 	client SesV2Api,
 	maxCap types.Capacity,
-	now time.Time,
 	sleep func(time.Duration),
+	now func() time.Time,
+	refreshInterval time.Duration,
 ) (t *SesThrottle, err error) {
 	throttle := &SesThrottle{
 		Client:          client,
-		Created:         now,
 		Sleep:           sleep,
+		Now:             now,
+		RefreshInterval: refreshInterval,
 		MaxBulkCapacity: maxCap,
 	}
-	if err = throttle.Refresh(ctx); err == nil {
+	if err = throttle.refresh(ctx); err == nil {
 		t = throttle
 	}
 	return
 }
 
-func (t *SesThrottle) RefreshIfExpired(
-	ctx context.Context, maxAge time.Duration, now time.Time,
-) error {
-	if now.Sub(t.Created) < maxAge {
-		return nil
-	}
-	return t.Refresh(ctx)
-}
-
-func (t *SesThrottle) Refresh(ctx context.Context) (err error) {
-	input := &sesv2.GetAccountInput{}
-	var output *sesv2.GetAccountOutput
-
-	if output, err = t.Client.GetAccount(ctx, input); err != nil {
-		return ops.AwsError("failed to get AWS account info", err)
-	}
-	quota := output.SendQuota
-
-	t.PauseInterval = time.Duration(float64(time.Second) / quota.MaxSendRate)
-	t.Max24HourSend = int(quota.Max24HourSend)
-	t.SentLast24Hours = int(quota.SentLast24Hours)
-	t.MaxBulkSendable = t.MaxBulkCapacity.MaxAvailable(t.Max24HourSend)
-	return
-}
-
-func (t *SesThrottle) BulkCapacityAvailable(numToSend int) (err error) {
-	if (t.MaxBulkSendable - t.SentLast24Hours) < numToSend {
+func (t *SesThrottle) BulkCapacityAvailable(
+	ctx context.Context, numToSend int,
+) (err error) {
+	if err = t.refresh(ctx); err != nil {
+		return
+	} else if (t.MaxBulkSendable - t.SentLast24Hours) < numToSend {
 		const errFmt = "%w: %d total send max, %s desired bulk capacity, " +
 			"%d bulk sendable, %d sent last 24h, %d requested"
 		err = fmt.Errorf(
@@ -99,8 +79,10 @@ func (t *SesThrottle) BulkCapacityAvailable(numToSend int) (err error) {
 	return
 }
 
-func (t *SesThrottle) PauseBeforeNextSend(now time.Time) (err error) {
-	if t.SentLast24Hours >= t.Max24HourSend {
+func (t *SesThrottle) PauseBeforeNextSend(ctx context.Context) (err error) {
+	if err = t.refresh(ctx); err != nil {
+		return
+	} else if t.SentLast24Hours >= t.Max24HourSend {
 		err = fmt.Errorf(
 			"%w: %d max, %d sent",
 			ErrExceededMax24HourSend,
@@ -110,6 +92,7 @@ func (t *SesThrottle) PauseBeforeNextSend(now time.Time) (err error) {
 		return
 	}
 	t.LastSend = t.LastSend.Add(t.PauseInterval)
+	now := t.Now()
 
 	if t.LastSend.Before(now) {
 		t.LastSend = now
@@ -117,5 +100,28 @@ func (t *SesThrottle) PauseBeforeNextSend(now time.Time) (err error) {
 		t.Sleep(t.LastSend.Sub(now))
 	}
 	t.SentLast24Hours++
+	return
+}
+
+func (t *SesThrottle) refresh(ctx context.Context) (err error) {
+	now := t.Now()
+
+	if now.Sub(t.Updated) < t.RefreshInterval {
+		return nil
+	}
+
+	input := &sesv2.GetAccountInput{}
+	var output *sesv2.GetAccountOutput
+
+	if output, err = t.Client.GetAccount(ctx, input); err != nil {
+		return ops.AwsError("failed to get AWS account info", err)
+	}
+	quota := output.SendQuota
+
+	t.PauseInterval = time.Duration(float64(time.Second) / quota.MaxSendRate)
+	t.Max24HourSend = int(quota.Max24HourSend)
+	t.SentLast24Hours = int(quota.SentLast24Hours)
+	t.MaxBulkSendable = t.MaxBulkCapacity.MaxAvailable(t.Max24HourSend)
+	t.Updated = now
 	return
 }
