@@ -154,9 +154,8 @@ func TestBulkCapacityAvailable(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		f, throttle := setup(t)
-		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours
 
-		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
+		err := throttle.BulkCapacityAvailable(f.ctx)
 
 		assert.NilError(t, err)
 	})
@@ -164,39 +163,38 @@ func TestBulkCapacityAvailable(t *testing.T) {
 	t.Run("AlwaysSucceedsIfUnlimited", func(t *testing.T) {
 		f, throttle := setup(t)
 		throttle.Max24HourSend = -1
+		throttle.SentLast24Hours = math.MaxInt64
 
-		err := throttle.BulkCapacityAvailable(f.ctx, math.MaxInt)
+		err := throttle.BulkCapacityAvailable(f.ctx)
 
 		assert.NilError(t, err)
 	})
 
 	t.Run("ErrorsIfRefreshFails", func(t *testing.T) {
 		f, throttle := setup(t)
-		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours
 		f.now = throttle.Updated.Add(f.refresh)
 		f.client.getAccountError = errors.New("test error")
 
-		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
+		err := throttle.BulkCapacityAvailable(f.ctx)
 
 		assert.Error(t, err, "failed to get AWS account info: test error")
 	})
 
 	t.Run("ErrorsIfInsufficientCapacity", func(t *testing.T) {
 		f, throttle := setup(t)
-		numToSend := throttle.MaxBulkSendable - throttle.SentLast24Hours + 1
+		throttle.SentLast24Hours = throttle.MaxBulkSendable + 1
 
-		err := throttle.BulkCapacityAvailable(f.ctx, numToSend)
+		err := throttle.BulkCapacityAvailable(f.ctx)
 
-		assert.Assert(t, testutils.ErrorIs(err, ErrBulkSendWouldExceedCapacity))
-		const expectedFmt = "%d total send max, %s desired bulk capacity, " +
-			"%d bulk sendable, %d sent last 24h, %d requested"
+		assert.Assert(t, testutils.ErrorIs(err, ErrBulkSendCapacityExhausted))
+		const expectedFmt = "%d total send max, %s designated bulk capacity, " +
+			"%d bulk sendable, %d sent last 24h"
 		expectedMsg := fmt.Sprintf(
 			expectedFmt,
 			throttle.Max24HourSend,
 			throttle.MaxBulkCapacity,
 			throttle.MaxBulkSendable,
 			throttle.SentLast24Hours,
-			numToSend,
 		)
 		assert.ErrorContains(t, err, expectedMsg)
 	})

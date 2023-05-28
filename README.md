@@ -371,14 +371,27 @@ will honor the current send rate.
 The `MAX_BULK_SEND_CAPACITY` parameter specifies what percentage of the 24 hour
 send quota may be used for sending emails to the list. This helps avoid
 exceeding the daily quota before a message has been sent to all subscribers.
-`elistman send` will fail, before sending an email, if sending it would result
-in exceeding the percentage of the daily send quota specified by
-`MAX_BULK_SEND_CAPACITY`.
+`elistman send` will fail, before sending an email, if the percentage of the
+daily send quota specified by `MAX_BULK_SEND_CAPACITY` has already been
+consumed.
 
 The default is to use 80% of the available daily send quota for list messages,
 expressed as `MAX_BULK_SEND_CAPACITY="0.8"`. The remaining 20% acts as a buffer.
 For example, for a quota of 50,000 messages, up to 40,000 (50,000 * 0.8) are
 available to `elistman send` within a 24 hour period.
+
+Note that this mechanism tries to prevent the operator from accidentally
+exceeding the 24 hour quota, but it's not foolproof. The operator is ultimately
+responsible for ensuring that `elistman send` won't exceed the quota if
+`MAX_BULK_SEND_CAPACITY` hasn't yet been reached, or for tuning it accordingly.
+
+Building on the previous example, if there are 17,000 subscribers:
+
+- The first `elistman send` consumes 17,000 of the quota.
+- The second `elistman send` consumes the next 17,000 of the quota, for a total
+  of 34,000.
+- The third `elistman send` will proceed, since 34,000 is less than the 40,000
+  calculated by `MAX_BULK_SEND_CAPACITY="0.8"`. However, it will consume 17,000 more of the quota, for 51,000 total, exceeding the 50,000 quota.
 
 Subscription verification messages are not affected by the
 `MAX_BULK_SEND_CAPACITY` constraint. The buffer defined by

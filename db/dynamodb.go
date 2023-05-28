@@ -308,27 +308,6 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	return
 }
 
-func (db *DynamoDb) CountSubscribers(
-	ctx context.Context, status SubscriberStatus,
-) (count int64, err error) {
-	input := &dynamodb.ScanInput{
-		TableName: aws.String(db.TableName),
-		IndexName: aws.String(string(status)),
-		Select:    dbtypes.SelectCount,
-	}
-	paginator := dynamodb.NewScanPaginator(db.Client, input)
-
-	for paginator.HasMorePages() {
-		if output, err := paginator.NextPage(ctx); err != nil {
-			errPrefix := "failed to count " + string(status) + " subscribers"
-			return -1, ops.AwsError(errPrefix, err)
-		} else {
-			count += int64(output.Count)
-		}
-	}
-	return
-}
-
 func (db *DynamoDb) ProcessSubscribersInState(
 	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) error {

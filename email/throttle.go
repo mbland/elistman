@@ -14,12 +14,12 @@ const ErrExceededMax24HourSend = types.SentinelError(
 	"Exceeded 24 hour maximum send quota",
 )
 
-const ErrBulkSendWouldExceedCapacity = types.SentinelError(
-	"Sending items would exceed bulk capacity for 24 hour max send quota",
+const ErrBulkSendCapacityExhausted = types.SentinelError(
+	"Bulk capacity for 24 hour max send quota already consumed",
 )
 
 type Throttle interface {
-	BulkCapacityAvailable(ctx context.Context, numToSend int64) error
+	BulkCapacityAvailable(ctx context.Context) error
 	PauseBeforeNextSend(context.Context) error
 }
 
@@ -58,22 +58,19 @@ func NewSesThrottle(
 	return
 }
 
-func (t *SesThrottle) BulkCapacityAvailable(
-	ctx context.Context, numToSend int64,
-) (err error) {
+func (t *SesThrottle) BulkCapacityAvailable(ctx context.Context) (err error) {
 	if err = t.refresh(ctx); err != nil || t.unlimited() {
 		return
-	} else if (t.MaxBulkSendable - t.SentLast24Hours) < numToSend {
-		const errFmt = "%w: %d total send max, %s desired bulk capacity, " +
-			"%d bulk sendable, %d sent last 24h, %d requested"
+	} else if t.MaxBulkSendable < t.SentLast24Hours {
+		const errFmt = "%w: %d total send max, %s designated bulk capacity, " +
+			"%d bulk sendable, %d sent last 24h"
 		err = fmt.Errorf(
 			errFmt,
-			ErrBulkSendWouldExceedCapacity,
+			ErrBulkSendCapacityExhausted,
 			t.Max24HourSend,
 			t.MaxBulkCapacity,
 			t.MaxBulkSendable,
 			t.SentLast24Hours,
-			numToSend,
 		)
 	}
 	return
