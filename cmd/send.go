@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	ltypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/mbland/elistman/email"
-	"github.com/mbland/elistman/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -29,24 +28,22 @@ It takes one argument, the ARN of the Lambda function to invoke to send the
 message.`
 
 func init() {
-	rootCmd.AddCommand(newSendCmd(ops.LoadDefaultAwsConfig, NewLambdaClient))
+	rootCmd.AddCommand(newSendCmd(AwsConfig, NewLambdaClient))
 }
 
 func newSendCmd(
-	loadConfig AwsConfigFactoryFunc, newLambdaClient LambdaClientFactoryFunc,
+	config aws.Config, newLambdaClient LambdaClientFactoryFunc,
 ) *cobra.Command {
-	runFunc := func(cfg aws.Config, cmd *cobra.Command, args []string) error {
-		lambdaArn := args[0]
-		cmd.SilenceUsage = true
-		return SendMessage(cmd, newLambdaClient(cfg), lambdaArn)
-	}
-
 	return &cobra.Command{
 		Use:   "send",
 		Short: "Send an email message to the mailing list",
 		Long:  sendDescription,
 		Args:  cobra.ExactArgs(1),
-		RunE:  AwsCommandFunc(loadConfig, runFunc),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lambdaArn := args[0]
+			cmd.SilenceUsage = true
+			return SendMessage(cmd, newLambdaClient(config), lambdaArn)
+		},
 	}
 }
 

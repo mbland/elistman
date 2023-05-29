@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/mbland/elistman/db"
-	"github.com/mbland/elistman/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -26,27 +25,21 @@ name will become the value of the SUBSCRIBERS_TABLE_NAME environment variable
 used to configure and deploy the application.`
 
 func init() {
-	rootCmd.AddCommand(
-		newCreateSubscribersTableCmd(ops.LoadDefaultAwsConfig, NewDynamoDb),
-	)
+	rootCmd.AddCommand(newCreateSubscribersTableCmd(AwsConfig))
 }
 
-func newCreateSubscribersTableCmd(
-	loadConfig AwsConfigFactoryFunc, newDynamodDb DynamoDbFactoryFunc,
-) *cobra.Command {
-	runFunc := func(cfg aws.Config, cmd *cobra.Command, args []string) error {
-		tableName := args[0]
-		cmd.SilenceUsage = true
-		dyndb := newDynamodDb(cfg, tableName)
-		return createSubscribersTable(cmd, dyndb, time.Minute)
-	}
-
+func newCreateSubscribersTableCmd(config aws.Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create-subscribers-table",
 		Short: "Create a DynamoDB table for mailing list subscribers",
 		Long:  createSubscribersTableDescription,
 		Args:  cobra.ExactArgs(1),
-		RunE:  AwsCommandFunc(loadConfig, runFunc),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tableName := args[0]
+			cmd.SilenceUsage = true
+			dyndb := NewDynamoDb(config, tableName)
+			return createSubscribersTable(cmd, dyndb, time.Minute)
+		},
 	}
 }
 

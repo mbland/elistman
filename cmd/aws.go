@@ -7,21 +7,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/mbland/elistman/db"
-	"github.com/spf13/cobra"
+	"github.com/mbland/elistman/ops"
 )
 
-type AwsConfigFactoryFunc func() (aws.Config, error)
+var AwsConfig aws.Config
 
-func AwsCommandFunc(
-	loadConfig AwsConfigFactoryFunc,
-	runFunc func(aws.Config, *cobra.Command, []string) error,
-) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) (err error) {
-		var cfg aws.Config
-		if cfg, err = loadConfig(); err != nil {
-			return
-		}
-		return runFunc(cfg, cmd, args)
+func init() {
+	var err error
+	if AwsConfig, err = ops.LoadDefaultAwsConfig(); err != nil {
+		panic(err.Error())
 	}
 }
 
