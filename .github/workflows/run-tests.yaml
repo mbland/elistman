@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: aws-actions/setup-sam@v2
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -28,6 +29,11 @@ jobs:
           result="$(git diff)" && echo "$result" && [[ -z "$result" ]]
           go vet ./...
           go run honnef.co/go/tools/cmd/staticcheck -tags=all_tests ./...
+
+      - name: Validate SAM template
+        run: |
+          SAM_CLI_TELEMETRY=0 sam validate
+          SAM_CLI_TELEMETRY=0 sam validate --lint
 
       - name: Build
         run: go build -v -tags=all_tests ./...
