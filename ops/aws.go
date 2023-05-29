@@ -27,3 +27,11 @@ func LoadDefaultAwsConfig() (cfg aws.Config, err error) {
 	}
 	return
 }
+
+func MustLoadDefaultAwsConfig() (cfg aws.Config) {
+	var err error
+	if cfg, err = LoadDefaultAwsConfig(); err != nil {
+		panic(err.Error())
+	}
+	return
+}

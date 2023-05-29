@@ -10,14 +10,7 @@ import (
 	"github.com/mbland/elistman/ops"
 )
 
-var AwsConfig aws.Config
-
-func init() {
-	var err error
-	if AwsConfig, err = ops.LoadDefaultAwsConfig(); err != nil {
-		panic(err.Error())
-	}
-}
+var AwsConfig aws.Config = ops.MustLoadDefaultAwsConfig()
 
 type DynamoDbFactoryFunc func(cfg aws.Config, tableName string) *db.DynamoDb
 

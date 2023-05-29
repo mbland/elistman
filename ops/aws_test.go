@@ -49,6 +49,23 @@ func TestAwsError(t *testing.T) {
 }
 
 func TestLoadDefaultAwsConfig(t *testing.T) {
+	// Simulate an invalid config by setting a deliberately bogus
+	// environment variable value. AWS_ENABLE_ENDPOINT_DISCOVERY is known to
+	// accept only "true," "false," or "auto."
+	const ConfigVarName = "AWS_ENABLE_ENDPOINT_DISCOVERY"
+	const ExpectedErrMsg = "failed to load AWS config: " +
+		"invalid value for environment variable, " + ConfigVarName +
+		"=bogus, need true, false or auto"
+
+	simulateBadConfig := func() (teardown func()) {
+		orig := os.Getenv(ConfigVarName)
+		os.Setenv(ConfigVarName, "bogus")
+		return func() {
+			if err := os.Setenv(ConfigVarName, orig); err != nil {
+				panic("failed to restore " + ConfigVarName + ": " + err.Error())
+			}
+		}
+	}
 
 	// Technically, this should be a medium test, since it depends on the
 	// environment being configured correctly. However, it's so fast, the
@@ -61,20 +78,24 @@ func TestLoadDefaultAwsConfig(t *testing.T) {
 		assert.NilError(t, err)
 	})
 
+	t.Run("MustLoadSucceeds", func(t *testing.T) {
+		_ = MustLoadDefaultAwsConfig()
+	})
+
 	t.Run("FailsOnInvalidConfig", func(t *testing.T) {
-		// Simulate an invalid config by setting a deliberately bogus
-		// environment variable value. This one is known to accept only "true,"
-		// "false," or "auto."
-		const varName = "AWS_ENABLE_ENDPOINT_DISCOVERY"
-		orig := os.Getenv(varName)
-		os.Setenv(varName, "bogus")
-		defer os.Setenv(varName, orig)
+		restoreConfig := simulateBadConfig()
+		defer restoreConfig()
 
 		_, err := LoadDefaultAwsConfig()
 
-		const expectedErrMsg = "failed to load AWS config: " +
-			"invalid value for environment variable, " + varName +
-			"=bogus, need true, false or auto"
-		assert.Error(t, err, expectedErrMsg)
+		assert.Error(t, err, ExpectedErrMsg)
+	})
+
+	t.Run("MustLoadPanicsOnInvalidConfig", func(t *testing.T) {
+		restoreConfig := simulateBadConfig()
+		defer restoreConfig()
+		defer testutils.ExpectPanic(t, ExpectedErrMsg)
+
+		_ = MustLoadDefaultAwsConfig()
 	})
 }
