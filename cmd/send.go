@@ -33,7 +33,7 @@ func init() {
 }
 
 func newSendCmd(
-	loadAwsConfig AwsConfigFactoryFunc, newLambdaClient LambdaClientFactoryFunc,
+	loadConfig AwsConfigFactoryFunc, newLambdaClient LambdaClientFactoryFunc,
 ) *cobra.Command {
 	runFunc := func(cfg aws.Config, cmd *cobra.Command, args []string) error {
 		lambdaArn := args[0]
@@ -46,7 +46,7 @@ func newSendCmd(
 		Short: "Send an email message to the mailing list",
 		Long:  sendDescription,
 		Args:  cobra.ExactArgs(1),
-		RunE:  NewAwsCommandFunc(loadAwsConfig, runFunc),
+		RunE:  AwsCommandFunc(loadConfig, runFunc),
 	}
 }
 

@@ -32,7 +32,7 @@ func init() {
 }
 
 func newCreateSubscribersTableCmd(
-	loadAwsConfig AwsConfigFactoryFunc, newDynamodDb DynamoDbFactoryFunc,
+	loadConfig AwsConfigFactoryFunc, newDynamodDb DynamoDbFactoryFunc,
 ) *cobra.Command {
 	runFunc := func(cfg aws.Config, cmd *cobra.Command, args []string) error {
 		tableName := args[0]
@@ -46,7 +46,7 @@ func newCreateSubscribersTableCmd(
 		Short: "Create a DynamoDB table for mailing list subscribers",
 		Long:  createSubscribersTableDescription,
 		Args:  cobra.ExactArgs(1),
-		RunE:  NewAwsCommandFunc(loadAwsConfig, runFunc),
+		RunE:  AwsCommandFunc(loadConfig, runFunc),
 	}
 }
 

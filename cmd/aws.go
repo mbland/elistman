@@ -12,13 +12,13 @@ import (
 
 type AwsConfigFactoryFunc func() (aws.Config, error)
 
-func NewAwsCommandFunc(
-	loadAwsConfig AwsConfigFactoryFunc,
+func AwsCommandFunc(
+	loadConfig AwsConfigFactoryFunc,
 	runFunc func(aws.Config, *cobra.Command, []string) error,
 ) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		var cfg aws.Config
-		if cfg, err = loadAwsConfig(); err != nil {
+		if cfg, err = loadConfig(); err != nil {
 			return
 		}
 		return runFunc(cfg, cmd, args)
