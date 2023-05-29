@@ -26,10 +26,16 @@ Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
 deploying the Lambda function, binding to the API Gateway, managing permissions,
 and other configuration parameters.
 
-Initially based on implementation hints from [victoriadrake/simple-subscribe][],
-but otherwise contains original code.
+The very earliest stages of the implementation were based on hints from
+[victoriadrake/simple-subscribe][], but all the code is original.
 
-## Prerequisites
+## Open Source License
+
+This software is made available as [Open Source software][oss-def] under the
+[Mozilla Public License 2.0][]. For the text of the license, see the
+[LICENSE.txt](LICENSE.txt) file.
+
+## Setup
 
 ### Install tools
 
@@ -88,6 +94,9 @@ and `abuse` accounts. Add any other recipient conditions for this rule as you
 wish, as well as any other receipt rules. EListMan will add a Receipt Rule for
 an unsubscribe email address to this Receipt Rule Set.
 
+- As an alternative to setting recipient conditions for the `postmaster` and
+  `abuse` accounts, consider using [mbland/ses-forwarder][]. You will still need to set up a Receipt Rule Set for use by EListMan, however.
+
 When you're ready for the system to go live, [publish an MX record for Amazon SES email receiving][].
 
 It's also advisable to configure your [account-level suppression list][] to
@@ -112,13 +121,19 @@ $ aws sesv2 list-email-identities
 ```
 
 You can also view other account attributes, such as account suppression list
-status, via:
+status, send quotas, and send rates, via:
 
 ```json
 $ aws sesv2 get-account
 
 {
    ...
+    "ProductionAccessEnabled": true,
+    "SendQuota": {
+        "Max24HourSend": ...,
+        "MaxSendRate": ...,
+        "SentLast24Hours": ...
+    },
     "SendingEnabled": true,
     "SuppressionAttributes": {
         "SuppressedReasons": [
@@ -172,6 +187,90 @@ $ aws apigatewayv2 get-domain-names
 }
 ```
 
+### Run tests
+
+To make sure the local environment is in good shape, and your AWS services are
+properly configured, run the main test suite via `make test`. (Note that the
+example output below is slightly edited for clarity.)
+
+```sh
+$ make test
+
+go vet -tags=all_tests ./...
+go run honnef.co/go/tools/cmd/staticcheck -tags=all_tests ./...
+go build -tags=all_tests ./...
+
+go test -tags=small_tests ./...
+ok      github.com/mbland/elistman/agent        0.110s
+ok      github.com/mbland/elistman/db   0.392s
+ok      github.com/mbland/elistman/email        0.187s
+ok      github.com/mbland/elistman/handler      0.260s
+ok      github.com/mbland/elistman/ops  0.461s
+ok      github.com/mbland/elistman/types        0.523s
+
+go test -tags=medium_tests -count=1 ./...
+ok      github.com/mbland/elistman/db   2.970s
+ok      github.com/mbland/elistman/email        1.150s
+
+go test -tags=contract_tests -count=1 ./db -args -awsdb
+ok      github.com/mbland/elistman/db   44.264s
+```
+
+If you're using [Visual Studio Code][], you can run all but the last test via
+the **Test: Run All Tests** command (`testing.runAll`). The default keyboard shortcut is **⌘; A**.
+
+- The project VS Code configuration is in
+  [.vscode/settings.json](.vscode/settings.json).
+- For other helpful testing-related keyboard shortcuts, press **⌘K ⌘S**, then
+  search for `testing`.
+
+#### Test sizes
+
+- The `small_tests` all run locally, with no external dependencies.
+- Each of the `medium_tests` exercises integration with specific dependencies.
+  - `-count=1` is the Go idiom to ensure tests are run with caching disabled,
+    per `go help testflag`.
+- There are no end-to-end `large_tests` yet, outside of `bin/smoke-tests.sh`.
+  The smoke tests are described below, as are the plans for adding end-to-end tests one day.
+
+The medium/contract tests in `db/dynamodb_contract_test.go` run against:
+
+- a local [Docker][] container running the [amazon/dynamodb-local][] image when
+  run without the `-awsdb` flag
+  - e.g. When run via `go test -tags=medium_tests -count=1 ./...`, in VS Code
+    via **⌘; A**, or in CI via `-tags=coverage_tests`, described below.
+- the actual DynamoDB for your AWS account when run with the `-awsdb` flag
+  - e.g. When run via `go test -tags=contract_tests -count=1 ./db -args -awsdb`
+
+#### Test coverage
+
+To check code coverage, you can run:
+
+```sh
+$ make coverage
+
+go test -covermode=count -coverprofile=coverage.out \
+          -tags=small_tests,coverage_tests ./...
+
+ok  github.com/mbland/elistman/agent    0.351s  coverage: 100.0% of statements
+ok  github.com/mbland/elistman/db       3.214s  coverage: 100.0% of statements
+ok  github.com/mbland/elistman/email    0.539s  coverage: 100.0% of statements
+ok  github.com/mbland/elistman/handler  0.613s  coverage: 100.0% of statements
+ok  github.com/mbland/elistman/ops      0.457s  coverage: 100.0% of statements
+ok  github.com/mbland/elistman/types    0.675s  coverage: 100.0% of statements
+
+go tool cover -html=coverage.out
+[ ...opens default browser with HTML coverage results... ]
+```
+
+You can also check coverage in VS Code by searching for the **Go: Toggle Test
+Coverage in Current Package** command via **Show All Commands** (⇧⌘P).
+
+Note that `db/dynamodb_contract_test.go` is the one and only `medium_test` that
+we need for test coverage purposes. It contains the `coverage_tests` build flag,
+enabling the CI pipeline to collect its coverage data without running other
+`medium_tests`.
+
 ### Build the `elistman` CLI
 
 Build the `elistman` command line interface program in the root directory via:
@@ -202,8 +301,10 @@ dynamodb list-tables` to confirm that the new table is present.
 
 ## Deployment
 
-Create a `deploy.env` file in the root directory of the following form
-(replacing each value with your own as appropriate):
+### Create configuration file
+
+Create a `deploy.env` file in the root directory containing the following
+environment variables (replacing each value with your own as appropriate):
 
 ```sh
 API_DOMAIN_NAME="api.mike-bland.com"
@@ -225,12 +326,79 @@ NOT_SUBSCRIBED_PATH="/unsubscribe/not-subscribed.html"
 UNSUBSCRIBED_PATH="/unsubscribe/goodbye.html"
 ```
 
-Then run `make deploy`.
+### Run smoke tests locally
+
+`bin/smoke-test.sh` invokes `curl` to send HTTP requests to the running Lambda,
+all of which expect an error response without any side effects (save for
+logging).
+
+To check that your configuration works locally, you'll need two separate
+terminal windows to run `bin/smoke-test.sh`. In the first, run:
+
+```sh
+$ make run-local
+
+[ ...validates template.yml, builds lambda, etc... ]
+bin/sam-with-env.sh deploy.env local start-api --port 8080
+[ ...more output... ]
+You can now browse to the above endpoints to invoke your functions....
+2023-05-29 16:08:04 WARNING: This is a development server....
+ * Running on http://127.0.0.1:8080
+2023-05-29 16:08:04 Press CTRL+C to quit
+```
+
+In the next terminal, run:
+
+```sh
+$ ./bin/smoke-test ./deploy.env --local
+
+INFO: SUITE: Not found (403 locally, 404 in prod)
+INFO: TEST: 1 — invalid endpoint not found
+Expect 403 from: POST http://127.0.0.1:8080/foobar/mbland%40acm.org
+
+curl -isS -X POST http://127.0.0.1:8080/foobar/mbland%40acm.org
+
+HTTP/1.1 403 FORBIDDEN
+Server: Werkzeug/2.3.4 Python/3.8.16
+Date: Mon, 29 May 2023 20:19:57 GMT
+Content-Type: application/json
+Content-Length: 43
+Connection: close
+
+{"message":"Missing Authentication Token"}
+
+PASSED: 1 — invalid endpoint not found:
+    status: 403
+
+INFO: TEST: 2 — /subscribe with trailing component not found
+Expect 403 from: POST http://127.0.0.1:8080/subscribe/foobar
+
+[ ...more test output/results... ]
+
+PASSED: 6 — invalid UID for /unsubscribe:
+    status: 400
+
+PASSED: All 6 smoke tests passed!
+```
+
+Then enter CTRL-C in the first window to stop the local SAM Lambda server.
+
+### Deploy to AWS
+
+If the smoke tests pass, run `make deploy` to deploy the EListMan system using
+your AWS account.
+
+Once the deployment is running, run the smoke tests without the `--local` flag
+to ensure your instance is reachable:
+
+```sh
+./bin/smoke-tests.sh ./deploy.env
+```
 
 ## URI Schema
 
 - `https://<api_hostname>/<route_key>/<operation>`
-- `mailto:<unsubscribe_user>@<email_hostname>?subject=<email>%20<uid>`
+- `mailto:<unsubscribe_user_name>@<email_domain_name>?subject=<email>%20<uid>`
 
 Where:
 
@@ -243,9 +411,10 @@ Where:
 - `<email>`: Subscriber's URI encoded (for `https`) or query encoded (for
   `mailto`) email address
 - `<uid>`: Identifier assigned to the subscriber by the system
-- `<unsubscribe_user>`: The username receiving unsubscribe emails, typically
-  `unsubscribe`.
-- `<email_hostname>`: Hostname serving as an SES verified identity for receiving email
+- `<unsubscribe_user_name>`: The username receiving unsubscribe emails,
+  typically `unsubscribe`, set via `UNSUBSCRIBE_USER_NAME.
+- `<email_domain_name>`: Hostname serving as an SES verified identity for
+  sending and receiving email, set via `EMAIL_DOMAIN_NAME`
 
 ## Development
 
@@ -418,7 +587,7 @@ release.
 
 Here is what I anticipate the implementation will involve (beyond some of the existing cases in [bin/smoke-test.sh](./bin/smoke-test.sh)):
 
-#### Setup
+#### Test Setup
 
 - Create a new random test username.
 - Create a S3 bucket for the emails received by the random test user.
@@ -452,12 +621,6 @@ For each permutation described below:
 - Tear down the stack, which will:
   - Tear down the receipt rules
   - Tear down the test bucket
-
-## Open Source License
-
-This software is made available as [Open Source software][oss-def] under the
-[Mozilla Public License 2.0][]. For the text of the license, see the
-[LICENSE.txt](LICENSE.txt) file.
 
 ## References
 
@@ -549,11 +712,15 @@ This software is made available as [Open Source software][oss-def] under the
 [Amazon Simple Email Service endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ses.html
 [AWS Command Line Interface: Quick Setup]: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
 [Email notifications]: https://docs.aws.amazon.com/sns/latest/dg/sns-email-notifications.html
+[mbland/ses-forwarder]: https://github.com/mbland/ses-forwarder
 [publish an MX record for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-mx-record.html
 [account-level suppression list]: https://docs.aws.amazon.com/ses/latest/dg/sending-email-suppression-list.html
 [Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
 [Receipt Rule Set]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-receipt-rules-console-walkthrough.html
 [Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
+[Docker]: https://www.docker.com
+[amazon/dynamodb-local]: https://hub.docker.com/r/amazon/dynamodb-local
+[Visual Studio Code]: https://code.visualstudio.com
 [Go Doc Comments]: https://go.dev/doc/comment
 [godoc]: https://pkg.go.dev/golang.org/x/tools/cmd/godoc
 [pkgsite]: https://pkg.go.dev/golang.org/x/pkgsite/cmd/pkgsite
