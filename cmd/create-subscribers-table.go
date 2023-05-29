@@ -34,10 +34,7 @@ func newCreateSubscribersTableCmd(newDynDb DynamoDbFactoryFunc) *cobra.Command {
 		Long:  createSubscribersTableDescription,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tableName := args[0]
-			cmd.SilenceUsage = true
-			dyndb := newDynDb(tableName)
-			return createSubscribersTable(cmd, dyndb, time.Minute)
+			return createSubscribersTable(cmd, newDynDb(args[0]), time.Minute)
 		},
 	}
 }
@@ -45,6 +42,7 @@ func newCreateSubscribersTableCmd(newDynDb DynamoDbFactoryFunc) *cobra.Command {
 func createSubscribersTable(
 	cmd *cobra.Command, dyndb *db.DynamoDb, maxWaitDuration time.Duration,
 ) error {
+	cmd.SilenceUsage = true
 	ctx := context.Background()
 
 	if err := dyndb.CreateTable(ctx); err != nil {

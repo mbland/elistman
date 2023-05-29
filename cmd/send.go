@@ -38,16 +38,15 @@ func newSendCmd(newLambdaClient LambdaClientFactoryFunc) *cobra.Command {
 		Long:  sendDescription,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lambdaArn := args[0]
-			cmd.SilenceUsage = true
-			return SendMessage(cmd, newLambdaClient(), lambdaArn)
+			return sendMessage(cmd, newLambdaClient(), args[0])
 		},
 	}
 }
 
-func SendMessage(
+func sendMessage(
 	cmd *cobra.Command, client LambdaClient, lambdaArn string,
 ) (err error) {
+	cmd.SilenceUsage = true
 	var msg *email.Message
 
 	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
