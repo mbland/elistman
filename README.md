@@ -77,25 +77,21 @@ section of [Amazon Simple Email Service endpoints and quotas][].
 Follow the guidance on the [AWS Command Line Interface: Quick Setup][] page if
 necessary.
 
-### Configure AWS Simple Notification Service (SNS)
-
-Create a topic in SNS for the SES Receipt Rules described in the next section.
-The most straightforward option is to create a rule for [Email notifications].
-
 ### Configure AWS Simple Email Service (SES)
 
 Set up SES in the region selected in the above step. Make sure to enable DKIM
 and create a verified domain identity per [Verifying your domain for Amazon SES
 email receiving][].
 
-Create a [Receipt Rule Set][] and set it as Active. Add a Receipt Rule to the
-active Receipt Rule Set that includes recipient conditions for the `postmaster`
-and `abuse` accounts. Add any other recipient conditions for this rule as you
-wish, as well as any other receipt rules. EListMan will add a Receipt Rule for
-an unsubscribe email address to this Receipt Rule Set.
+Create a [Receipt Rule Set][] and set it as Active. EListMan will add a Receipt Rule for an unsubscribe email address to this Receipt Rule Set.
 
-- As an alternative to setting recipient conditions for the `postmaster` and
-  `abuse` accounts, consider using [mbland/ses-forwarder][]. You will still need to set up a Receipt Rule Set for use by EListMan, however.
+Create a Receipt Rule to receive [Email notifications][] for the `postmaster`
+and `abuse` accounts, along with any other accounts that you'd like.
+
+- You can add these recipient conditions manually, which would require creating
+  a Simple Notification Service (SNS) topic manually as well.
+- Alternatively, consider using [mbland/ses-forwarder][] to automate configuring
+  the Receipt Rule Set with an appropriate Receipt Rule.
 
 When you're ready for the system to go live, [publish an MX record for Amazon SES email receiving][].
 
