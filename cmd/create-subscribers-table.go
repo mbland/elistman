@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/mbland/elistman/db"
 	"github.com/spf13/cobra"
 )
@@ -25,10 +24,10 @@ name will become the value of the SUBSCRIBERS_TABLE_NAME environment variable
 used to configure and deploy the application.`
 
 func init() {
-	rootCmd.AddCommand(newCreateSubscribersTableCmd(AwsConfig))
+	rootCmd.AddCommand(newCreateSubscribersTableCmd(NewDynamoDb))
 }
 
-func newCreateSubscribersTableCmd(config aws.Config) *cobra.Command {
+func newCreateSubscribersTableCmd(newDynDb DynamoDbFactoryFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create-subscribers-table",
 		Short: "Create a DynamoDB table for mailing list subscribers",
@@ -37,7 +36,7 @@ func newCreateSubscribersTableCmd(config aws.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tableName := args[0]
 			cmd.SilenceUsage = true
-			dyndb := NewDynamoDb(config, tableName)
+			dyndb := newDynDb(tableName)
 			return createSubscribersTable(cmd, dyndb, time.Minute)
 		},
 	}

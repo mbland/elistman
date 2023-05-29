@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/google/uuid"
@@ -67,10 +66,7 @@ func buildHandler() (h *handler.Handler, err error) {
 			),
 			NewUid:      uuid.NewUUID,
 			CurrentTime: time.Now,
-			Db: &db.DynamoDb{
-				Client:    dynamodb.NewFromConfig(cfg),
-				TableName: opts.SubscribersTableName,
-			},
+			Db:          db.NewDynamoDb(cfg, opts.SubscribersTableName),
 			Validator: &email.ProdAddressValidator{
 				Suppressor: suppressor,
 				Resolver:   net.DefaultResolver,

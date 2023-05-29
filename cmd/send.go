@@ -28,12 +28,10 @@ It takes one argument, the ARN of the Lambda function to invoke to send the
 message.`
 
 func init() {
-	rootCmd.AddCommand(newSendCmd(AwsConfig, NewLambdaClient))
+	rootCmd.AddCommand(newSendCmd(NewLambdaClient))
 }
 
-func newSendCmd(
-	config aws.Config, newLambdaClient LambdaClientFactoryFunc,
-) *cobra.Command {
+func newSendCmd(newLambdaClient LambdaClientFactoryFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "send",
 		Short: "Send an email message to the mailing list",
@@ -42,7 +40,7 @@ func newSendCmd(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lambdaArn := args[0]
 			cmd.SilenceUsage = true
-			return SendMessage(cmd, newLambdaClient(config), lambdaArn)
+			return SendMessage(cmd, newLambdaClient(), lambdaArn)
 		},
 	}
 }

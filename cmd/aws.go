@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/mbland/elistman/db"
 	"github.com/mbland/elistman/ops"
@@ -12,12 +11,10 @@ import (
 
 var AwsConfig aws.Config = ops.MustLoadDefaultAwsConfig()
 
-type DynamoDbFactoryFunc func(cfg aws.Config, tableName string) *db.DynamoDb
+type DynamoDbFactoryFunc func(tableName string) *db.DynamoDb
 
-func NewDynamoDb(cfg aws.Config, tableName string) *db.DynamoDb {
-	return &db.DynamoDb{
-		Client: dynamodb.NewFromConfig(cfg), TableName: tableName,
-	}
+func NewDynamoDb(tableName string) *db.DynamoDb {
+	return db.NewDynamoDb(AwsConfig, tableName)
 }
 
 type LambdaClient interface {
@@ -28,8 +25,8 @@ type LambdaClient interface {
 	) (*lambda.InvokeOutput, error)
 }
 
-type LambdaClientFactoryFunc func(cfg aws.Config) LambdaClient
+type LambdaClientFactoryFunc func() LambdaClient
 
-func NewLambdaClient(cfg aws.Config) LambdaClient {
-	return lambda.NewFromConfig(cfg)
+func NewLambdaClient() LambdaClient {
+	return lambda.NewFromConfig(AwsConfig)
 }

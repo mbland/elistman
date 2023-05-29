@@ -58,6 +58,10 @@ type DynamoDb struct {
 	TableName string
 }
 
+func NewDynamoDb(cfg aws.Config, tableName string) *DynamoDb {
+	return &DynamoDb{dynamodb.NewFromConfig(cfg), tableName}
+}
+
 const DynamoDbPrimaryKey = "email"
 
 // Sparse Global Secondary Index for records containing a "pending" attribute.
