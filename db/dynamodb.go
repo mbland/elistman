@@ -312,7 +312,7 @@ func (db *DynamoDb) Delete(ctx context.Context, email string) (err error) {
 	return
 }
 
-func (db *DynamoDb) ProcessSubscribersInState(
+func (db *DynamoDb) ProcessSubscribers(
 	ctx context.Context, status SubscriberStatus, sp SubscriberProcessor,
 ) error {
 	input := &dynamodb.ScanInput{

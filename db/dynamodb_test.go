@@ -330,7 +330,7 @@ func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
 	return
 }
 
-func TestProcessSubscribersInState(t *testing.T) {
+func TestProcessSubscribers(t *testing.T) {
 	ctx := context.Background()
 
 	setup := func() (
@@ -352,7 +352,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 		t.Run("WithoutPagination", func(t *testing.T) {
 			dynDb, client, subs, f := setup()
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, TestVerifiedSubscribers, *subs)
@@ -363,7 +363,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 			dynDb, client, subs, f := setup()
 			client.scanSize = 1
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, TestVerifiedSubscribers, *subs)
@@ -377,7 +377,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 				return s.Email != TestVerifiedSubscribers[1].Email
 			})
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, TestVerifiedSubscribers[:2], *subs)
@@ -389,7 +389,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 			dynDb, client, _, f := setup()
 			client.SetServerError("scanning error")
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.ErrorContains(t, err, "scanning error")
 			assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
@@ -404,7 +404,7 @@ func TestProcessSubscribersInState(t *testing.T) {
 				string(status): toDynamoDbTimestamp(testdata.TestTimestamp),
 			})
 
-			err := dynDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			expectedErr := "failed to parse subscriber: " +
 				"failed to parse 'uid' from: "

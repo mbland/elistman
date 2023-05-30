@@ -99,7 +99,7 @@ func (dbase *Database) CountSubscribers(
 	return
 }
 
-func (dbase *Database) ProcessSubscribersInState(
+func (dbase *Database) ProcessSubscribers(
 	_ context.Context, status db.SubscriberStatus, sp db.SubscriberProcessor,
 ) error {
 	for _, sub := range dbase.Subscribers {

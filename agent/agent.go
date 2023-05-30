@@ -250,7 +250,7 @@ func (a *ProdAgent) Send(
 		return true
 	})
 
-	err = a.Db.ProcessSubscribersInState(ctx, db.SubscriberVerified, sender)
+	err = a.Db.ProcessSubscribers(ctx, db.SubscriberVerified, sender)
 	if err = errors.Join(err, sendErr); err != nil {
 		const errFmt = "error sending \"%s\" to list: %w"
 		err = fmt.Errorf(errFmt, msg.Subject, err)

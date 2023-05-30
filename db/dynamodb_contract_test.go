@@ -300,7 +300,7 @@ func TestDynamoDb(t *testing.T) {
 				return true
 			})
 
-			err := testDb.ProcessSubscribersInState(ctx, SubscriberVerified, f)
+			err := testDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.NilError(t, err)
 			assert.DeepEqual(t, sorted(TestVerifiedSubscribers), sorted(*subs))
