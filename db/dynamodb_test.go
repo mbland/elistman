@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -21,40 +22,82 @@ import (
 // Most of the methods on TestDynamoDbClient are unimplemented, because
 // dynamodb_contract_test.go tests most of them.
 //
-// The exception to this is Scan(), which is the reason why the DynamoDbClient
-// interface exists. Testing all the cases of the code that relies on Scan() is
-// annoying, difficult, and/or nearly impossible without using this test double.
+// The original exception to this was Scan(), which was the reason why the
+// DynamoDbClient interface was created. Testing all the cases of the code that
+// relies on Scan() is annoying, difficult, and/or nearly impossible without
+// using this test double.
+//
+// CreateTable, DescribeTable, and UpdateTimeToLive are also implemented. The
+// dynamodb_contract_test tests and validates these individual operations. Given
+// that, CreateSubscribersTable can then be tested more quickly and reliably
+// using this test double.
 type TestDynamoDbClient struct {
-	subscribers []dbAttributes
-	scanSize    int
-	scanCalls   int
-	serverErr   error
+	serverErr         error
+	createTableInput  *dynamodb.CreateTableInput
+	createTableOutput *dynamodb.CreateTableOutput
+	createTableErr    error
+	descTableInput    *dynamodb.DescribeTableInput
+	descTableOutput   *dynamodb.DescribeTableOutput
+	descTableErr      error
+	updateTtlInput    *dynamodb.UpdateTimeToLiveInput
+	updateTtlOutput   *dynamodb.UpdateTimeToLiveOutput
+	updateTtlErr      error
+	subscribers       []dbAttributes
+	scanSize          int
+	scanCalls         int
+	scanErr           error
 }
 
-func (client *TestDynamoDbClient) SetServerError(msg string) {
-	client.serverErr = testutils.AwsServerError(msg)
+func (client *TestDynamoDbClient) SetAllErrors(msg string) {
+	err := testutils.AwsServerError(msg)
+	client.serverErr = err
+	client.createTableErr = err
+	client.descTableErr = err
+	client.updateTtlErr = err
+	client.scanErr = err
+}
+
+func (client *TestDynamoDbClient) SetCreateTableError(msg string) {
+	client.createTableErr = testutils.AwsServerError(msg)
+}
+
+func (client *TestDynamoDbClient) SetDescribeTableError(msg string) {
+	client.descTableErr = testutils.AwsServerError(msg)
+}
+
+func (client *TestDynamoDbClient) SetUpdateTimeToLiveError(msg string) {
+	client.updateTtlErr = testutils.AwsServerError(msg)
+}
+
+func (client *TestDynamoDbClient) SetScanError(msg string) {
+	client.scanErr = testutils.AwsServerError(msg)
 }
 
 func (client *TestDynamoDbClient) CreateTable(
-	context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options),
+	_ context.Context,
+	input *dynamodb.CreateTableInput,
+	_ ...func(*dynamodb.Options),
 ) (*dynamodb.CreateTableOutput, error) {
-	return nil, client.serverErr
+	client.createTableInput = input
+	return client.createTableOutput, client.createTableErr
 }
 
 func (client *TestDynamoDbClient) DescribeTable(
-	context.Context,
-	*dynamodb.DescribeTableInput,
-	...func(*dynamodb.Options),
+	_ context.Context,
+	input *dynamodb.DescribeTableInput,
+	_ ...func(*dynamodb.Options),
 ) (*dynamodb.DescribeTableOutput, error) {
-	return nil, client.serverErr
+	client.descTableInput = input
+	return client.descTableOutput, client.descTableErr
 }
 
 func (client *TestDynamoDbClient) UpdateTimeToLive(
-	context.Context,
-	*dynamodb.UpdateTimeToLiveInput,
-	...func(*dynamodb.Options),
+	_ context.Context,
+	input *dynamodb.UpdateTimeToLiveInput,
+	_ ...func(*dynamodb.Options),
 ) (*dynamodb.UpdateTimeToLiveOutput, error) {
-	return nil, client.serverErr
+	client.updateTtlInput = input
+	return client.updateTtlOutput, client.updateTtlErr
 }
 
 func (client *TestDynamoDbClient) DeleteTable(
@@ -97,7 +140,7 @@ func (client *TestDynamoDbClient) Scan(
 ) (output *dynamodb.ScanOutput, err error) {
 	client.scanCalls++
 
-	err = client.serverErr
+	err = client.scanErr
 	if err != nil {
 		return
 	}
@@ -152,15 +195,15 @@ func newSubscriberRecord(sub *Subscriber) dbAttributes {
 	}
 }
 
+func checkIsExternalError(t *testing.T, err error) {
+	t.Helper()
+	assert.Check(t, testutils.ErrorIs(err, ops.ErrExternal))
+}
+
 func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	client := &TestDynamoDbClient{}
 	dyndb := &DynamoDb{client, "subscribers-table"}
 	ctx := context.Background()
-
-	checkIsExternalError := func(t *testing.T, err error) {
-		t.Helper()
-		assert.Check(t, testutils.ErrorIs(err, ops.ErrExternal))
-	}
 
 	// All these methods are tested in dynamodb_contract_test, and none of those
 	// should result in external errors. So the TestDynamoDbClient
@@ -168,7 +211,7 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	// wrapped via ops.AwsError.
 	//
 	// The one exception is Scan(), which is tested more thoroughly below.
-	client.SetServerError("simulated server error")
+	client.SetAllErrors("simulated server error")
 
 	err := dyndb.CreateTable(ctx)
 	checkIsExternalError(t, err)
@@ -302,6 +345,79 @@ func TestParseSubscriber(t *testing.T) {
 	})
 }
 
+func TestCreateSubscribersTable(t *testing.T) {
+	ctx := context.Background()
+	setup := func() (dyndb *DynamoDb, client *TestDynamoDbClient) {
+		client = &TestDynamoDbClient{
+			descTableOutput: &dynamodb.DescribeTableOutput{
+				Table: &types.TableDescription{
+					TableStatus: types.TableStatusActive,
+				},
+			},
+			updateTtlOutput: &dynamodb.UpdateTimeToLiveOutput{
+				TimeToLiveSpecification: &types.TimeToLiveSpecification{},
+			},
+		}
+		dyndb = &DynamoDb{Client: client, TableName: "subscribers"}
+		return
+	}
+
+	assertAwsStringEqual := func(
+		t *testing.T, expected string, actual *string,
+	) {
+		t.Helper()
+		assert.Equal(t, expected, aws.ToString(actual))
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		dyndb, client := setup()
+
+		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
+
+		assert.NilError(t, err)
+		tableName := dyndb.TableName
+		assertAwsStringEqual(t, tableName, client.createTableInput.TableName)
+		assertAwsStringEqual(t, tableName, client.createTableInput.TableName)
+		assertAwsStringEqual(t, tableName, client.updateTtlInput.TableName)
+		ttlSpec := client.updateTtlInput.TimeToLiveSpecification
+		assertAwsStringEqual(
+			t, string(SubscriberPending), ttlSpec.AttributeName,
+		)
+		assert.Assert(t, aws.ToBool(ttlSpec.Enabled) == true)
+	})
+
+	t.Run("FailsIfCreateTableFails", func(t *testing.T) {
+		dyndb, client := setup()
+		client.SetCreateTableError("create table failed")
+
+		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
+
+		checkIsExternalError(t, err)
+		assert.ErrorContains(t, err, "create table failed")
+	})
+
+	t.Run("FailsIfWaitForTableFails", func(t *testing.T) {
+		dyndb, client := setup()
+		client.SetDescribeTableError("describe table failed")
+
+		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
+
+		// Because WaitForTable uses dynamodb.TableExistsWaiter, it won't pass
+		// through the DescribeTable error or its message. It will just fail.
+		assert.ErrorContains(t, err, "failed waiting for subscribers table")
+	})
+
+	t.Run("FailsIfUpdateTimeToLiveFails", func(t *testing.T) {
+		dyndb, client := setup()
+		client.SetUpdateTimeToLiveError("update TTL failed")
+
+		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
+
+		checkIsExternalError(t, err)
+		assert.ErrorContains(t, err, "update TTL failed")
+	})
+}
+
 func setupDbWithSubscribers() (dyndb *DynamoDb, client *TestDynamoDbClient) {
 	client = &TestDynamoDbClient{}
 	dyndb = &DynamoDb{client, "subscribers-table"}
@@ -367,7 +483,7 @@ func TestProcessSubscribers(t *testing.T) {
 	t.Run("ReturnsError", func(t *testing.T) {
 		t.Run("IfScanFails", func(t *testing.T) {
 			dynDb, client, _, f := setup()
-			client.SetServerError("scanning error")
+			client.SetScanError("scanning error")
 
 			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 

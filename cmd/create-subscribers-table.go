@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/mbland/elistman/db"
@@ -41,21 +40,12 @@ func newCreateSubscribersTableCmd(newDynDb DynamoDbFactoryFunc) *cobra.Command {
 
 func createSubscribersTable(
 	cmd *cobra.Command, dyndb *db.DynamoDb, maxWaitDuration time.Duration,
-) error {
+) (err error) {
 	cmd.SilenceUsage = true
 	ctx := context.Background()
 
-	if err := dyndb.CreateTable(ctx); err != nil {
-		const errFmt = "failed to create subscribers table \"%s\": %w"
-		return fmt.Errorf(errFmt, dyndb.TableName, err)
-	} else if err = dyndb.WaitForTable(ctx, maxWaitDuration); err != nil {
-		const errFmt = "failed waiting for subscribers table \"%s\" for %s: %w"
-		return fmt.Errorf(errFmt, dyndb.TableName, maxWaitDuration, err)
-	} else if _, err = dyndb.UpdateTimeToLive(ctx); err != nil {
-		const errFmt = "failed updating Time To Live " +
-			"for subscribers table \"%s\": %w"
-		return fmt.Errorf(errFmt, dyndb.TableName, err)
+	if err = dyndb.CreateSubscribersTable(ctx, maxWaitDuration); err == nil {
+		cmd.Printf("Successfully created DynamoDB table: %s\n", dyndb.TableName)
 	}
-	cmd.Printf("Successfully created DynamoDB table: %s\n", dyndb.TableName)
-	return nil
+	return
 }

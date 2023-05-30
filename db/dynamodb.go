@@ -163,6 +163,23 @@ func (db *DynamoDb) UpdateTimeToLive(
 	return
 }
 
+func (db *DynamoDb) CreateSubscribersTable(
+	ctx context.Context, maxWaitDuration time.Duration,
+) (err error) {
+	if err = db.CreateTable(ctx); err != nil {
+		const errFmt = "failed to create subscribers table \"%s\": %w"
+		err = fmt.Errorf(errFmt, db.TableName, err)
+	} else if err = db.WaitForTable(ctx, maxWaitDuration); err != nil {
+		const errFmt = "failed waiting for subscribers table \"%s\" for %s: %w"
+		err = fmt.Errorf(errFmt, db.TableName, maxWaitDuration, err)
+	} else if _, err = db.UpdateTimeToLive(ctx); err != nil {
+		const errFmt = "failed updating Time To Live " +
+			"for subscribers table \"%s\": %w"
+		err = fmt.Errorf(errFmt, db.TableName, err)
+	}
+	return
+}
+
 func (db *DynamoDb) DeleteTable(ctx context.Context) (err error) {
 	input := &dynamodb.DeleteTableInput{TableName: aws.String(db.TableName)}
 	if _, err = db.Client.DeleteTable(ctx, input); err != nil {
