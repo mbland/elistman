@@ -37,16 +37,15 @@ func (client *TestDynamoDbClient) SetServerError(msg string) {
 
 func (client *TestDynamoDbClient) CreateTable(
 	context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.CreateTableOutput, err error) {
-	err = client.serverErr
-	return
+) (*dynamodb.CreateTableOutput, error) {
+	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) DescribeTable(
 	context.Context,
 	*dynamodb.DescribeTableInput,
 	...func(*dynamodb.Options),
-) (_ *dynamodb.DescribeTableOutput, _ error) {
+) (*dynamodb.DescribeTableOutput, error) {
 	return nil, client.serverErr
 }
 
@@ -54,31 +53,31 @@ func (client *TestDynamoDbClient) UpdateTimeToLive(
 	context.Context,
 	*dynamodb.UpdateTimeToLiveInput,
 	...func(*dynamodb.Options),
-) (_ *dynamodb.UpdateTimeToLiveOutput, _ error) {
+) (*dynamodb.UpdateTimeToLiveOutput, error) {
 	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) DeleteTable(
 	context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.DeleteTableOutput, _ error) {
+) (*dynamodb.DeleteTableOutput, error) {
 	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) GetItem(
 	context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.GetItemOutput, _ error) {
+) (*dynamodb.GetItemOutput, error) {
 	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) PutItem(
 	context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.PutItemOutput, _ error) {
+) (*dynamodb.PutItemOutput, error) {
 	return nil, client.serverErr
 }
 
 func (client *TestDynamoDbClient) DeleteItem(
 	context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options),
-) (_ *dynamodb.DeleteItemOutput, _ error) {
+) (*dynamodb.DeleteItemOutput, error) {
 	return nil, client.serverErr
 }
 
