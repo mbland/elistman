@@ -102,64 +102,45 @@ func (client *TestDynamoDbClient) Scan(
 		return
 	}
 
-	items := make([]dbAttributes, 0, len(client.subscribers))
-
 	// Remember that our schema is to keep pending and verified subscribers
-	// partitioned across disjoint Global Secondary Indexes.
+	// partitioned across disjoint Global Secondary Indexes. So we first filter
+	// for subscribers in the desired state.
+	subscribers := make([]dbAttributes, 0, len(client.subscribers))
 	for _, sub := range client.subscribers {
-		if _, ok := sub[aws.ToString(input.IndexName)]; ok {
-			items = append(items, sub)
+		if _, ok := sub[aws.ToString(input.IndexName)]; !ok {
+			continue
 		}
+		subscribers = append(subscribers, sub)
 	}
 
-	// Simulating pagination is a little tricky. We use the following functions
-	// to trim the result set down to the scanSize after performing the full
-	// scan. This is an in-memory test double, so it's fast enough.
-	getEmail := func(attrs dbAttributes) (email string, err error) {
-		return (&dbParser{attrs}).GetString("email")
-	}
-	startScan := func(items []dbAttributes) ([]dbAttributes, error) {
-		var lastEmail string
-
-		if lastItem := input.ExclusiveStartKey; len(lastItem) == 0 {
-			return items, nil
-		} else if lastEmail, err = getEmail(lastItem); err != nil {
-			return items, nil
-		}
-		for i, sub := range items {
-			var email string
-			if email, err = getEmail(sub); err != nil {
-				return nil, err
-			} else if email == lastEmail {
-				return items[i+1:], nil
-			}
-		}
-		return items, nil
-	}
-	endScan := func(
-		items []dbAttributes, n int,
-	) (result []dbAttributes, lastKey dbAttributes, err error) {
-		if n == 0 || len(items) <= n {
-			result = items
-			return
-		}
-		items = items[:n]
-
-		if lastEmail, err := getEmail(items[len(items)-1]); err == nil {
-			result = items
-			lastKey = dbAttributes{"email": &dbString{Value: lastEmail}}
-		}
+	// Scan starting just past the start key until we reach the scan limit.
+	items := make([]dbAttributes, 0, len(subscribers))
+	getEmail := func(attrs dbAttributes) (email string) {
+		email, _ = (&dbParser{attrs}).GetString("email")
 		return
 	}
-
-	n := client.scanSize
+	startKey := getEmail(input.ExclusiveStartKey)
+	started := len(startKey) == 0
+	atScanLimit := func() bool {
+		return client.scanSize != 0 && len(items) == client.scanSize
+	}
 	var lastKey dbAttributes
 
-	if items, err = startScan(items); err != nil {
-		return
-	} else if items, lastKey, err = endScan(items, n); err == nil {
-		output = &dynamodb.ScanOutput{Items: items, LastEvaluatedKey: lastKey}
+	for i, sub := range subscribers {
+		if !started {
+			started = getEmail(sub) == startKey
+			continue
+		}
+		items = append(items, sub)
+
+		if atScanLimit() {
+			if i != (len(subscribers) - 1) {
+				lastKey = dbAttributes{"email": sub["email"]}
+			}
+			break
+		}
 	}
+	output = &dynamodb.ScanOutput{Items: items, LastEvaluatedKey: lastKey}
 	return
 }
 
