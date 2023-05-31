@@ -65,9 +65,9 @@ func setupDynamoDb() (dynDb *DynamoDb, teardown func() error, err error) {
 
 	if dynDb, teardownDb, err = doSetup(tableName); err != nil {
 		return
-	} else if err = dynDb.CreateTable(ctx); err != nil {
+	} else if err = dynDb.createTable(ctx); err != nil {
 		err = teardownDbWithError(err)
-	} else if err = dynDb.WaitForTable(ctx, maxTableWaitDuration); err != nil {
+	} else if err = dynDb.waitForTable(ctx, maxTableWaitDuration); err != nil {
 		err = teardownDbWithError(err)
 	} else {
 		teardown = func() error {
@@ -167,7 +167,7 @@ func TestDynamoDb(t *testing.T) {
 	// Note that the success cases for CreateTable and DeleteTable are
 	// confirmed by setupDynamoDb() and teardown() above.
 	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
-		err := testDb.CreateTable(ctx)
+		err := testDb.createTable(ctx)
 
 		expected := "failed to create db table " + testDb.TableName + ": "
 		assert.ErrorContains(t, err, expected)
@@ -205,7 +205,7 @@ func TestDynamoDb(t *testing.T) {
 
 	t.Run("UpdateTimeToLive", func(t *testing.T) {
 		t.Run("Succeeds", func(t *testing.T) {
-			ttlSpec, err := testDb.UpdateTimeToLive(ctx)
+			ttlSpec, err := testDb.updateTimeToLive(ctx)
 
 			assert.NilError(t, err)
 			expectedAttrName := string(SubscriberPending)
@@ -215,7 +215,7 @@ func TestDynamoDb(t *testing.T) {
 		})
 
 		t.Run("FailsIfTableDoesNotExist", func(t *testing.T) {
-			ttlSpec, err := badDb.UpdateTimeToLive(ctx)
+			ttlSpec, err := badDb.updateTimeToLive(ctx)
 
 			assert.Assert(t, is.Nil(ttlSpec))
 			expectedErr := "failed to update Time To Live: " +

@@ -124,7 +124,7 @@ var DynamoDbCreateTableInput = &dynamodb.CreateTableInput{
 	},
 }
 
-func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
+func (db *DynamoDb) createTable(ctx context.Context) (err error) {
 	var input dynamodb.CreateTableInput = *DynamoDbCreateTableInput
 	input.TableName = aws.String(db.TableName)
 
@@ -134,7 +134,7 @@ func (db *DynamoDb) CreateTable(ctx context.Context) (err error) {
 	return
 }
 
-func (db *DynamoDb) WaitForTable(
+func (db *DynamoDb) waitForTable(
 	ctx context.Context, maxWait time.Duration,
 ) error {
 	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
@@ -143,7 +143,7 @@ func (db *DynamoDb) WaitForTable(
 	return waiter.Wait(ctx, input, maxWait)
 }
 
-func (db *DynamoDb) UpdateTimeToLive(
+func (db *DynamoDb) updateTimeToLive(
 	ctx context.Context,
 ) (ttlSpec *dbtypes.TimeToLiveSpecification, err error) {
 	spec := &dbtypes.TimeToLiveSpecification{
@@ -166,13 +166,13 @@ func (db *DynamoDb) UpdateTimeToLive(
 func (db *DynamoDb) CreateSubscribersTable(
 	ctx context.Context, maxWaitDuration time.Duration,
 ) (err error) {
-	if err = db.CreateTable(ctx); err != nil {
+	if err = db.createTable(ctx); err != nil {
 		const errFmt = "failed to create subscribers table \"%s\": %w"
 		err = fmt.Errorf(errFmt, db.TableName, err)
-	} else if err = db.WaitForTable(ctx, maxWaitDuration); err != nil {
+	} else if err = db.waitForTable(ctx, maxWaitDuration); err != nil {
 		const errFmt = "failed waiting for subscribers table \"%s\" for %s: %w"
 		err = fmt.Errorf(errFmt, db.TableName, maxWaitDuration, err)
-	} else if _, err = db.UpdateTimeToLive(ctx); err != nil {
+	} else if _, err = db.updateTimeToLive(ctx); err != nil {
 		const errFmt = "failed updating Time To Live " +
 			"for subscribers table \"%s\": %w"
 		err = fmt.Errorf(errFmt, db.TableName, err)

@@ -213,10 +213,10 @@ func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
 	// The one exception is Scan(), which is tested more thoroughly below.
 	client.SetAllErrors("simulated server error")
 
-	err := dyndb.CreateTable(ctx)
+	err := dyndb.createTable(ctx)
 	checkIsExternalError(t, err)
 
-	_, err = dyndb.UpdateTimeToLive(ctx)
+	_, err = dyndb.updateTimeToLive(ctx)
 	checkIsExternalError(t, err)
 
 	err = dyndb.DeleteTable(ctx)
