@@ -13,12 +13,16 @@ import (
 // Inspired by:
 // https://aws.github.io/aws-sdk-go-v2/docs/handling-errors/#api-error-responses
 func AwsError(prefix string, err error) error {
+	if len(prefix) != 0 {
+		prefix += ": "
+	}
+
 	var apiErr smithy.APIError
 
 	if errors.As(err, &apiErr) && apiErr.ErrorFault() == smithy.FaultServer {
-		return fmt.Errorf("%s: %w: %s", prefix, ErrExternal, err)
+		return fmt.Errorf("%s%w: %s", prefix, ErrExternal, err)
 	}
-	return fmt.Errorf("%s: %s", prefix, err)
+	return fmt.Errorf("%s%s", prefix, err)
 }
 
 func LoadDefaultAwsConfig() (cfg aws.Config, err error) {

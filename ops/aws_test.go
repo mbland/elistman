@@ -46,6 +46,20 @@ func TestAwsError(t *testing.T) {
 		assert.Error(t, err, expected)
 		assert.Assert(t, testutils.ErrorIs(err, ErrExternal))
 	})
+
+	t.Run("OmitsPrefixIfNotSpecified", func(t *testing.T) {
+		apiErr := &smithy.GenericAPIError{
+			Message: "Definitely a server error", Fault: smithy.FaultServer,
+		}
+
+		err := AwsError("", apiErr)
+
+		expected := fmt.Sprintf(
+			"%s: api error : Definitely a server error", ErrExternal,
+		)
+		assert.Error(t, err, expected)
+		assert.Assert(t, testutils.ErrorIs(err, ErrExternal))
+	})
 }
 
 func TestLoadDefaultAwsConfig(t *testing.T) {
