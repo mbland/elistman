@@ -404,7 +404,8 @@ func TestCreateSubscribersTable(t *testing.T) {
 
 		// Because WaitForTable uses dynamodb.TableExistsWaiter, it won't pass
 		// through the DescribeTable error or its message. It will just fail.
-		assert.ErrorContains(t, err, "failed waiting for subscribers table")
+		const errFmt = "failed waiting for table to become active after %s"
+		assert.ErrorContains(t, err, fmt.Sprintf(errFmt, time.Nanosecond))
 	})
 
 	t.Run("FailsIfUpdateTimeToLiveFails", func(t *testing.T) {

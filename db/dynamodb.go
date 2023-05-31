@@ -136,11 +136,15 @@ func (db *DynamoDb) createTable(ctx context.Context) (err error) {
 
 func (db *DynamoDb) waitForTable(
 	ctx context.Context, maxWait time.Duration,
-) error {
+) (err error) {
 	input := &dynamodb.DescribeTableInput{TableName: aws.String(db.TableName)}
 	waiter := dynamodb.NewTableExistsWaiter(db.Client)
 
-	return waiter.Wait(ctx, input, maxWait)
+	if err = waiter.Wait(ctx, input, maxWait); err != nil {
+		const errFmt = "failed waiting for table to become active after %s"
+		err = ops.AwsError(fmt.Sprintf(errFmt, maxWait), err)
+	}
+	return
 }
 
 func (db *DynamoDb) updateTimeToLive(
