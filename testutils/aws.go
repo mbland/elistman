@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/smithy-go"
+	"gotest.tools/assert"
 )
 
 type EndpointResolver struct {
@@ -73,4 +75,9 @@ func AwsConfig() (*aws.Config, *EndpointResolver, error) {
 
 func AwsServerError(msg string) error {
 	return &smithy.GenericAPIError{Message: msg, Fault: smithy.FaultServer}
+}
+
+func AssertAwsStringEqual(t *testing.T, expected string, actual *string) {
+	t.Helper()
+	assert.Equal(t, expected, aws.ToString(actual))
 }

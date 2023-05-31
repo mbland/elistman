@@ -13,14 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testdata"
-	"github.com/mbland/elistman/testutils"
+	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
 
 func checkIsExternalError(t *testing.T, err error) {
 	t.Helper()
-	assert.Check(t, testutils.ErrorIs(err, ops.ErrExternal))
+	assert.Check(t, tu.ErrorIs(err, ops.ErrExternal))
 }
 
 func TestDynamodDbMethodsReturnExternalErrorsAsAppropriate(t *testing.T) {
@@ -176,13 +176,6 @@ func TestCreateSubscribersTable(t *testing.T) {
 		return
 	}
 
-	assertAwsStringEqual := func(
-		t *testing.T, expected string, actual *string,
-	) {
-		t.Helper()
-		assert.Equal(t, expected, aws.ToString(actual))
-	}
-
 	const createTableErrPrefix = "failed to create " +
 		"subscribers table \"subscribers\": "
 
@@ -191,7 +184,7 @@ func TestCreateSubscribersTable(t *testing.T) {
 	) {
 		t.Helper()
 
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+		assert.Assert(t, tu.ErrorIs(err, ops.ErrExternal))
 
 		if len(opPrefix) != 0 {
 			opPrefix += ": "
@@ -220,11 +213,11 @@ func TestCreateSubscribersTable(t *testing.T) {
 
 		assert.NilError(t, err)
 		tableName := dyndb.TableName
-		assertAwsStringEqual(t, tableName, client.CreateTableInput.TableName)
-		assertAwsStringEqual(t, tableName, client.CreateTableInput.TableName)
-		assertAwsStringEqual(t, tableName, client.UpdateTtlInput.TableName)
+		tu.AssertAwsStringEqual(t, tableName, client.CreateTableInput.TableName)
+		tu.AssertAwsStringEqual(t, tableName, client.CreateTableInput.TableName)
+		tu.AssertAwsStringEqual(t, tableName, client.UpdateTtlInput.TableName)
 		ttlSpec := client.UpdateTtlInput.TimeToLiveSpecification
-		assertAwsStringEqual(
+		tu.AssertAwsStringEqual(
 			t, string(SubscriberPending), ttlSpec.AttributeName,
 		)
 		assert.Assert(t, aws.ToBool(ttlSpec.Enabled) == true)
@@ -332,7 +325,7 @@ func TestProcessSubscribers(t *testing.T) {
 			err := dynDb.ProcessSubscribers(ctx, SubscriberVerified, f)
 
 			assert.ErrorContains(t, err, "scanning error")
-			assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+			assert.Assert(t, tu.ErrorIs(err, ops.ErrExternal))
 		})
 
 		t.Run("IfParseSubscriberFails", func(t *testing.T) {
@@ -349,7 +342,7 @@ func TestProcessSubscribers(t *testing.T) {
 			expectedErr := "failed to parse subscriber: " +
 				"failed to parse 'uid' from: "
 			assert.ErrorContains(t, err, expectedErr)
-			assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
+			assert.Assert(t, tu.ErrorIsNot(err, ops.ErrExternal))
 		})
 	})
 }
