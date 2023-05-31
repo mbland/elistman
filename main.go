@@ -3,8 +3,14 @@
 
 package main
 
-import "github.com/mbland/elistman/cmd"
+import (
+	"os"
+
+	"github.com/mbland/elistman/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
