@@ -169,7 +169,7 @@ func TestDynamoDb(t *testing.T) {
 	t.Run("CreateTableFailsIfTableExists", func(t *testing.T) {
 		err := testDb.createTable(ctx)
 
-		expected := "failed to create db table " + testDb.TableName + ": "
+		expected := "operation error DynamoDB: CreateTable"
 		assert.ErrorContains(t, err, expected)
 		assert.Assert(t, testutils.ErrorIsNot(err, ops.ErrExternal))
 	})

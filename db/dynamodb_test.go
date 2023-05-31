@@ -369,6 +369,36 @@ func TestCreateSubscribersTable(t *testing.T) {
 		assert.Equal(t, expected, aws.ToString(actual))
 	}
 
+	const createTableErrPrefix = "failed to create " +
+		"subscribers table \"subscribers\": "
+
+	assertExternalErrorContains := func(
+		t *testing.T, err error, opPrefix, msg string,
+	) {
+		t.Helper()
+
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+
+		if len(opPrefix) != 0 {
+			opPrefix += ": "
+		}
+		const errFmt = createTableErrPrefix + "%s%s: api error : %s"
+		expected := fmt.Sprintf(errFmt, opPrefix, ops.ErrExternal, msg)
+		assert.ErrorContains(t, err, expected)
+	}
+
+	assertErrorContains := func(
+		t *testing.T, err error, opPrefix, msg string,
+	) {
+		t.Helper()
+
+		if len(opPrefix) != 0 {
+			opPrefix += ": "
+		}
+		expected := fmt.Sprintf(createTableErrPrefix+"%s%s", opPrefix, msg)
+		assert.ErrorContains(t, err, expected)
+	}
+
 	t.Run("Succeeds", func(t *testing.T) {
 		dyndb, client := setup()
 
@@ -392,8 +422,7 @@ func TestCreateSubscribersTable(t *testing.T) {
 
 		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
 
-		checkIsExternalError(t, err)
-		assert.ErrorContains(t, err, "create table failed")
+		assertExternalErrorContains(t, err, "", "create table failed")
 	})
 
 	t.Run("FailsIfWaitForTableFails", func(t *testing.T) {
@@ -405,7 +434,7 @@ func TestCreateSubscribersTable(t *testing.T) {
 		// Because WaitForTable uses dynamodb.TableExistsWaiter, it won't pass
 		// through the DescribeTable error or its message. It will just fail.
 		const errFmt = "failed waiting for table to become active after %s"
-		assert.ErrorContains(t, err, fmt.Sprintf(errFmt, time.Nanosecond))
+		assertErrorContains(t, err, fmt.Sprintf(errFmt, time.Nanosecond), "")
 	})
 
 	t.Run("FailsIfUpdateTimeToLiveFails", func(t *testing.T) {
@@ -414,8 +443,8 @@ func TestCreateSubscribersTable(t *testing.T) {
 
 		err := dyndb.CreateSubscribersTable(ctx, time.Nanosecond)
 
-		checkIsExternalError(t, err)
-		assert.ErrorContains(t, err, "update TTL failed")
+		const opPrefix = "failed to update Time To Live"
+		assertExternalErrorContains(t, err, opPrefix, "update TTL failed")
 	})
 }
 
