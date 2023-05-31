@@ -52,9 +52,9 @@ func TestIsSuppressed(t *testing.T) {
 		verdict, err := suppressor.IsSuppressed(ctx, "foo@bar.com")
 
 		assert.Assert(t, verdict == false)
-		const expectedErr = "external error: " +
-			"unexpected error while checking if foo@bar.com suppressed: " +
-			"api error : not a 404"
+		const expectedErr = "unexpected error " +
+			"while checking if foo@bar.com suppressed: " +
+			"external error: api error : not a 404"
 		assert.ErrorContains(t, err, expectedErr)
 		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})

@@ -496,7 +496,7 @@ func TestCheckMailHosts(t *testing.T) {
 
 		expected := []string{
 			"no valid MX hosts for bar.com: no records for mx1.mail.bar.com",
-			"external error: suppression failed: api error : server error",
+			"suppression failed: external error: api error : server error",
 		}
 		assert.ErrorContains(t, err, strings.Join(expected, "\n"))
 		assertExternalError(t, err)

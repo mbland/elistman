@@ -16,7 +16,7 @@ func AwsError(prefix string, err error) error {
 	var apiErr smithy.APIError
 
 	if errors.As(err, &apiErr) && apiErr.ErrorFault() == smithy.FaultServer {
-		return fmt.Errorf("%w: %s: %s", ErrExternal, prefix, err)
+		return fmt.Errorf("%s: %w: %s", prefix, ErrExternal, err)
 	}
 	return fmt.Errorf("%s: %s", prefix, err)
 }

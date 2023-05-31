@@ -40,7 +40,7 @@ func TestAwsError(t *testing.T) {
 		err := AwsError("test prefix", apiErr)
 
 		expected := fmt.Sprintf(
-			"%s: test prefix: api error : Definitely a server error",
+			"test prefix: %s: api error : Definitely a server error",
 			ErrExternal,
 		)
 		assert.Error(t, err, expected)
