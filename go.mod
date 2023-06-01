@@ -14,13 +14,13 @@ require (
 	github.com/aws/smithy-go v1.13.5
 	github.com/google/uuid v1.3.0
 	github.com/spf13/cobra v1.7.0
-	golang.org/x/tools v0.9.1
+	golang.org/x/tools v0.9.3
 	gotest.tools v2.2.0+incompatible
 	honnef.co/go/tools v0.4.3
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/BurntSushi/toml v1.3.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.33 // indirect
