@@ -46,11 +46,7 @@ func TestPreview(t *testing.T) {
 		cmd, stdout, stderr := setup()
 		cmd.SetIn(strings.NewReader("not a JSON message object"))
 
-		err := cmd.Execute()
-
-		assert.Equal(t, "", stdout.String())
 		const expectedMsg = "failed to parse message input from JSON: "
-		assert.ErrorContains(t, err, expectedMsg)
-		assert.Assert(t, is.Contains(stderr.String(), expectedMsg))
+		AssertExecuteError(t, cmd, stdout, stderr, expectedMsg)
 	})
 }

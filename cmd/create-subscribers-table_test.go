@@ -47,10 +47,6 @@ func TestCreateSubscribersTable(t *testing.T) {
 		cmd, stdout, stderr, client := setup()
 		client.SetCreateTableError("create table test error")
 
-		err := cmd.Execute()
-
-		assert.ErrorContains(t, err, "create table test error")
-		assert.Equal(t, "", stdout.String())
-		assert.Equal(t, fmt.Sprintf("Error: %s\n", err), stderr.String())
+		AssertExecuteError(t, cmd, stdout, stderr, "create table test error")
 	})
 }
