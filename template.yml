@@ -262,7 +262,10 @@ Resources:
 
 Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  EListManApi:
+  EListManStack:
+    Description: "Name of this EListMan instance's CloudFormation stack"
+    Value: !Sub "${AWS::StackName}"
+  ApiRootUrl:
     Description: "Root URL for the EListMan API Gateway endpoint"
     Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
   Function:
@@ -272,5 +275,5 @@ Outputs:
     Description: "Implicit IAM Role created for EListMan function"
     Value: !GetAtt FunctionRole.Arn
   SenderEmailAddress:
-    Description: "Sender email address"
+    Description: "Sender address for EListMan verification emails"
     Value: !Sub "${SenderName} <${SenderUserName}@${EmailDomainName}>"
