@@ -13,18 +13,12 @@ import (
 )
 
 func TestPreview(t *testing.T) {
-	setup := func() (stdout, stderr *strings.Builder, cmd *cobra.Command) {
-		stdout = &strings.Builder{}
-		stderr = &strings.Builder{}
-		cmd = newPreviewCommand()
-		cmd.SetArgs([]string{})
-		cmd.SetOut(stdout)
-		cmd.SetErr(stderr)
-		return
+	setup := func() (cmd *cobra.Command, stdout, stderr *strings.Builder) {
+		return SetupCommandForTesting(newPreviewCommand())
 	}
 
 	t.Run("SucceedsWithExample", func(t *testing.T) {
-		stdout, stderr, cmd := setup()
+		cmd, stdout, stderr := setup()
 		cmd.SetArgs([]string{"--example"})
 
 		err := cmd.Execute()
@@ -36,7 +30,7 @@ func TestPreview(t *testing.T) {
 	})
 
 	t.Run("SucceedsWithStandardInput", func(t *testing.T) {
-		stdout, stderr, cmd := setup()
+		cmd, stdout, stderr := setup()
 		cmd.SetIn(strings.NewReader(strings.ReplaceAll(
 			email.ExampleMessageJson, "Hello, World!", "Hola, Mundo!",
 		)))
@@ -49,7 +43,7 @@ func TestPreview(t *testing.T) {
 	})
 
 	t.Run("PassesThroughParseError", func(t *testing.T) {
-		stdout, stderr, cmd := setup()
+		cmd, stdout, stderr := setup()
 		cmd.SetIn(strings.NewReader("not a JSON message object"))
 
 		err := cmd.Execute()

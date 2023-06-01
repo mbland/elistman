@@ -16,25 +16,23 @@ func TestCreateSubscribersTable(t *testing.T) {
 	const TableName = "elistman-subscribers"
 
 	setup := func() (
-		client *db.TestDynamoDbClient,
 		cmd *cobra.Command,
 		stdout *strings.Builder,
 		stderr *strings.Builder,
+		client *db.TestDynamoDbClient,
 	) {
 		client = db.NewTestDynamoDbClient()
-		cmd = newCreateSubscribersTableCmd(func(tableName string) *db.DynamoDb {
-			return &db.DynamoDb{Client: client, TableName: tableName}
-		})
-		stdout = &strings.Builder{}
-		cmd.SetOut(stdout)
-		stderr = &strings.Builder{}
-		cmd.SetErr(stderr)
-		cmd.SetArgs([]string{TableName})
+		cmd, stdout, stderr = SetupCommandForTesting(
+			newCreateSubscribersTableCmd(func(tableName string) *db.DynamoDb {
+				return &db.DynamoDb{Client: client, TableName: tableName}
+			}),
+		)
+		cmd.SetArgs([]string{"elistman-subscribers"})
 		return
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		_, cmd, stdout, stderr := setup()
+		cmd, stdout, stderr, _ := setup()
 
 		err := cmd.Execute()
 
@@ -46,7 +44,7 @@ func TestCreateSubscribersTable(t *testing.T) {
 	})
 
 	t.Run("FailsOnDynamodDbClientError", func(t *testing.T) {
-		client, cmd, stdout, stderr := setup()
+		cmd, stdout, stderr, client := setup()
 		client.SetCreateTableError("create table test error")
 
 		err := cmd.Execute()
