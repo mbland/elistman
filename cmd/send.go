@@ -43,6 +43,14 @@ func newSendCmd(newLambdaClient LambdaClientFactoryFunc) *cobra.Command {
 	}
 }
 
+func mustMarshal(obj any, errPrefix string) (payload []byte) {
+	var err error
+	if payload, err = json.Marshal(obj); err != nil {
+		panic(errPrefix + ": " + err.Error())
+	}
+	return
+}
+
 func sendMessage(
 	cmd *cobra.Command, client LambdaClient, lambdaArn string,
 ) (err error) {
@@ -54,11 +62,7 @@ func sendMessage(
 	}
 
 	evt := email.SendEvent{Message: *msg}
-	var payload []byte
-
-	if payload, err = json.Marshal(&evt); err != nil {
-		return fmt.Errorf("error creating Lambda payload: %s", err)
-	}
+	payload := mustMarshal(&evt, "error creating Lambda payload")
 
 	input := &lambda.InvokeInput{
 		FunctionName: aws.String(lambdaArn),
