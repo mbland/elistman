@@ -7,46 +7,36 @@ import (
 	"testing"
 
 	"github.com/mbland/elistman/email"
-	"github.com/spf13/cobra"
 	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
 )
 
 func TestPreview(t *testing.T) {
-	setup := func() (cmd *cobra.Command, stdout, stderr *strings.Builder) {
-		return SetupCommandForTesting(newPreviewCommand())
+	setup := func() *CommandTestFixture {
+		return NewCommandTestFixture(newPreviewCommand())
 	}
 
 	t.Run("SucceedsWithExample", func(t *testing.T) {
-		cmd, stdout, stderr := setup()
-		cmd.SetArgs([]string{"--example"})
+		f := setup()
+		f.Cmd.SetArgs([]string{"--example"})
 
-		err := cmd.Execute()
-
-		assert.NilError(t, err)
-		assert.Assert(t, cmd.SilenceUsage == true)
-		assert.Equal(t, "", stderr.String())
-		assert.Assert(t, is.Contains(stdout.String(), "Hello, World!"))
+		f.ExecuteAndAssertStdoutContains(t, "Hello, World!")
+		assert.Assert(t, f.Cmd.SilenceUsage == true)
 	})
 
 	t.Run("SucceedsWithStandardInput", func(t *testing.T) {
-		cmd, stdout, stderr := setup()
-		cmd.SetIn(strings.NewReader(strings.ReplaceAll(
+		f := setup()
+		f.Cmd.SetIn(strings.NewReader(strings.ReplaceAll(
 			email.ExampleMessageJson, "Hello, World!", "Hola, Mundo!",
 		)))
 
-		err := cmd.Execute()
-
-		assert.NilError(t, err)
-		assert.Equal(t, "", stderr.String())
-		assert.Assert(t, is.Contains(stdout.String(), "Hola, Mundo!"))
+		f.ExecuteAndAssertStdoutContains(t, "Hola, Mundo!")
 	})
 
 	t.Run("PassesThroughParseError", func(t *testing.T) {
-		cmd, stdout, stderr := setup()
-		cmd.SetIn(strings.NewReader("not a JSON message object"))
+		f := setup()
+		f.Cmd.SetIn(strings.NewReader("not a JSON message object"))
 
 		const expectedMsg = "failed to parse message input from JSON: "
-		AssertExecuteError(t, cmd, stdout, stderr, expectedMsg)
+		f.ExecuteAndAssertErrorContains(t, expectedMsg)
 	})
 }
