@@ -11,7 +11,6 @@ on:
 
 env:
   SAM_TEMPLATE: template.yml
-  DEV_STACK_NAME: elistman-dev
   DEV_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-pipe-PipelineExecutionRole-J2LGXGU6FKGQ
   DEV_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-p-CloudFormationExecutionR-11UYGVKBD8Y55
   DEV_ARTIFACTS_BUCKET: aws-sam-cli-managed-dev-pipeline-artifactsbucket-1vfto7gbbtkx4
@@ -20,7 +19,6 @@ env:
   # testing "sam package" and "sam deploy" commands.
   # DEV_IMAGE_REPOSITORY = '0123456789.dkr.ecr.region.amazonaws.com/repository-name'
   DEV_REGION: us-east-1
-  PROD_STACK_NAME: elistman-prod
   PROD_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-prod-pip-PipelineExecutionRole-XHO6D5U48XQ5
   PROD_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-prod-CloudFormationExecutionR-1038CJYRMPFSZ
   PROD_ARTIFACTS_BUCKET: aws-sam-cli-managed-prod-pipeline-artifactsbucket-rjp2ckr5021b
@@ -99,8 +97,8 @@ jobs:
           tr -d '\r' > .env <<EOF
           ${{ vars.DEV_ENV_FILE }}
           EOF
-          ./bin/sam-with-env.sh .env deploy \
-            --stack-name $(echo ${GITHUB_REF##*/} | tr -cd '[a-zA-Z0-9-]') \
+          STACK_NAME="$(echo ${GITHUB_REF##*/} | tr -cd '[a-zA-Z0-9-]')" \
+            ./bin/sam-with-env.sh .env deploy \
             --capabilities CAPABILITY_IAM \
             --region ${DEV_REGION} \
             --s3-bucket ${DEV_ARTIFACTS_BUCKET} \
@@ -204,7 +202,7 @@ jobs:
           tr -d '\r' > .env <<EOF
           ${{ vars.DEV_ENV_FILE }}
           EOF
-          ./bin/sam-with-env.sh .env deploy --stack-name ${DEV_STACK_NAME} \
+          ./bin/sam-with-env.sh .env deploy \
             --template packaged-testing.yaml \
             --capabilities CAPABILITY_IAM \
             --region ${DEV_REGION} \
@@ -258,7 +256,7 @@ jobs:
           tr -d '\r' > .env <<EOF
           ${{ vars.PROD_ENV_FILE }}
           EOF
-          ./bin/sam-with-env.sh .env deploy --stack-name ${PROD_STACK_NAME} \
+          ./bin/sam-with-env.sh .env deploy \
             --template packaged-prod.yaml \
             --capabilities CAPABILITY_IAM \
             --region ${PROD_REGION} \
