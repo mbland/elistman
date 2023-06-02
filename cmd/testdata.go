@@ -4,7 +4,7 @@ package cmd
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
 const (
@@ -13,9 +13,9 @@ const (
 		"elistman-dev-Function-0123456789"
 )
 
-var TestStack types.Stack = types.Stack{
+var TestStack cftypes.Stack = cftypes.Stack{
 	StackName: aws.String(TestStackName),
-	Outputs: []types.Output{
+	Outputs: []cftypes.Output{
 		{
 			OutputKey:   aws.String(FunctionArnKey),
 			OutputValue: aws.String(TestFunctionArn),

@@ -13,7 +13,7 @@ const elistmanDescLong = elistmanDesc + "\n\n" +
 	`See the https://github.com/mbland/elistman README for details.
 
 To create a table:
-  elistman create-subscribers-table <TABLE_NAME>
+  elistman create-subscribers-table TABLE_NAME
 
 To see an example of the message input JSON structure:
   elistman preview --help
@@ -22,8 +22,8 @@ To preview a raw message before sending, where ` + "`generate-email`" + ` is any
 program that creates message input JSON:
   generate-email | elistman preview
 
-To send an email to the list, given the ARN of the elistman Lambda function:
-  generate-email | elistman send <LAMBDA_ARN>
+To send an email to the list, given the STACK_NAME of the EListMan instance:
+  generate-email | elistman send STACK_NAME
 `
 
 var rootCmd = &cobra.Command{

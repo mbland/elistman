@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/mbland/elistman/email"
 	tu "github.com/mbland/elistman/testutils"
@@ -58,21 +59,30 @@ func TestMustMarshal(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	setup := func() (f *CommandTestFixture, tlc *TestLambdaClient) {
+	setup := func() (
+		f *CommandTestFixture,
+		cfc *TestCloudFormationClient,
+		tlc *TestLambdaClient,
+	) {
+		cfc = NewTestCloudFormationClient()
+
 		tlc = NewTestLambdaClient()
 		tlc.InvokeOutput.StatusCode = http.StatusOK
 		tlc.InvokeOutput.Payload = []byte(`{"Success": true, "NumSent": 27}`)
 
 		f = NewCommandTestFixture(
-			newSendCmd(func() LambdaClient { return tlc }),
+			newSendCmd(
+				func() CloudFormationClient { return cfc },
+				func() LambdaClient { return tlc },
+			),
 		)
 		f.Cmd.SetIn(strings.NewReader(email.ExampleMessageJson))
-		f.Cmd.SetArgs([]string{TestFunctionArn})
+		f.Cmd.SetArgs([]string{TestStackName})
 		return
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 
 		const expectedOut = "Sent the message successfully to 27 recipients.\n"
 		f.ExecuteAndAssertStdoutContains(t, expectedOut)
@@ -86,15 +96,22 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfCannotParseInput", func(t *testing.T) {
-		f, _ := setup()
+		f, _, _ := setup()
 		f.Cmd.SetIn(strings.NewReader("not a message input"))
 
 		const expectedErr = "failed to parse message input from JSON: "
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
 	})
 
+	t.Run("FailsIfGettingFunctionArnFails", func(t *testing.T) {
+		f, cfc, _ := setup()
+		cfc.DescribeStacksOutput.Stacks = []cftypes.Stack{}
+
+		f.ExecuteAndAssertErrorContains(t, "stack not found: "+TestStackName)
+	})
+
 	t.Run("FailsIfCannotInvokeLambda", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 		tlc.InvokeError = errors.New("invoke failed")
 
 		const expectedErr = "error invoking Lambda function: invoke failed"
@@ -102,7 +119,7 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfStatusCodeIsNotHttp200", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 		tlc.InvokeOutput.StatusCode = http.StatusBadRequest
 
 		expectedErr := "received non-200 response: " +
@@ -111,7 +128,7 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfLambdaReturnedError", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 		tlc.InvokeOutput.FunctionError = aws.String("Lambda error")
 		tlc.InvokeOutput.Payload = []byte("something went wrong")
 
@@ -121,7 +138,7 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfCannotUnmarshalPayload", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 		tlc.InvokeOutput.Payload = []byte("bogus, invalid payload")
 
 		const expectedErr = "failed to unmarshal Lambda response payload: "
@@ -132,7 +149,7 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfSendingFailed", func(t *testing.T) {
-		f, tlc := setup()
+		f, _, tlc := setup()
 		tlc.InvokeOutput.Payload = []byte(
 			`{"Success": false, "NumSent": 9, "Details": "test failure"}`,
 		)

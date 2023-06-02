@@ -4,10 +4,13 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/spf13/cobra"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -51,4 +54,27 @@ func (f *CommandTestFixture) ExecuteAndAssertErrorContains(
 	assert.Equal(t, "", f.Stdout.String())
 	assert.ErrorContains(t, err, expectedErrMsg)
 	assert.Equal(t, fmt.Sprintf("Error: %s\n", err), f.Stderr.String())
+}
+
+type TestCloudFormationClient struct {
+	DescribeStacksInput  *cloudformation.DescribeStacksInput
+	DescribeStacksOutput *cloudformation.DescribeStacksOutput
+	DescribeStacksError  error
+}
+
+func NewTestCloudFormationClient() *TestCloudFormationClient {
+	return &TestCloudFormationClient{
+		DescribeStacksOutput: &cloudformation.DescribeStacksOutput{
+			Stacks: []cftypes.Stack{TestStack},
+		},
+	}
+}
+
+func (cfc *TestCloudFormationClient) DescribeStacks(
+	_ context.Context,
+	input *cloudformation.DescribeStacksInput,
+	_ ...func(*cloudformation.Options),
+) (*cloudformation.DescribeStacksOutput, error) {
+	cfc.DescribeStacksInput = input
+	return cfc.DescribeStacksOutput, cfc.DescribeStacksError
 }

@@ -44,6 +44,12 @@ type CloudFormationClient interface {
 	) (*cloudformation.DescribeStacksOutput, error)
 }
 
+type CloudFormationClientFactoryFunc func() CloudFormationClient
+
+func NewCloudFormationClient() CloudFormationClient {
+	return cloudformation.NewFromConfig(AwsConfig)
+}
+
 func GetLambdaArn(
 	ctx context.Context, cfc CloudFormationClient, stackName string,
 ) (arn string, err error) {

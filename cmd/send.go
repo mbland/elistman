@@ -24,21 +24,25 @@ const sendDescription = `` +
 If the input passes validation, it then sends a copy of the message to each
 mailing list member, customized with their unsubscribe URIs.
 
-It takes one argument, the ARN of the Lambda function to invoke to send the
-message.`
+It takes one argument, the STACK_NAME of the EListMan instance.`
 
 func init() {
-	rootCmd.AddCommand(newSendCmd(NewLambdaClient))
+	rootCmd.AddCommand(newSendCmd(NewCloudFormationClient, NewLambdaClient))
 }
 
-func newSendCmd(newLambdaClient LambdaClientFactoryFunc) *cobra.Command {
+func newSendCmd(
+	newCloudFormationClient CloudFormationClientFactoryFunc,
+	newLambdaClient LambdaClientFactoryFunc,
+) *cobra.Command {
 	return &cobra.Command{
 		Use:   "send",
 		Short: "Send an email message to the mailing list",
 		Long:  sendDescription,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return sendMessage(cmd, newLambdaClient(), args[0])
+			return sendMessage(
+				cmd, newCloudFormationClient(), newLambdaClient(), args[0],
+			)
 		},
 	}
 }
@@ -52,12 +56,19 @@ func mustMarshal(obj any, errPrefix string) (payload []byte) {
 }
 
 func sendMessage(
-	cmd *cobra.Command, client LambdaClient, lambdaArn string,
+	cmd *cobra.Command,
+	cfc CloudFormationClient,
+	lc LambdaClient,
+	stackName string,
 ) (err error) {
 	cmd.SilenceUsage = true
+	ctx := context.Background()
 	var msg *email.Message
+	var lambdaArn string
 
 	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
+		return
+	} else if lambdaArn, err = GetLambdaArn(ctx, cfc, stackName); err != nil {
 		return
 	}
 
@@ -76,7 +87,7 @@ func sendMessage(
 	// https://docs.aws.amazon.com/lambda/latest/dg/invocation-sync.html
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeInput
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeOutput
-	if output, err = client.Invoke(context.Background(), input); err != nil {
+	if output, err = lc.Invoke(ctx, input); err != nil {
 		return fmt.Errorf("error invoking Lambda function: %s", err)
 	} else if output.StatusCode != http.StatusOK {
 		const errFmt = "received non-200 response: %s"

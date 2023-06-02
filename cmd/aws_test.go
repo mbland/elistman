@@ -8,35 +8,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
-
-type TestCloudFormationClient struct {
-	DescribeStacksInput  *cloudformation.DescribeStacksInput
-	DescribeStacksOutput *cloudformation.DescribeStacksOutput
-	DescribeStacksError  error
-}
-
-func NewTestCloudFormationClient() *TestCloudFormationClient {
-	return &TestCloudFormationClient{
-		DescribeStacksOutput: &cloudformation.DescribeStacksOutput{
-			Stacks: []types.Stack{TestStack},
-		},
-	}
-}
-
-func (cfc *TestCloudFormationClient) DescribeStacks(
-	_ context.Context,
-	input *cloudformation.DescribeStacksInput,
-	_ ...func(*cloudformation.Options),
-) (*cloudformation.DescribeStacksOutput, error) {
-	cfc.DescribeStacksInput = input
-	return cfc.DescribeStacksOutput, cfc.DescribeStacksError
-}
 
 // See the comment for TestLoadDefaultAwsConfig/SucceedsIfValidConfigIsAvailable
 // for an explanation of why it's good to label this a small test, even though
@@ -44,6 +21,7 @@ func (cfc *TestCloudFormationClient) DescribeStacks(
 func TestAwsFactoryFunctions(t *testing.T) {
 	assert.Assert(t, NewDynamoDb("imaginary-test-table") != nil)
 	assert.Assert(t, NewLambdaClient() != nil)
+	assert.Assert(t, NewCloudFormationClient() != nil)
 }
 
 func TestGetLambdaArn(t *testing.T) {
