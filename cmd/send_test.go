@@ -58,9 +58,6 @@ func TestMustMarshal(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	const TestFunctionArn = "arn:aws:lambda:us-east-1:0123456789:function:" +
-		"elistman-dev-Function-0123456789"
-
 	setup := func() (f *CommandTestFixture, tlc *TestLambdaClient) {
 		tlc = NewTestLambdaClient()
 		tlc.InvokeOutput.StatusCode = http.StatusOK

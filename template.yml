@@ -265,7 +265,7 @@ Outputs:
   ApiRootUrl:
     Description: "Root URL for the EListMan API Gateway endpoint"
     Value: !Sub "https://${ApiDomainName}/${ApiMappingKey}"
-  Function:
+  EListManFunctionArn:
     Description: "EListMan Lambda function ARN"
     Value: !GetAtt Function.Arn
   IamRole:
