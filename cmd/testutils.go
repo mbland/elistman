@@ -46,14 +46,16 @@ func (f *CommandTestFixture) ExecuteAndAssertStdoutContains(
 }
 
 func (f *CommandTestFixture) ExecuteAndAssertErrorContains(
-	t *testing.T, expectedErrMsg string) {
+	t *testing.T, expectedErrMsg string,
+) (err error) {
 	t.Helper()
 
-	err := f.Cmd.Execute()
+	err = f.Cmd.Execute()
 
 	assert.Equal(t, "", f.Stdout.String())
 	assert.ErrorContains(t, err, expectedErrMsg)
 	assert.Equal(t, fmt.Sprintf("Error: %s\n", err), f.Stderr.String())
+	return
 }
 
 type TestCloudFormationClient struct {

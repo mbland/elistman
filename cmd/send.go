@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/mbland/elistman/email"
@@ -41,14 +40,6 @@ func newSendCmd(
 			)
 		},
 	}
-}
-
-func mustMarshal(obj any, errPrefix string) (payload []byte) {
-	var err error
-	if payload, err = json.Marshal(obj); err != nil {
-		panic(errPrefix + ": " + err.Error())
-	}
-	return
 }
 
 func sendMessage(
