@@ -37,4 +37,5 @@ PARAMETER_OVERRIDES=(
 )
 
 export SAM_CLI_TELEMETRY=0
-exec sam "${@}" --parameter-overrides "${PARAMETER_OVERRIDES[*]}"
+exec sam "${@}" --stack-name "${STACK_NAME:?}" \
+    --parameter-overrides "${PARAMETER_OVERRIDES[*]}"

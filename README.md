@@ -303,6 +303,7 @@ Create a `deploy.env` file in the root directory containing the following
 environment variables (replacing each value with your own as appropriate):
 
 ```sh
+STACK_NAME="mike-blands-blog-example"
 API_DOMAIN_NAME="api.mike-bland.com"
 API_MAPPING_KEY="email"
 EMAIL_DOMAIN_NAME="mike-bland.com"
