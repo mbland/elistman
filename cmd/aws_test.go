@@ -26,6 +26,36 @@ func TestAwsFactoryFunctions(t *testing.T) {
 	assert.Assert(t, NewCloudFormationClient() != nil)
 }
 
+func TestNewLambdaFactoryFunc(t *testing.T) {
+	setup := func() (
+		cfc *TestCloudFormationClient,
+		newLambda EListManFactoryFunc,
+	) {
+		cfc = NewTestCloudFormationClient()
+		newLambda = NewLambdaFactoryFunc(
+			func() CloudFormationClient { return cfc },
+			func() LambdaClient { return NewTestLambdaClient() },
+		)
+		return
+	}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		_, newLambda := setup()
+
+		assert.Assert(t, newLambda(TestStackName) != nil)
+	})
+
+	t.Run("PanicsIfNewLambdaFails", func(t *testing.T) {
+		cfc, newLambda := setup()
+		cfc.DescribeStacksOutput.Stacks = []cftypes.Stack{}
+		const expectedMsg = "could not create Lambda: stack not found: " +
+			TestStackName
+		defer testutils.ExpectPanic(t, expectedMsg)
+
+		_ = newLambda(TestStackName)
+	})
+}
+
 func TestGetLambdaArn(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		cfc := NewTestCloudFormationClient()

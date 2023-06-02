@@ -53,6 +53,27 @@ func NewCloudFormationClient() CloudFormationClient {
 	return cloudformation.NewFromConfig(AwsConfig)
 }
 
+type EListManFunc interface {
+	Invoke(ctx context.Context, request, response any) error
+}
+
+type EListManFactoryFunc func(stackName string) EListManFunc
+
+func NewLambdaFactoryFunc(
+	newCfc CloudFormationClientFactoryFunc, newLc LambdaClientFactoryFunc,
+) EListManFactoryFunc {
+	return func(stackName string) (lambda EListManFunc) {
+		ctx := context.Background()
+		var err error
+
+		lambda, err = NewLambda(ctx, newCfc(), newLc(), stackName)
+		if err != nil {
+			panic(err.Error())
+		}
+		return
+	}
+}
+
 type Lambda struct {
 	Client LambdaClient
 	Arn    string
