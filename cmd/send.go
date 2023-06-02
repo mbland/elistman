@@ -22,7 +22,7 @@ mailing list member, customized with their unsubscribe URIs.
 It takes one argument, the STACK_NAME of the EListMan instance.`
 
 func init() {
-	rootCmd.AddCommand(newSendCmd(NewEListManFunc))
+	rootCmd.AddCommand(newSendCmd(NewEListManLambda))
 }
 
 func newSendCmd(newFunc EListManFactoryFunc) *cobra.Command {
@@ -31,21 +31,26 @@ func newSendCmd(newFunc EListManFactoryFunc) *cobra.Command {
 		Short: "Send an email message to the mailing list",
 		Long:  sendDescription,
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return sendMessage(cmd, newFunc(args[0]))
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			return sendMessage(cmd, newFunc, args[0])
 		},
 	}
 }
 
-func sendMessage(cmd *cobra.Command, elistmanFunc EListManFunc) (err error) {
+func sendMessage(
+	cmd *cobra.Command, newFunc EListManFactoryFunc, stackName string,
+) (err error) {
 	cmd.SilenceUsage = true
-	ctx := context.Background()
 	var msg *email.Message
+	var elistmanFunc EListManFunc
 
 	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
 		return
+	} else if elistmanFunc, err = newFunc(stackName); err != nil {
+		return
 	}
 
+	ctx := context.Background()
 	evt := &email.SendEvent{Message: *msg}
 	var response email.SendResponse
 

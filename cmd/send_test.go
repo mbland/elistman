@@ -14,15 +14,12 @@ import (
 )
 
 func TestSend(t *testing.T) {
-	setup := func() (
-		f *CommandTestFixture,
-		lambda *TestEListManFunc,
-	) {
+	setup := func() (f *CommandTestFixture, lambda *TestEListManFunc) {
 		lambda = &TestEListManFunc{InvokeResJson: []byte{}}
 		f = NewCommandTestFixture(
-			newSendCmd(func(stackName string) EListManFunc {
+			newSendCmd(func(stackName string) (EListManFunc, error) {
 				lambda.StackName = stackName
-				return lambda
+				return lambda, lambda.CreateFuncError
 			}),
 		)
 		f.Cmd.SetIn(strings.NewReader(email.ExampleMessageJson))
@@ -51,6 +48,16 @@ func TestSend(t *testing.T) {
 
 		const expectedErr = "failed to parse message input from JSON: "
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
+	})
+
+	t.Run("FailsIfCreatingLambdaFails", func(t *testing.T) {
+		f, lambda := setup()
+		const errFmt = "%w: creating lambda failed"
+		lambda.CreateFuncError = fmt.Errorf(errFmt, ops.ErrExternal)
+
+		err := f.ExecuteAndAssertErrorContains(t, "creating lambda failed")
+
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 	})
 
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {

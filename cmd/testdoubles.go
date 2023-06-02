@@ -27,10 +27,11 @@ func (tlc *TestLambdaClient) Invoke(
 }
 
 type TestEListManFunc struct {
-	StackName     string
-	InvokeReq     any
-	InvokeResJson []byte
-	InvokeError   error
+	StackName       string
+	CreateFuncError error
+	InvokeReq       any
+	InvokeResJson   []byte
+	InvokeError     error
 }
 
 func (l *TestEListManFunc) Invoke(_ context.Context, req, res any) error {

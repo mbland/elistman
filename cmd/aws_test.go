@@ -24,36 +24,12 @@ func TestAwsFactoryFunctions(t *testing.T) {
 	assert.Assert(t, NewDynamoDb("imaginary-test-table") != nil)
 	assert.Assert(t, NewLambdaClient() != nil)
 	assert.Assert(t, NewCloudFormationClient() != nil)
-}
 
-func TestNewLambdaFactoryFunc(t *testing.T) {
-	setup := func() (
-		cfc *TestCloudFormationClient,
-		newLambda EListManFactoryFunc,
-	) {
-		cfc = NewTestCloudFormationClient()
-		newLambda = NewLambdaFactoryFunc(
-			func() CloudFormationClient { return cfc },
-			func() LambdaClient { return NewTestLambdaClient() },
-		)
-		return
-	}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		_, newLambda := setup()
-
-		assert.Assert(t, newLambda(TestStackName) != nil)
-	})
-
-	t.Run("PanicsIfNewLambdaFails", func(t *testing.T) {
-		cfc, newLambda := setup()
-		cfc.DescribeStacksOutput.Stacks = []cftypes.Stack{}
-		const expectedMsg = "could not create Lambda: stack not found: " +
-			TestStackName
-		defer testutils.ExpectPanic(t, expectedMsg)
-
-		_ = newLambda(TestStackName)
-	})
+	elistmanFunc, err := NewEListManLambda("totally-bogus-stack")
+	assert.Assert(t, is.Nil(elistmanFunc))
+	const expectedLambdaErr = "could not create Lambda: " +
+		"failed to get Lambda ARN for totally-bogus-stack: "
+	assert.ErrorContains(t, err, expectedLambdaErr)
 }
 
 func TestGetLambdaArn(t *testing.T) {
