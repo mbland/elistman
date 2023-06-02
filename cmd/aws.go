@@ -119,15 +119,9 @@ func GetLambdaArn(
 func (l *Lambda) Invoke(
 	ctx context.Context, request, response any,
 ) (err error) {
-	var payloadJson []byte
-	if payloadJson, err = json.Marshal(request); err != nil {
-		return fmt.Errorf("failed to marshal Lambda request payload: %w", err)
-	}
-
 	input := &lambda.InvokeInput{
 		FunctionName: aws.String(l.Arn),
 		LogType:      ltypes.LogTypeTail,
-		Payload:      payloadJson,
 	}
 	var output *lambda.InvokeOutput
 
@@ -135,7 +129,9 @@ func (l *Lambda) Invoke(
 	// https://docs.aws.amazon.com/lambda/latest/dg/invocation-sync.html
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeInput
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeOutput
-	if output, err = l.Client.Invoke(ctx, input); err != nil {
+	if input.Payload, err = json.Marshal(request); err != nil {
+		return fmt.Errorf("failed to marshal Lambda request payload: %w", err)
+	} else if output, err = l.Client.Invoke(ctx, input); err != nil {
 		return ops.AwsError("error invoking Lambda function", err)
 	} else if output.StatusCode != http.StatusOK {
 		const errFmt = "received non-200 response from Lambda invocation: %s"
