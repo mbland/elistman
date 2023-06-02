@@ -7,11 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	ltypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/mbland/elistman/email"
 	"github.com/spf13/cobra"
 )
@@ -64,41 +60,19 @@ func sendMessage(
 	cmd.SilenceUsage = true
 	ctx := context.Background()
 	var msg *email.Message
-	var lambdaArn string
+	var lambda *Lambda
 
 	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
 		return
-	} else if lambdaArn, err = GetLambdaArn(ctx, cfc, stackName); err != nil {
+	} else if lambda, err = NewLambda(ctx, cfc, lc, stackName); err != nil {
 		return
 	}
 
 	evt := email.SendEvent{Message: *msg}
-	payload := mustMarshal(&evt, "error creating Lambda payload")
-
-	input := &lambda.InvokeInput{
-		FunctionName: aws.String(lambdaArn),
-		LogType:      ltypes.LogTypeTail,
-		Payload:      payload,
-	}
-	var output *lambda.InvokeOutput
 	var response email.SendResponse
 
-	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#Client.Invoke
-	// https://docs.aws.amazon.com/lambda/latest/dg/invocation-sync.html
-	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeInput
-	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/lambda#InvokeOutput
-	if output, err = lc.Invoke(ctx, input); err != nil {
-		return fmt.Errorf("error invoking Lambda function: %s", err)
-	} else if output.StatusCode != http.StatusOK {
-		const errFmt = "received non-200 response: %s"
-		return fmt.Errorf(errFmt, http.StatusText(int(output.StatusCode)))
-	} else if output.FunctionError != nil {
-		const errFmt = "error executing Lambda function: %s: %s"
-		funcErr := aws.ToString(output.FunctionError)
-		return fmt.Errorf(errFmt, funcErr, string(output.Payload))
-	} else if err = json.Unmarshal(output.Payload, &response); err != nil {
-		const errFmt = "failed to unmarshal Lambda response payload: %s: %s"
-		return fmt.Errorf(errFmt, err, string(output.Payload))
+	if err = lambda.Invoke(ctx, &evt, &response); err != nil {
+		return fmt.Errorf("sending failed: %w", err)
 	} else if !response.Success {
 		const errFmt = "sending failed after sending to %d recipients: %s"
 		return fmt.Errorf(errFmt, response.NumSent, response.Details)

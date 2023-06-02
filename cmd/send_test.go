@@ -122,7 +122,7 @@ func TestSend(t *testing.T) {
 		f, _, tlc := setup()
 		tlc.InvokeOutput.StatusCode = http.StatusBadRequest
 
-		expectedErr := "received non-200 response: " +
+		expectedErr := "received non-200 response from Lambda invocation: " +
 			http.StatusText(http.StatusBadRequest)
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
 	})
