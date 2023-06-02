@@ -3,36 +3,27 @@
 package cmd
 
 import (
-	"bytes"
-	"net/http"
+	"fmt"
 	"strings"
 	"testing"
 
-	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
-	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
 func TestSend(t *testing.T) {
 	setup := func() (
 		f *CommandTestFixture,
-		cfc *TestCloudFormationClient,
-		tlc *TestLambdaClient,
+		lambda *TestEListManFunc,
 	) {
-		cfc = NewTestCloudFormationClient()
-
-		tlc = NewTestLambdaClient()
-		tlc.InvokeOutput.StatusCode = http.StatusOK
-		tlc.InvokeOutput.Payload = []byte(`{"Success": true, "NumSent": 27}`)
-
+		lambda = &TestEListManFunc{InvokeResJson: []byte{}}
 		f = NewCommandTestFixture(
-			newSendCmd(
-				func() CloudFormationClient { return cfc },
-				func() LambdaClient { return tlc },
-			),
+			newSendCmd(func(stackName string) EListManFunc {
+				lambda.StackName = stackName
+				return lambda
+			}),
 		)
 		f.Cmd.SetIn(strings.NewReader(email.ExampleMessageJson))
 		f.Cmd.SetArgs([]string{TestStackName})
@@ -40,37 +31,31 @@ func TestSend(t *testing.T) {
 	}
 
 	t.Run("Succeeds", func(t *testing.T) {
-		f, _, tlc := setup()
+		f, lambda := setup()
+		lambda.InvokeResJson = []byte(`{"Success": true, "NumSent": 27}`)
 
 		const expectedOut = "Sent the message successfully to 27 recipients.\n"
 		f.ExecuteAndAssertStdoutContains(t, expectedOut)
 
 		assert.Assert(t, f.Cmd.SilenceUsage == true)
-		invokeFunctionName := tlc.InvokeInput.FunctionName
-		tu.AssertAwsStringEqual(t, TestFunctionArn, invokeFunctionName)
-		payload := bytes.NewReader(tlc.InvokeInput.Payload)
-		actualMsg := email.MustParseMessageFromJson(payload)
-		assert.DeepEqual(t, email.ExampleMessage, actualMsg)
+		assert.Equal(t, TestStackName, lambda.StackName)
+		req, isSendEvent := lambda.InvokeReq.(*email.SendEvent)
+		assert.Assert(t, isSendEvent == true)
+		expectedReq := &email.SendEvent{Message: *email.ExampleMessage}
+		assert.DeepEqual(t, expectedReq, req)
 	})
 
 	t.Run("FailsIfCannotParseInput", func(t *testing.T) {
-		f, _, _ := setup()
+		f, _ := setup()
 		f.Cmd.SetIn(strings.NewReader("not a message input"))
 
 		const expectedErr = "failed to parse message input from JSON: "
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
 	})
 
-	t.Run("FailsIfCreatingNewLambdaFails", func(t *testing.T) {
-		f, cfc, _ := setup()
-		cfc.DescribeStacksOutput.Stacks = []cftypes.Stack{}
-
-		f.ExecuteAndAssertErrorContains(t, "stack not found: "+TestStackName)
-	})
-
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
-		f, _, tlc := setup()
-		tlc.InvokeError = testutils.AwsServerError("invoke failed")
+		f, lambda := setup()
+		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
 
 		err := f.ExecuteAndAssertErrorContains(t, "sending failed: ")
 
@@ -79,8 +64,8 @@ func TestSend(t *testing.T) {
 	})
 
 	t.Run("FailsIfSendingFailed", func(t *testing.T) {
-		f, _, tlc := setup()
-		tlc.InvokeOutput.Payload = []byte(
+		f, lambda := setup()
+		lambda.InvokeResJson = []byte(
 			`{"Success": false, "NumSent": 9, "Details": "test failure"}`,
 		)
 

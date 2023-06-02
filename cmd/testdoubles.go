@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 )
@@ -23,4 +24,20 @@ func (tlc *TestLambdaClient) Invoke(
 ) (*lambda.InvokeOutput, error) {
 	tlc.InvokeInput = input
 	return tlc.InvokeOutput, tlc.InvokeError
+}
+
+type TestEListManFunc struct {
+	StackName     string
+	InvokeReq     any
+	InvokeResJson []byte
+	InvokeError   error
+}
+
+func (l *TestEListManFunc) Invoke(_ context.Context, req, res any) error {
+	l.InvokeReq = req
+
+	if l.InvokeError != nil {
+		return l.InvokeError
+	}
+	return json.Unmarshal(l.InvokeResJson, res)
 }

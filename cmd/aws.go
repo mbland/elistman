@@ -74,6 +74,10 @@ func NewLambdaFactoryFunc(
 	}
 }
 
+var NewEListManFunc EListManFactoryFunc = NewLambdaFactoryFunc(
+	NewCloudFormationClient, NewLambdaClient,
+)
+
 type Lambda struct {
 	Client LambdaClient
 	Arn    string
@@ -126,8 +130,7 @@ func GetLambdaArn(
 }
 
 func (l *Lambda) Invoke(
-	ctx context.Context,
-	request, response any,
+	ctx context.Context, request, response any,
 ) (err error) {
 	var payloadJson []byte
 	if payloadJson, err = json.Marshal(request); err != nil {
