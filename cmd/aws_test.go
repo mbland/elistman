@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
@@ -48,7 +47,7 @@ func TestGetLambdaArn(t *testing.T) {
 
 	t.Run("FailsIfStackNotFound", func(t *testing.T) {
 		cfc := NewTestCloudFormationClient()
-		cfc.DescribeStacksOutput.Stacks = []types.Stack{}
+		cfc.DescribeStacksOutput.Stacks = []cftypes.Stack{}
 
 		_, err := GetLambdaArn(context.Background(), cfc, TestStackName)
 
