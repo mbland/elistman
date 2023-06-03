@@ -15,11 +15,11 @@ import (
 
 func TestSendHandlerHandleEvent(t *testing.T) {
 	setup := func() (
-		*sendHandler, *testAgent, *testutils.Logs, context.Context,
+		*cliHandler, *testAgent, *testutils.Logs, context.Context,
 	) {
 		ta := &testAgent{}
 		logs, logger := testutils.NewLogs()
-		return &sendHandler{ta, logger}, ta, logs, context.Background()
+		return &cliHandler{ta, logger}, ta, logs, context.Background()
 	}
 
 	event := &email.SendEvent{Message: *email.ExampleMessage}

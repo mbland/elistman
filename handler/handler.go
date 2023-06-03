@@ -13,7 +13,7 @@ type Handler struct {
 	api    *apiHandler
 	mailto *mailtoHandler
 	sns    *snsHandler
-	send   *sendHandler
+	cli    *cliHandler
 }
 
 func NewHandler(
@@ -39,7 +39,7 @@ func NewHandler(
 		api,
 		&mailtoHandler{emailDomain, unsubAddr, agent, bouncer, logger},
 		&snsHandler{agent, logger},
-		&sendHandler{agent, logger},
+		&cliHandler{agent, logger},
 	}, nil
 }
 
@@ -67,7 +67,7 @@ func (h *Handler) HandleEvent(
 	case SnsEvent:
 		h.sns.HandleEvent(ctx, event.SnsEvent)
 	case SendEvent:
-		result = h.send.HandleEvent(ctx, event.SendEvent)
+		result = h.cli.HandleEvent(ctx, event.SendEvent)
 	case UnknownEvent:
 		// An unknown event is one that Event.UnmarshalJSON knows nothing about.
 		err = fmt.Errorf("unknown event: %s", string(event.Unknown))

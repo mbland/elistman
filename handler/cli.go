@@ -8,12 +8,12 @@ import (
 	"github.com/mbland/elistman/email"
 )
 
-type sendHandler struct {
+type cliHandler struct {
 	Agent agent.SubscriptionAgent
 	Log   *log.Logger
 }
 
-func (h *sendHandler) HandleEvent(
+func (h *cliHandler) HandleEvent(
 	ctx context.Context, e *email.SendEvent,
 ) (res *email.SendResponse) {
 	res = &email.SendResponse{}
