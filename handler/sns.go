@@ -7,8 +7,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/aws/aws-lambda-go/events"
+	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/agent"
+	"github.com/mbland/elistman/events"
 )
 
 type snsHandler struct {
@@ -18,7 +19,7 @@ type snsHandler struct {
 
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
-func (h *snsHandler) HandleEvent(ctx context.Context, e *events.SNSEvent) {
+func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 	for _, snsRecord := range e.Records {
 		msg := snsRecord.SNS.Message
 		if sesHandler, err := newSesEventHandler(h, msg); err != nil {
@@ -36,7 +37,7 @@ type sesEventHandler interface {
 func newSesEventHandler(
 	sns *snsHandler, message string,
 ) (handler sesEventHandler, err error) {
-	origEvent := &SesEventRecord{}
+	origEvent := &events.SesEventRecord{}
 	if jsonErr := json.Unmarshal([]byte(message), origEvent); jsonErr != nil {
 		return nil, jsonErr
 	}

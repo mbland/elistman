@@ -10,7 +10,7 @@
 // - https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html
 // - https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
 
-package handler
+package events
 
 import (
 	"time"

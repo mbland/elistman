@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/aws/aws-lambda-go/events"
+	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/email"
 )
 
@@ -21,9 +21,9 @@ const (
 
 type Event struct {
 	Type        EventType
-	ApiRequest  *events.APIGatewayV2HTTPRequest
-	MailtoEvent *events.SimpleEmailEvent
-	SnsEvent    *events.SNSEvent
+	ApiRequest  *awsevents.APIGatewayV2HTTPRequest
+	MailtoEvent *awsevents.SimpleEmailEvent
+	SnsEvent    *awsevents.SNSEvent
 	SendEvent   *email.SendEvent
 	Unknown     []byte
 }
@@ -37,15 +37,15 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		return nil
 	} else if bytes.Contains(data, []byte(`"rawPath":`)) {
 		event.Type = ApiRequest
-		event.ApiRequest = &events.APIGatewayV2HTTPRequest{}
+		event.ApiRequest = &awsevents.APIGatewayV2HTTPRequest{}
 		return json.Unmarshal(data, event.ApiRequest)
 	} else if bytes.Contains(data, []byte(`"ses":`)) {
 		event.Type = MailtoEvent
-		event.MailtoEvent = &events.SimpleEmailEvent{}
+		event.MailtoEvent = &awsevents.SimpleEmailEvent{}
 		return json.Unmarshal(data, event.MailtoEvent)
 	} else if bytes.Contains(data, []byte(`"Sns":`)) {
 		event.Type = SnsEvent
-		event.SnsEvent = &events.SNSEvent{}
+		event.SnsEvent = &awsevents.SNSEvent{}
 		return json.Unmarshal(data, event.SnsEvent)
 	} else if bytes.Contains(data, []byte(email.UnsubscribeUrlTemplate)) {
 		event.Type = SendEvent

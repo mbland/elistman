@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
+	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -157,12 +158,12 @@ func newHandlerFixture() *handlerFixture {
 	return &handlerFixture{agent, logs, bouncer, handler, ctx, &Event{}}
 }
 
-func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
-	return &events.APIGatewayV2HTTPRequest{
+func apiGatewayRequest(method, path string) *awsevents.APIGatewayV2HTTPRequest {
+	return &awsevents.APIGatewayV2HTTPRequest{
 		RawPath: path,
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
+		RequestContext: awsevents.APIGatewayV2HTTPRequestContext{
 			RequestID: "deadbeef",
-			HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+			HTTP: awsevents.APIGatewayV2HTTPRequestContextHTTPDescription{
 				SourceIP: "192.168.0.1",
 				Method:   method,
 				Path:     path,
@@ -172,8 +173,8 @@ func apiGatewayRequest(method, path string) *events.APIGatewayV2HTTPRequest {
 	}
 }
 
-func apiGatewayResponse(status int) *events.APIGatewayV2HTTPResponse {
-	return &events.APIGatewayV2HTTPResponse{
+func apiGatewayResponse(status int) *awsevents.APIGatewayV2HTTPResponse {
+	return &awsevents.APIGatewayV2HTTPResponse{
 		StatusCode: status, Headers: map[string]string{},
 	}
 }
@@ -188,13 +189,13 @@ func testTimestamp() time.Time {
 }
 
 // This example matches the fields constructed by newMailtoHandlerFixture().
-func simpleEmailService() *events.SimpleEmailService {
+func simpleEmailService() *awsevents.SimpleEmailService {
 	timestamp := testTimestamp()
 
-	return &events.SimpleEmailService{
-		Mail: events.SimpleEmailMessage{
+	return &awsevents.SimpleEmailService{
+		Mail: awsevents.SimpleEmailMessage{
 			MessageID: "deadbeef",
-			CommonHeaders: events.SimpleEmailCommonHeaders{
+			CommonHeaders: awsevents.SimpleEmailCommonHeaders{
 				From:    []string{"mbland@acm.org"},
 				To:      []string{testUnsubscribeAddress},
 				Subject: "mbland@acm.org " + testValidUidStr,
@@ -203,39 +204,39 @@ func simpleEmailService() *events.SimpleEmailService {
 		// Set all verdicts and DMARCPolicy to lowercase here to make sure that
 		// TestNewMailtoEvent validates that newMailtoHandler() uppercases them
 		// all.
-		Receipt: events.SimpleEmailReceipt{
+		Receipt: awsevents.SimpleEmailReceipt{
 			Recipients:   []string{testUnsubscribeAddress},
 			Timestamp:    timestamp,
-			SPFVerdict:   events.SimpleEmailVerdict{Status: "pass"},
-			DKIMVerdict:  events.SimpleEmailVerdict{Status: "pass"},
-			SpamVerdict:  events.SimpleEmailVerdict{Status: "pass"},
-			VirusVerdict: events.SimpleEmailVerdict{Status: "pass"},
-			DMARCVerdict: events.SimpleEmailVerdict{Status: "pass"},
+			SPFVerdict:   awsevents.SimpleEmailVerdict{Status: "pass"},
+			DKIMVerdict:  awsevents.SimpleEmailVerdict{Status: "pass"},
+			SpamVerdict:  awsevents.SimpleEmailVerdict{Status: "pass"},
+			VirusVerdict: awsevents.SimpleEmailVerdict{Status: "pass"},
+			DMARCVerdict: awsevents.SimpleEmailVerdict{Status: "pass"},
 			DMARCPolicy:  "reject",
 		},
 	}
 }
 
-func simpleEmailEvent() *events.SimpleEmailEvent {
-	event := &events.SimpleEmailEvent{
-		Records: []events.SimpleEmailRecord{{SES: *simpleEmailService()}},
+func simpleEmailEvent() *awsevents.SimpleEmailEvent {
+	event := &awsevents.SimpleEmailEvent{
+		Records: []awsevents.SimpleEmailRecord{{SES: *simpleEmailService()}},
 	}
 	return event
 }
 
-func simpleNotificationServiceEvent() *events.SNSEvent {
+func simpleNotificationServiceEvent() *awsevents.SNSEvent {
 	encodedMsg, err := json.Marshal(sesEventRecord())
 
 	if err != nil {
 		panic("failed to json.Marshal test SesEventRecord: " + err.Error())
 	}
-	return &events.SNSEvent{
-		Records: []events.SNSEventRecord{
+	return &awsevents.SNSEvent{
+		Records: []awsevents.SNSEventRecord{
 			{
 				EventVersion:         "1.0",
 				EventSubscriptionArn: "aws:sns:us-east-1:0123456789:foo/bar",
 				EventSource:          "aws:sns",
-				SNS: events.SNSEntity{
+				SNS: awsevents.SNSEntity{
 					Timestamp: testTimestamp(),
 					MessageID: "deadbeef",
 					Type:      "Notification",
@@ -246,14 +247,14 @@ func simpleNotificationServiceEvent() *events.SNSEvent {
 	}
 }
 
-func sesEventRecord() *SesEventRecord {
-	return &SesEventRecord{
+func sesEventRecord() *events.SesEventRecord {
+	return &events.SesEventRecord{
 		EventType: "Send",
-		Send:      &SesSendEvent{},
-		Mail: SesEventMessage{
-			SimpleEmailMessage: events.SimpleEmailMessage{
+		Send:      &events.SesSendEvent{},
+		Mail: events.SesEventMessage{
+			SimpleEmailMessage: awsevents.SimpleEmailMessage{
 				MessageID: "deadbeef",
-				CommonHeaders: events.SimpleEmailCommonHeaders{
+				CommonHeaders: awsevents.SimpleEmailCommonHeaders{
 					From:    []string{"mbland@acm.org"},
 					To:      []string{"foo@bar.com"},
 					Subject: "This is an email sent to the list",
@@ -314,7 +315,7 @@ func TestHandleEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
-		apiResponse, ok := response.(*events.APIGatewayV2HTTPResponse)
+		apiResponse, ok := response.(*awsevents.APIGatewayV2HTTPResponse)
 		assert.Assert(t, ok)
 		assert.Equal(t, http.StatusSeeOther, apiResponse.StatusCode)
 		expectedRedirect := f.handler.api.Redirects[ops.VerifyLinkSent]
@@ -330,8 +331,8 @@ func TestHandleEvent(t *testing.T) {
 		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.NilError(t, err)
-		expected := &events.SimpleEmailDisposition{
-			Disposition: events.SimpleEmailStopRuleSet,
+		expected := &awsevents.SimpleEmailDisposition{
+			Disposition: awsevents.SimpleEmailStopRuleSet,
 		}
 		assert.DeepEqual(t, expected, response)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
