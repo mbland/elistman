@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	awsevents "github.com/aws/aws-lambda-go/events"
-	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/events"
 )
 
@@ -25,7 +24,7 @@ type Event struct {
 	ApiRequest       *awsevents.APIGatewayV2HTTPRequest
 	MailtoEvent      *awsevents.SimpleEmailEvent
 	SnsEvent         *awsevents.SNSEvent
-	CommandLineEvent *events.SendEvent
+	CommandLineEvent *events.CommandLineEvent
 	Unknown          []byte
 }
 
@@ -48,9 +47,9 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.Type = SnsEvent
 		event.SnsEvent = &awsevents.SNSEvent{}
 		return json.Unmarshal(data, event.SnsEvent)
-	} else if bytes.Contains(data, []byte(email.UnsubscribeUrlTemplate)) {
+	} else if bytes.Contains(data, []byte(`"elistmanCommand":`)) {
 		event.Type = CommandLineEvent
-		event.CommandLineEvent = &events.SendEvent{}
+		event.CommandLineEvent = &events.CommandLineEvent{}
 		return json.Unmarshal(data, event.CommandLineEvent)
 	}
 	event.Unknown = data

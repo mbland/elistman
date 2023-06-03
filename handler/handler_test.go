@@ -354,10 +354,13 @@ func TestHandleEvent(t *testing.T) {
 		f.logs.AssertContains(t, "success")
 	})
 
-	t.Run("HandleSuccessfulSendEvent", func(t *testing.T) {
+	t.Run("HandleSuccessfulCommandLineEvent", func(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Type = CommandLineEvent
-		f.event.CommandLineEvent = &events.SendEvent{Message: *email.ExampleMessage}
+		f.event.CommandLineEvent = &events.CommandLineEvent{
+			EListManCommand: events.CommandLineSendEvent,
+			Send:            &events.SendEvent{Message: *email.ExampleMessage},
+		}
 		f.agent.NumSent = 27
 
 		response, err := f.handler.HandleEvent(f.ctx, f.event)

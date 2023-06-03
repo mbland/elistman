@@ -23,7 +23,10 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 		return &cliHandler{ta, logger}, ta, logs, context.Background()
 	}
 
-	event := &events.SendEvent{Message: *email.ExampleMessage}
+	event := &events.CommandLineEvent{
+		EListManCommand: events.CommandLineSendEvent,
+		Send:            &events.SendEvent{Message: *email.ExampleMessage},
+	}
 
 	expectedLogMsg := func(
 		msg *email.Message, res *events.SendResponse,
@@ -42,7 +45,8 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 			Success: true, NumSent: agent.NumSent,
 		}
 		assert.DeepEqual(t, expectedResult, res)
-		logs.AssertContains(t, expectedLogMsg(&event.Message, expectedResult))
+		msg := &event.Send.Message
+		logs.AssertContains(t, expectedLogMsg(msg, expectedResult))
 	})
 
 	t.Run("FailsIfSendRaisesError", func(t *testing.T) {
@@ -55,6 +59,7 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 			Success: false, Details: agent.Error.Error(),
 		}
 		assert.DeepEqual(t, expectedResult, res)
-		logs.AssertContains(t, expectedLogMsg(&event.Message, expectedResult))
+		msg := &event.Send.Message
+		logs.AssertContains(t, expectedLogMsg(msg, expectedResult))
 	})
 }

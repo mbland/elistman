@@ -139,23 +139,30 @@ func TestSnsEvent(t *testing.T) {
 }
 
 func TestSendEvent(t *testing.T) {
+	const sendEventJson = `{
+		"elistmanCommand": "` + events.CommandLineSendEvent + `",
+		"send": ` + email.ExampleMessageJson + `
+	}`
 	e := Event{}
 
-	err := e.UnmarshalJSON([]byte(email.ExampleMessageJson))
+	err := e.UnmarshalJSON([]byte(sendEventJson))
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: CommandLineEvent,
-		CommandLineEvent: &events.SendEvent{
-			Message: email.Message{
-				From:       "Foo Bar <foobar@example.com>",
-				Subject:    "Test object",
-				TextBody:   "Hello, World!",
-				TextFooter: "Unsubscribe: " + email.UnsubscribeUrlTemplate,
-				HtmlBody: "<!DOCTYPE html><html><head></head>" +
-					"<body>Hello, World!<br/>",
-				HtmlFooter: "<a href='" + email.UnsubscribeUrlTemplate +
-					"'>Unsubscribe</a></body></html>",
+		CommandLineEvent: &events.CommandLineEvent{
+			EListManCommand: events.CommandLineSendEvent,
+			Send: &events.SendEvent{
+				Message: email.Message{
+					From:       "Foo Bar <foobar@example.com>",
+					Subject:    "Test object",
+					TextBody:   "Hello, World!",
+					TextFooter: "Unsubscribe: " + email.UnsubscribeUrlTemplate,
+					HtmlBody: "<!DOCTYPE html><html><head></head>" +
+						"<body>Hello, World!<br/>",
+					HtmlFooter: "<a href='" + email.UnsubscribeUrlTemplate +
+						"'>Unsubscribe</a></body></html>",
+				},
 			},
 		},
 	})

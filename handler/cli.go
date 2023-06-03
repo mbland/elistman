@@ -14,18 +14,19 @@ type cliHandler struct {
 }
 
 func (h *cliHandler) HandleEvent(
-	ctx context.Context, e *events.SendEvent,
+	ctx context.Context, e *events.CommandLineEvent,
 ) (res *events.SendResponse) {
+	sendEvent := e.Send
 	res = &events.SendResponse{}
 	var err error
 
-	if res.NumSent, err = h.Agent.Send(ctx, &e.Message); err != nil {
+	if res.NumSent, err = h.Agent.Send(ctx, &sendEvent.Message); err != nil {
 		res.Details = err.Error()
 	} else {
 		res.Success = true
 	}
 
 	const logFmt = "send: subject: \"%s\"; success: %t; num sent: %d"
-	h.Log.Printf(logFmt, e.Message.Subject, res.Success, res.NumSent)
+	h.Log.Printf(logFmt, sendEvent.Message.Subject, res.Success, res.NumSent)
 	return
 }

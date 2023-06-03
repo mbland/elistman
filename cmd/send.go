@@ -52,7 +52,10 @@ func sendMessage(
 	}
 
 	ctx := context.Background()
-	evt := &events.SendEvent{Message: *msg}
+	evt := &events.CommandLineEvent{
+		EListManCommand: events.CommandLineSendEvent,
+		Send:            &events.SendEvent{Message: *msg},
+	}
 	var response events.SendResponse
 
 	if err = elistmanFunc.Invoke(ctx, evt, &response); err != nil {
