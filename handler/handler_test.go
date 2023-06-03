@@ -356,8 +356,8 @@ func TestHandleEvent(t *testing.T) {
 
 	t.Run("HandleSuccessfulSendEvent", func(t *testing.T) {
 		f := newHandlerFixture()
-		f.event.Type = SendEvent
-		f.event.SendEvent = &events.SendEvent{Message: *email.ExampleMessage}
+		f.event.Type = CommandLineEvent
+		f.event.CommandLineEvent = &events.SendEvent{Message: *email.ExampleMessage}
 		f.agent.NumSent = 27
 
 		response, err := f.handler.HandleEvent(f.ctx, f.event)

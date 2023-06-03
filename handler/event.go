@@ -17,16 +17,16 @@ const (
 	ApiRequest
 	MailtoEvent
 	SnsEvent
-	SendEvent
+	CommandLineEvent
 )
 
 type Event struct {
-	Type        EventType
-	ApiRequest  *awsevents.APIGatewayV2HTTPRequest
-	MailtoEvent *awsevents.SimpleEmailEvent
-	SnsEvent    *awsevents.SNSEvent
-	SendEvent   *events.SendEvent
-	Unknown     []byte
+	Type             EventType
+	ApiRequest       *awsevents.APIGatewayV2HTTPRequest
+	MailtoEvent      *awsevents.SimpleEmailEvent
+	SnsEvent         *awsevents.SNSEvent
+	CommandLineEvent *events.SendEvent
+	Unknown          []byte
 }
 
 // Inspired by:
@@ -49,9 +49,9 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		event.SnsEvent = &awsevents.SNSEvent{}
 		return json.Unmarshal(data, event.SnsEvent)
 	} else if bytes.Contains(data, []byte(email.UnsubscribeUrlTemplate)) {
-		event.Type = SendEvent
-		event.SendEvent = &events.SendEvent{}
-		return json.Unmarshal(data, event.SendEvent)
+		event.Type = CommandLineEvent
+		event.CommandLineEvent = &events.SendEvent{}
+		return json.Unmarshal(data, event.CommandLineEvent)
 	}
 	event.Unknown = data
 	return nil

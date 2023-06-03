@@ -145,8 +145,8 @@ func TestSendEvent(t *testing.T) {
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
-		Type: SendEvent,
-		SendEvent: &events.SendEvent{
+		Type: CommandLineEvent,
+		CommandLineEvent: &events.SendEvent{
 			Message: email.Message{
 				From:       "Foo Bar <foobar@example.com>",
 				Subject:    "Test object",

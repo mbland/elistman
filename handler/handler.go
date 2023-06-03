@@ -66,8 +66,8 @@ func (h *Handler) HandleEvent(
 		result = h.mailto.HandleEvent(ctx, event.MailtoEvent)
 	case SnsEvent:
 		h.sns.HandleEvent(ctx, event.SnsEvent)
-	case SendEvent:
-		result = h.cli.HandleEvent(ctx, event.SendEvent)
+	case CommandLineEvent:
+		result = h.cli.HandleEvent(ctx, event.CommandLineEvent)
 	case UnknownEvent:
 		// An unknown event is one that Event.UnmarshalJSON knows nothing about.
 		err = fmt.Errorf("unknown event: %s", string(event.Unknown))
