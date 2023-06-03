@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
@@ -22,9 +23,11 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 		return &cliHandler{ta, logger}, ta, logs, context.Background()
 	}
 
-	event := &email.SendEvent{Message: *email.ExampleMessage}
+	event := &events.SendEvent{Message: *email.ExampleMessage}
 
-	expectedLogMsg := func(msg *email.Message, res *email.SendResponse) string {
+	expectedLogMsg := func(
+		msg *email.Message, res *events.SendResponse,
+	) string {
 		const logFmt = "send: subject: \"%s\"; success: %t; num sent: %d"
 		return fmt.Sprintf(logFmt, msg.Subject, res.Success, res.NumSent)
 	}
@@ -35,7 +38,7 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 
 		res := handler.HandleEvent(ctx, event)
 
-		expectedResult := &email.SendResponse{
+		expectedResult := &events.SendResponse{
 			Success: true, NumSent: agent.NumSent,
 		}
 		assert.DeepEqual(t, expectedResult, res)
@@ -48,7 +51,7 @@ func TestSendHandlerHandleEvent(t *testing.T) {
 
 		res := handler.HandleEvent(ctx, event)
 
-		expectedResult := &email.SendResponse{
+		expectedResult := &events.SendResponse{
 			Success: false, Details: agent.Error.Error(),
 		}
 		assert.DeepEqual(t, expectedResult, res)

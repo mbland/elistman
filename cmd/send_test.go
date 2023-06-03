@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
@@ -36,9 +37,9 @@ func TestSend(t *testing.T) {
 
 		assert.Assert(t, f.Cmd.SilenceUsage == true)
 		assert.Equal(t, TestStackName, lambda.StackName)
-		req, isSendEvent := lambda.InvokeReq.(*email.SendEvent)
+		req, isSendEvent := lambda.InvokeReq.(*events.SendEvent)
 		assert.Assert(t, isSendEvent == true)
-		expectedReq := &email.SendEvent{Message: *email.ExampleMessage}
+		expectedReq := &events.SendEvent{Message: *email.ExampleMessage}
 		assert.DeepEqual(t, expectedReq, req)
 	})
 

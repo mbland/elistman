@@ -5,8 +5,9 @@ package handler
 import (
 	"testing"
 
-	"github.com/aws/aws-lambda-go/events"
+	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 	"gotest.tools/assert"
 )
 
@@ -51,7 +52,7 @@ func TestApiRequest(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: ApiRequest,
-		ApiRequest: &events.APIGatewayV2HTTPRequest{
+		ApiRequest: &awsevents.APIGatewayV2HTTPRequest{
 			Version:  "2.0",
 			RouteKey: "POST /subscribe",
 			RawPath:  "/subscribe",
@@ -84,14 +85,14 @@ func TestMailtoEvent(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: MailtoEvent,
-		MailtoEvent: &events.SimpleEmailEvent{
-			Records: []events.SimpleEmailRecord{
+		MailtoEvent: &awsevents.SimpleEmailEvent{
+			Records: []awsevents.SimpleEmailRecord{
 				{
 					EventVersion: "1.0",
 					EventSource:  "ses.amazonaws.com",
-					SES: events.SimpleEmailService{
-						Mail: events.SimpleEmailMessage{
-							CommonHeaders: events.SimpleEmailCommonHeaders{
+					SES: awsevents.SimpleEmailService{
+						Mail: awsevents.SimpleEmailMessage{
+							CommonHeaders: awsevents.SimpleEmailCommonHeaders{
 								To:      []string{"unsubscribe@mike-bland.com"},
 								Subject: "foo@bar.com UID",
 							},
@@ -123,12 +124,12 @@ func TestSnsEvent(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: SnsEvent,
-		SnsEvent: &events.SNSEvent{
-			Records: []events.SNSEventRecord{
+		SnsEvent: &awsevents.SNSEvent{
+			Records: []awsevents.SNSEventRecord{
 				{
 					EventVersion: "1.0",
 					EventSource:  "aws:sns",
-					SNS: events.SNSEntity{
+					SNS: awsevents.SNSEntity{
 						Message: "stringified JSON object, unmarshalled later",
 					},
 				},
@@ -145,7 +146,7 @@ func TestSendEvent(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: SendEvent,
-		SendEvent: &email.SendEvent{
+		SendEvent: &events.SendEvent{
 			Message: email.Message{
 				From:       "Foo Bar <foobar@example.com>",
 				Subject:    "Test object",

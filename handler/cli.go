@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/mbland/elistman/agent"
-	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 )
 
 type cliHandler struct {
@@ -14,9 +14,9 @@ type cliHandler struct {
 }
 
 func (h *cliHandler) HandleEvent(
-	ctx context.Context, e *email.SendEvent,
-) (res *email.SendResponse) {
-	res = &email.SendResponse{}
+	ctx context.Context, e *events.SendEvent,
+) (res *events.SendResponse) {
+	res = &events.SendResponse{}
 	var err error
 
 	if res.NumSent, err = h.Agent.Send(ctx, &e.Message); err != nil {

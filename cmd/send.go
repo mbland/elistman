@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 	"github.com/spf13/cobra"
 )
 
@@ -51,8 +52,8 @@ func sendMessage(
 	}
 
 	ctx := context.Background()
-	evt := &email.SendEvent{Message: *msg}
-	var response email.SendResponse
+	evt := &events.SendEvent{Message: *msg}
+	var response events.SendResponse
 
 	if err = elistmanFunc.Invoke(ctx, evt, &response); err != nil {
 		return fmt.Errorf("sending failed: %w", err)

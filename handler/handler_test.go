@@ -357,13 +357,13 @@ func TestHandleEvent(t *testing.T) {
 	t.Run("HandleSuccessfulSendEvent", func(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Type = SendEvent
-		f.event.SendEvent = &email.SendEvent{Message: *email.ExampleMessage}
+		f.event.SendEvent = &events.SendEvent{Message: *email.ExampleMessage}
 		f.agent.NumSent = 27
 
 		response, err := f.handler.HandleEvent(f.ctx, f.event)
 
 		assert.NilError(t, err)
-		expected := &email.SendResponse{Success: true, NumSent: f.agent.NumSent}
+		expected := &events.SendResponse{Success: true, NumSent: f.agent.NumSent}
 		assert.DeepEqual(t, expected, response)
 		f.logs.AssertContains(
 			t, "send: subject: \""+email.ExampleMessage.Subject+"\"",

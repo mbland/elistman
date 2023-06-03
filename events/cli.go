@@ -1,7 +1,9 @@
-package email
+package events
+
+import "github.com/mbland/elistman/email"
 
 type SendEvent struct {
-	Message
+	email.Message
 }
 
 type SendResponse struct {

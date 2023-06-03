@@ -6,6 +6,7 @@ import (
 
 	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/email"
+	"github.com/mbland/elistman/events"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=EventType
@@ -24,7 +25,7 @@ type Event struct {
 	ApiRequest  *awsevents.APIGatewayV2HTTPRequest
 	MailtoEvent *awsevents.SimpleEmailEvent
 	SnsEvent    *awsevents.SNSEvent
-	SendEvent   *email.SendEvent
+	SendEvent   *events.SendEvent
 	Unknown     []byte
 }
 
@@ -49,7 +50,7 @@ func (event *Event) UnmarshalJSON(data []byte) error {
 		return json.Unmarshal(data, event.SnsEvent)
 	} else if bytes.Contains(data, []byte(email.UnsubscribeUrlTemplate)) {
 		event.Type = SendEvent
-		event.SendEvent = &email.SendEvent{}
+		event.SendEvent = &events.SendEvent{}
 		return json.Unmarshal(data, event.SendEvent)
 	}
 	event.Unknown = data
