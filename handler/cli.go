@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/mbland/elistman/agent"
@@ -15,8 +16,14 @@ type cliHandler struct {
 
 func (h *cliHandler) HandleEvent(
 	ctx context.Context, e *events.CommandLineEvent,
-) (res any) {
-	return h.HandleSendEvent(ctx, e.Send)
+) (res any, err error) {
+	switch e.EListManCommand {
+	case events.CommandLineSendEvent:
+		res = h.HandleSendEvent(ctx, e.Send)
+	default:
+		err = fmt.Errorf("unknown EListMan command: %s", e.EListManCommand)
+	}
+	return
 }
 
 func (h *cliHandler) HandleSendEvent(

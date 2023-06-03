@@ -67,7 +67,7 @@ func (h *Handler) HandleEvent(
 	case SnsEvent:
 		h.sns.HandleEvent(ctx, event.SnsEvent)
 	case CommandLineEvent:
-		result = h.cli.HandleEvent(ctx, event.CommandLineEvent)
+		result, err = h.cli.HandleEvent(ctx, event.CommandLineEvent)
 	case UnknownEvent:
 		// An unknown event is one that Event.UnmarshalJSON knows nothing about.
 		err = fmt.Errorf("unknown event: %s", string(event.Unknown))

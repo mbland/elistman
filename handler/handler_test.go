@@ -373,6 +373,19 @@ func TestHandleEvent(t *testing.T) {
 		)
 	})
 
+	t.Run("HandleUnknownCommandLineEvent", func(t *testing.T) {
+		f := newHandlerFixture()
+		f.event.Type = CommandLineEvent
+		f.event.CommandLineEvent = &events.CommandLineEvent{
+			EListManCommand: events.CommandLineEventType("unknown"),
+		}
+
+		response, err := f.handler.HandleEvent(f.ctx, f.event)
+
+		assert.Assert(t, is.Nil(response))
+		assert.ErrorContains(t, err, "unknown EListMan command: unknown")
+	})
+
 	t.Run("ReturnsErrorOnUnknownEvent", func(t *testing.T) {
 		f := newHandlerFixture()
 		f.event.Unknown = []byte(`{ "foo": "bar" }`)
