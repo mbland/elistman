@@ -157,21 +157,13 @@ func TestParseSesEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 
-		expected := &sesEventHandler{
-			Event:     &events.SesEventRecord{EventType: "Send"},
-			MessageId: "EXAMPLE7c191be45",
-			To:        []string{"recipient@example.com"},
-			From:      []string{"no-reply@mike-bland.com"},
-			Subject:   "Test message",
-			Details:   sendEventJson,
-		}
-
-		assert.Equal(t, expected.Event.EventType, handler.Event.EventType)
-		assert.Equal(t, expected.MessageId, handler.MessageId)
-		assert.DeepEqual(t, expected.To, handler.To)
-		assert.DeepEqual(t, expected.From, handler.From)
-		assert.Equal(t, expected.Subject, handler.Subject)
-		assert.Equal(t, expected.Details, handler.Details)
+		headers := &handler.Event.Mail.CommonHeaders
+		assert.Equal(t, "Send", handler.Event.EventType)
+		assert.Equal(t, "EXAMPLE7c191be45", handler.Event.Mail.MessageID)
+		assert.DeepEqual(t, []string{"recipient@example.com"}, headers.To)
+		assert.DeepEqual(t, []string{"no-reply@mike-bland.com"}, headers.From)
+		assert.Equal(t, "Test message", headers.Subject)
+		assert.Equal(t, sendEventJson, handler.Details)
 	})
 
 	t.Run("FailsOnParseError", func(t *testing.T) {
@@ -255,7 +247,9 @@ func TestSesEventHandler(t *testing.T) {
 
 	t.Run("UpdateRecipients", func(t *testing.T) {
 		f := newSesEventHandlerFixture(sendEventJson)
-		f.handler.To = []string{"mbland@acm.org", "foo@bar.com"}
+		f.handler.Event.Mail.CommonHeaders.To = []string{
+			"mbland@acm.org", "foo@bar.com",
+		}
 		updater := &recipientUpdater{
 			func(context.Context, string) error { return nil },
 			"updated",

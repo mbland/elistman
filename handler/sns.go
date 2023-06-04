@@ -40,27 +40,18 @@ func parseSesEvent(message string) (handler *sesEventHandler, err error) {
 		return
 	}
 
-	mail := event.Mail
 	handler = &sesEventHandler{
-		Event:     event,
-		MessageId: mail.MessageID,
-		To:        mail.CommonHeaders.To,
-		From:      mail.CommonHeaders.From,
-		Subject:   mail.CommonHeaders.Subject,
-		Details:   message,
+		Event:   event,
+		Details: message,
 	}
 	return
 }
 
 type sesEventHandler struct {
-	Event     *events.SesEventRecord
-	MessageId string
-	From      []string
-	To        []string
-	Subject   string
-	Details   string
-	Agent     agent.SubscriptionAgent
-	Log       *log.Logger
+	Event   *events.SesEventRecord
+	Details string
+	Agent   agent.SubscriptionAgent
+	Log     *log.Logger
 }
 
 func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
@@ -71,7 +62,7 @@ func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 	case "Complaint":
 		evh.handleComplaintEvent(ctx)
 	case "Reject":
-		evh.logOutcome(evh.Event.Reject.Reason)
+		evh.logOutcome(event.Reject.Reason)
 	case "Send", "Delivery":
 		evh.logOutcome("success")
 	default:
@@ -80,13 +71,16 @@ func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 }
 
 func (evh *sesEventHandler) logOutcome(outcome string) {
+	event := evh.Event
+	headers := &event.Mail.CommonHeaders
+
 	evh.Log.Printf(
 		`%s [Id:"%s" From:"%s" To:"%s" Subject:"%s"]: %s: %s`,
 		evh.Event.EventType,
-		evh.MessageId,
-		strings.Join(evh.From, ","),
-		strings.Join(evh.To, ","),
-		evh.Subject,
+		event.Mail.MessageID,
+		strings.Join(headers.From, ","),
+		strings.Join(headers.To, ","),
+		headers.Subject,
 		outcome,
 		evh.Details,
 	)
@@ -108,7 +102,7 @@ func (evh *sesEventHandler) restoreRecipients(ctx context.Context, reason string
 func (evh *sesEventHandler) updateRecipients(
 	ctx context.Context, reason string, up *recipientUpdater,
 ) {
-	for _, email := range evh.To {
+	for _, email := range evh.Event.Mail.CommonHeaders.To {
 		evh.logOutcome(up.updateRecipient(ctx, email, reason))
 	}
 }
