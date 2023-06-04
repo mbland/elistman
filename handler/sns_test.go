@@ -78,6 +78,52 @@ func assertTypesMatch(t *testing.T, lhs, rhs any) {
 	assert.Equal(t, reflect.TypeOf(lhs), reflect.TypeOf(rhs))
 }
 
+func TestParseSesEvent(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		f := newSnsHandlerFixture()
+		message := `
+			{
+				"eventType": "Send",
+				` + testMail + `,
+  				"send": {}
+			}`
+
+		event, handler, err := parseSesEvent(f.handler, message)
+
+		assert.NilError(t, err)
+		assert.Equal(t, "Send", event.EventType)
+		assert.Equal(t, "Send", handler.Type)
+
+		expected := &baseSesEventHandler{
+			MessageId: "EXAMPLE7c191be45",
+			To:        []string{"recipient@example.com"},
+			From:      []string{"no-reply@mike-bland.com"},
+			Subject:   "Test message",
+			Details:   message,
+			Agent:     f.handler.Agent,
+			Log:       f.handler.Log,
+		}
+
+		assert.Equal(t, expected.MessageId, handler.MessageId)
+		assert.DeepEqual(t, expected.To, handler.To)
+		assert.DeepEqual(t, expected.From, handler.From)
+		assert.Equal(t, expected.Subject, handler.Subject)
+		assert.Equal(t, expected.Details, handler.Details)
+		assert.Equal(t, expected.Agent, handler.Agent)
+		assert.Equal(t, expected.Log, handler.Log)
+	})
+
+	t.Run("FailsOnParseError", func(t *testing.T) {
+		f := newSnsHandlerFixture()
+
+		event, handler, err := parseSesEvent(f.handler, "")
+
+		assert.Assert(t, is.Nil(event))
+		assert.Assert(t, is.Nil(handler))
+		assert.ErrorContains(t, err, "unexpected end of JSON input")
+	})
+}
+
 func TestNewSesEventHandler(t *testing.T) {
 	t.Run("ReturnsParseError", func(t *testing.T) {
 		f := newSnsHandlerFixture()

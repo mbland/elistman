@@ -34,17 +34,18 @@ type sesEventHandler interface {
 	HandleEvent(ctx context.Context)
 }
 
-func newSesEventHandler(
+func parseSesEvent(
 	sns *snsHandler, message string,
-) (handler sesEventHandler, err error) {
-	origEvent := &events.SesEventRecord{}
-	if jsonErr := json.Unmarshal([]byte(message), origEvent); jsonErr != nil {
-		return nil, jsonErr
+) (event *events.SesEventRecord, handler *baseSesEventHandler, err error) {
+	event = &events.SesEventRecord{}
+	if err = json.Unmarshal([]byte(message), event); err != nil {
+		event = nil
+		return
 	}
 
-	mail := origEvent.Mail
-	base := baseSesEventHandler{
-		Type:      origEvent.EventType,
+	mail := event.Mail
+	handler = &baseSesEventHandler{
+		Type:      event.EventType,
 		MessageId: mail.MessageID,
 		To:        mail.CommonHeaders.To,
 		From:      mail.CommonHeaders.From,
@@ -53,27 +54,37 @@ func newSesEventHandler(
 		Agent:     sns.Agent,
 		Log:       sns.Log,
 	}
+	return
+}
+
+func newSesEventHandler(
+	sns *snsHandler, message string,
+) (handler sesEventHandler, err error) {
+	event, base, err := parseSesEvent(sns, message)
+	if err != nil {
+		return
+	}
 
 	switch base.Type {
 	case "Bounce":
 		handler = &bounceHandler{
-			baseSesEventHandler: base,
-			BounceType:          origEvent.Bounce.BounceType,
-			BounceSubType:       origEvent.Bounce.BounceSubType,
+			baseSesEventHandler: *base,
+			BounceType:          event.Bounce.BounceType,
+			BounceSubType:       event.Bounce.BounceSubType,
 		}
 	case "Complaint":
 		handler = &complaintHandler{
-			baseSesEventHandler:   base,
-			ComplaintSubType:      origEvent.Complaint.ComplaintSubType,
-			ComplaintFeedbackType: origEvent.Complaint.ComplaintFeedbackType,
+			baseSesEventHandler:   *base,
+			ComplaintSubType:      event.Complaint.ComplaintSubType,
+			ComplaintFeedbackType: event.Complaint.ComplaintFeedbackType,
 		}
 	case "Reject":
 		handler = &rejectHandler{
-			baseSesEventHandler: base,
-			Reason:              origEvent.Reject.Reason,
+			baseSesEventHandler: *base,
+			Reason:              event.Reject.Reason,
 		}
 	case "Send", "Delivery":
-		handler = &base
+		handler = base
 	default:
 		err = fmt.Errorf("unimplemented event type: %s", base.Type)
 	}
