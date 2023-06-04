@@ -33,7 +33,7 @@ func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 	}
 }
 
-func parseSesEvent(message string) (handler *baseSesEventHandler, err error) {
+func parseSesEvent(message string) (handler *sesEventHandler, err error) {
 	event := &events.SesEventRecord{}
 	if err = json.Unmarshal([]byte(message), event); err != nil {
 		event = nil
@@ -41,7 +41,7 @@ func parseSesEvent(message string) (handler *baseSesEventHandler, err error) {
 	}
 
 	mail := event.Mail
-	handler = &baseSesEventHandler{
+	handler = &sesEventHandler{
 		Event:     event,
 		MessageId: mail.MessageID,
 		To:        mail.CommonHeaders.To,
@@ -52,7 +52,7 @@ func parseSesEvent(message string) (handler *baseSesEventHandler, err error) {
 	return
 }
 
-type baseSesEventHandler struct {
+type sesEventHandler struct {
 	Event     *events.SesEventRecord
 	MessageId string
 	From      []string
@@ -63,27 +63,27 @@ type baseSesEventHandler struct {
 	Log       *log.Logger
 }
 
-func (evh *baseSesEventHandler) HandleEvent(ctx context.Context) {
+func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 	event := evh.Event
 	switch event.EventType {
 	case "Bounce":
 		handler := &bounceHandler{
-			baseSesEventHandler: *evh,
-			BounceType:          event.Bounce.BounceType,
-			BounceSubType:       event.Bounce.BounceSubType,
+			sesEventHandler: *evh,
+			BounceType:      event.Bounce.BounceType,
+			BounceSubType:   event.Bounce.BounceSubType,
 		}
 		handler.HandleEvent(ctx)
 	case "Complaint":
 		handler := &complaintHandler{
-			baseSesEventHandler:   *evh,
+			sesEventHandler:       *evh,
 			ComplaintSubType:      event.Complaint.ComplaintSubType,
 			ComplaintFeedbackType: event.Complaint.ComplaintFeedbackType,
 		}
 		handler.HandleEvent(ctx)
 	case "Reject":
 		handler := &rejectHandler{
-			baseSesEventHandler: *evh,
-			Reason:              event.Reject.Reason,
+			sesEventHandler: *evh,
+			Reason:          event.Reject.Reason,
 		}
 		handler.HandleEvent(ctx)
 	case "Send", "Delivery":
@@ -93,7 +93,7 @@ func (evh *baseSesEventHandler) HandleEvent(ctx context.Context) {
 	}
 }
 
-func (evh *baseSesEventHandler) logOutcome(outcome string) {
+func (evh *sesEventHandler) logOutcome(outcome string) {
 	evh.Log.Printf(
 		`%s [Id:"%s" From:"%s" To:"%s" Subject:"%s"]: %s: %s`,
 		evh.Event.EventType,
@@ -106,7 +106,7 @@ func (evh *baseSesEventHandler) logOutcome(outcome string) {
 	)
 }
 
-func (evh *baseSesEventHandler) removeRecipients(
+func (evh *sesEventHandler) removeRecipients(
 	ctx context.Context, reason string,
 ) {
 	evh.updateRecipients(
@@ -116,7 +116,7 @@ func (evh *baseSesEventHandler) removeRecipients(
 	)
 }
 
-func (evh *baseSesEventHandler) restoreRecipients(
+func (evh *sesEventHandler) restoreRecipients(
 	ctx context.Context, reason string,
 ) {
 	evh.updateRecipients(
@@ -126,7 +126,7 @@ func (evh *baseSesEventHandler) restoreRecipients(
 	)
 }
 
-func (evh *baseSesEventHandler) updateRecipients(
+func (evh *sesEventHandler) updateRecipients(
 	ctx context.Context, reason string, up *recipientUpdater,
 ) {
 	for _, email := range evh.To {
@@ -152,7 +152,7 @@ func (up *recipientUpdater) updateRecipient(
 }
 
 type bounceHandler struct {
-	baseSesEventHandler
+	sesEventHandler
 	BounceType    string
 	BounceSubType string
 }
@@ -167,7 +167,7 @@ func (evh *bounceHandler) HandleEvent(ctx context.Context) {
 }
 
 type complaintHandler struct {
-	baseSesEventHandler
+	sesEventHandler
 	ComplaintSubType      string
 	ComplaintFeedbackType string
 }
@@ -189,7 +189,7 @@ func (evh *complaintHandler) HandleEvent(ctx context.Context) {
 }
 
 type rejectHandler struct {
-	baseSesEventHandler
+	sesEventHandler
 	Reason string
 }
 

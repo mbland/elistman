@@ -157,7 +157,7 @@ func TestParseSesEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 
-		expected := &baseSesEventHandler{
+		expected := &sesEventHandler{
 			Event:     &events.SesEventRecord{EventType: "Send"},
 			MessageId: "EXAMPLE7c191be45",
 			To:        []string{"recipient@example.com"},
@@ -182,7 +182,7 @@ func TestParseSesEvent(t *testing.T) {
 	})
 }
 
-func TestBaseSesEventHandlerHandleEvent(t *testing.T) {
+func TestSesEventHandlerHandleEvent(t *testing.T) {
 	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
 		f := newSesEventHandlerFixture(unimplementedEventJson)
 
@@ -242,7 +242,7 @@ func TestRecipientUpdater(t *testing.T) {
 }
 
 type sesEventHandlerFixture struct {
-	handler *baseSesEventHandler
+	handler *sesEventHandler
 	agent   *testAgent
 	logs    *testutils.Logs
 	ctx     context.Context
@@ -269,7 +269,7 @@ func assertRecipientUpdated(
 	assert.DeepEqual(t, calls, agent.Calls)
 }
 
-func TestBaseSesEventHandler(t *testing.T) {
+func TestSesEventHandler(t *testing.T) {
 	t.Run("logOutcome", func(t *testing.T) {
 		f := newSesEventHandlerFixture(sendEventJson)
 
