@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"strings"
 
@@ -30,17 +29,8 @@ func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 		}
 		handler.Agent = h.Agent
 		handler.Log = h.Log
-
-		if sesHandler, err := newSesEventHandler(handler, event); err != nil {
-			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
-		} else {
-			sesHandler.HandleEvent(ctx)
-		}
+		handler.HandleEvent(ctx, event)
 	}
-}
-
-type sesEventHandler interface {
-	HandleEvent(ctx context.Context)
 }
 
 func parseSesEvent(
@@ -64,35 +54,6 @@ func parseSesEvent(
 	return
 }
 
-func newSesEventHandler(
-	base *baseSesEventHandler, event *events.SesEventRecord,
-) (handler sesEventHandler, err error) {
-	switch event.EventType {
-	case "Bounce":
-		handler = &bounceHandler{
-			baseSesEventHandler: *base,
-			BounceType:          event.Bounce.BounceType,
-			BounceSubType:       event.Bounce.BounceSubType,
-		}
-	case "Complaint":
-		handler = &complaintHandler{
-			baseSesEventHandler:   *base,
-			ComplaintSubType:      event.Complaint.ComplaintSubType,
-			ComplaintFeedbackType: event.Complaint.ComplaintFeedbackType,
-		}
-	case "Reject":
-		handler = &rejectHandler{
-			baseSesEventHandler: *base,
-			Reason:              event.Reject.Reason,
-		}
-	case "Send", "Delivery":
-		handler = base
-	default:
-		err = fmt.Errorf("unimplemented event type: %s", event.EventType)
-	}
-	return
-}
-
 type baseSesEventHandler struct {
 	Type      string
 	MessageId string
@@ -104,8 +65,35 @@ type baseSesEventHandler struct {
 	Log       *log.Logger
 }
 
-func (evh *baseSesEventHandler) HandleEvent(ctx context.Context) {
-	evh.logOutcome("success")
+func (evh *baseSesEventHandler) HandleEvent(
+	ctx context.Context, event *events.SesEventRecord,
+) {
+	switch event.EventType {
+	case "Bounce":
+		handler := &bounceHandler{
+			baseSesEventHandler: *evh,
+			BounceType:          event.Bounce.BounceType,
+			BounceSubType:       event.Bounce.BounceSubType,
+		}
+		handler.HandleEvent(ctx)
+	case "Complaint":
+		handler := &complaintHandler{
+			baseSesEventHandler:   *evh,
+			ComplaintSubType:      event.Complaint.ComplaintSubType,
+			ComplaintFeedbackType: event.Complaint.ComplaintFeedbackType,
+		}
+		handler.HandleEvent(ctx)
+	case "Reject":
+		handler := &rejectHandler{
+			baseSesEventHandler: *evh,
+			Reason:              event.Reject.Reason,
+		}
+		handler.HandleEvent(ctx)
+	case "Send", "Delivery":
+		evh.logOutcome("success")
+	default:
+		evh.Log.Printf("unimplemented event type: %s", event.EventType)
+	}
 }
 
 func (evh *baseSesEventHandler) logOutcome(outcome string) {

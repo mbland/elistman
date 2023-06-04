@@ -141,17 +141,18 @@ func TestParseSesEvent(t *testing.T) {
 	})
 }
 
-func TestNewSesEventHandler(t *testing.T) {
-	t.Run("ReturnsErrorForUnimplementedEventType", func(t *testing.T) {
+func TestBaseSesEventHandlerHandleEvent(t *testing.T) {
+	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
+		f := newSesEventHandlerFixture()
 		event := testEvent(unimplementedEventJson)
 
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
+		f.handler.HandleEvent(f.ctx, event)
 
-		assert.Assert(t, is.Nil(handler))
-		assert.ErrorContains(t, err, "unimplemented event type: Open")
+		f.logs.AssertContains(t, "unimplemented event type: Open")
 	})
 
-	t.Run("ReturnsBaseHandlerForSend", func(t *testing.T) {
+	t.Run("LogsSuccessForSend", func(t *testing.T) {
+		f := newSesEventHandlerFixture()
 		event := testEvent(`
 			{
 				"eventType": "Send",
@@ -160,13 +161,14 @@ func TestNewSesEventHandler(t *testing.T) {
 			}`,
 		)
 
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
+		f.handler.HandleEvent(f.ctx, event)
 
-		assert.NilError(t, err)
-		assertTypesMatch(t, &baseSesEventHandler{}, handler)
+		f.logs.AssertContains(t, "Send [Id:")
+		f.logs.AssertContains(t, ": success: ")
 	})
 
-	t.Run("ReturnsBaseHandlerForDelivery", func(t *testing.T) {
+	t.Run("LogsSuccessForDelivery", func(t *testing.T) {
+		f := newSesEventHandlerFixture()
 		event := testEvent(`
 			{
 				"eventType": "Delivery",
@@ -180,92 +182,12 @@ func TestNewSesEventHandler(t *testing.T) {
 				}
 			}`,
 		)
+		f.handler.Type = "Delivery"
 
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
+		f.handler.HandleEvent(f.ctx, event)
 
-		assert.NilError(t, err)
-		assertTypesMatch(t, &baseSesEventHandler{}, handler)
-	})
-
-	t.Run("ReturnsBounceHandler", func(t *testing.T) {
-		event := testEvent(`
-			{
-				"eventType": "Bounce",
-				` + testMailJson + `,
-				"bounce":{
-					"bounceType":"Permanent",
-					"bounceSubType":"General",
-					"bouncedRecipients":[
-					  {
-						"emailAddress":"recipient@example.com",
-						"action":"failed",
-						"status":"5.1.1",
-						"diagnosticCode":"smtp; 550 5.1.1 user unknown"
-					  }
-					],
-					"timestamp":"1970-09-18T12:45:00.000Z",
-					"feedbackId":"deadbeef",
-					"reportingMTA":"dsn; mta.example.com"
-				}
-			}`,
-		)
-
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
-
-		assert.NilError(t, err)
-		assertTypesMatch(t, &bounceHandler{}, handler)
-		bHandler := handler.(*bounceHandler)
-		assert.Equal(t, "Permanent", bHandler.BounceType)
-		assert.Equal(t, "General", bHandler.BounceSubType)
-	})
-
-	t.Run("ReturnsComplaintHandler", func(t *testing.T) {
-		// Normally this wouldn't contain both complaintSubType and
-		// complaintFeedbackType, as a nonempty complaintSubType means the
-		// message wasn't even sent. The parser should be able to handle both
-		// fields being present at the same time regardless.
-		event := testEvent(`
-			{
-				"eventType": "Complaint",
-				` + testMailJson + `,
-				"complaint": {
-					"complainedRecipients":[
-					  { "emailAddress":"recipient@example.com" }
-					],
-					"timestamp":"1970-09-18T12:45:00.000Z",
-					"feedbackId":"deadbeef",
-					"userAgent":"doesn't matter",
-					"complaintSubType":"OnAccountSuppressionList",
-					"complaintFeedbackType":"abuse",
-					"arrivalDate":"1970-09-18T12:45:00.000Z"
-				  }
-			}`,
-		)
-
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
-
-		assert.NilError(t, err)
-		assertTypesMatch(t, &complaintHandler{}, handler)
-		cHandler := handler.(*complaintHandler)
-		assert.Equal(t, "OnAccountSuppressionList", cHandler.ComplaintSubType)
-		assert.Equal(t, "abuse", cHandler.ComplaintFeedbackType)
-	})
-
-	t.Run("ReturnsRejectHandler", func(t *testing.T) {
-		event := testEvent(`
-			{
-				"eventType": "Reject",
-				` + testMailJson + `,
-				"reject": { "reason":"Bad content" }
-			}`,
-		)
-
-		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
-
-		assert.NilError(t, err)
-		assertTypesMatch(t, &rejectHandler{}, handler)
-		rHandler := handler.(*rejectHandler)
-		assert.Equal(t, "Bad content", rHandler.Reason)
+		f.logs.AssertContains(t, "Delivery [Id:")
+		f.logs.AssertContains(t, ": success: ")
 	})
 }
 
@@ -348,16 +270,6 @@ func TestBaseSesEventHandler(t *testing.T) {
 		f.logs.AssertContains(t, expected)
 	})
 
-	t.Run("HandleEvent", func(t *testing.T) {
-		t.Run("DoesNothingButLogSuccessfulOutcome", func(t *testing.T) {
-			f := newSesEventHandlerFixture()
-
-			f.handler.HandleEvent(f.ctx)
-
-			f.logs.AssertContains(t, ": success: ")
-		})
-	})
-
 	t.Run("UpdateRecipients", func(t *testing.T) {
 		f := newSesEventHandlerFixture()
 		f.handler.To = []string{"mbland@acm.org", "foo@bar.com"}
@@ -437,6 +349,10 @@ func TestComplaintHandler(t *testing.T) {
 		const msgPrefix = "removed mbland@acm.org due to: "
 
 		t.Run("IfSubTypeIsNotEmpty", func(t *testing.T) {
+			// Normally this wouldn't contain both complaintSubType and
+			// complaintFeedbackType, as a nonempty complaintSubType means the
+			// message wasn't even sent. The parser should be able to handle
+			// both fields being present at the same time regardless.
 			handler, f := setup()
 			handler.ComplaintSubType = "OnAccountSuppressionList"
 
