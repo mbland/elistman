@@ -67,25 +67,11 @@ func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 	event := evh.Event
 	switch event.EventType {
 	case "Bounce":
-		handler := &bounceHandler{
-			sesEventHandler: *evh,
-			BounceType:      event.Bounce.BounceType,
-			BounceSubType:   event.Bounce.BounceSubType,
-		}
-		handler.HandleEvent(ctx)
+		evh.handleBounceEvent(ctx)
 	case "Complaint":
-		handler := &complaintHandler{
-			sesEventHandler:       *evh,
-			ComplaintSubType:      event.Complaint.ComplaintSubType,
-			ComplaintFeedbackType: event.Complaint.ComplaintFeedbackType,
-		}
-		handler.HandleEvent(ctx)
+		evh.handleComplaintEvent(ctx)
 	case "Reject":
-		handler := &rejectHandler{
-			sesEventHandler: *evh,
-			Reason:          event.Reject.Reason,
-		}
-		handler.HandleEvent(ctx)
+		evh.logOutcome(evh.Event.Reject.Reason)
 	case "Send", "Delivery":
 		evh.logOutcome("success")
 	default:
@@ -109,21 +95,14 @@ func (evh *sesEventHandler) logOutcome(outcome string) {
 func (evh *sesEventHandler) removeRecipients(
 	ctx context.Context, reason string,
 ) {
-	evh.updateRecipients(
-		ctx,
-		reason,
-		&recipientUpdater{evh.Agent.Remove, "removed", "error removing"},
-	)
+	op := &recipientUpdater{evh.Agent.Remove, "removed", "error removing"}
+	evh.updateRecipients(ctx, reason, op)
 }
 
-func (evh *sesEventHandler) restoreRecipients(
-	ctx context.Context, reason string,
+func (evh *sesEventHandler) restoreRecipients(ctx context.Context, reason string,
 ) {
-	evh.updateRecipients(
-		ctx,
-		reason,
-		&recipientUpdater{evh.Agent.Restore, "restored", "error restoring"},
-	)
+	op := &recipientUpdater{evh.Agent.Restore, "restored", "error restoring"}
+	evh.updateRecipients(ctx, reason, op)
 }
 
 func (evh *sesEventHandler) updateRecipients(
@@ -151,31 +130,21 @@ func (up *recipientUpdater) updateRecipient(
 	return up.successPrefix + emailAndReason
 }
 
-type bounceHandler struct {
-	sesEventHandler
-	BounceType    string
-	BounceSubType string
-}
-
-func (evh *bounceHandler) HandleEvent(ctx context.Context) {
-	reason := evh.BounceType + "/" + evh.BounceSubType
-	if evh.BounceType == "Transient" {
+func (evh *sesEventHandler) handleBounceEvent(ctx context.Context) {
+	event := evh.Event.Bounce
+	reason := event.BounceType + "/" + event.BounceSubType
+	if event.BounceType == "Transient" {
 		evh.logOutcome("not removing recipients: " + reason)
 	} else {
 		evh.removeRecipients(ctx, reason)
 	}
 }
 
-type complaintHandler struct {
-	sesEventHandler
-	ComplaintSubType      string
-	ComplaintFeedbackType string
-}
-
-func (evh *complaintHandler) HandleEvent(ctx context.Context) {
-	reason := evh.ComplaintSubType
+func (evh *sesEventHandler) handleComplaintEvent(ctx context.Context) {
+	event := evh.Event.Complaint
+	reason := event.ComplaintSubType
 	if reason == "" {
-		reason = evh.ComplaintFeedbackType
+		reason = event.ComplaintFeedbackType
 	}
 	if reason == "" {
 		reason = "unknown"
@@ -186,13 +155,4 @@ func (evh *complaintHandler) HandleEvent(ctx context.Context) {
 	} else {
 		evh.removeRecipients(ctx, reason)
 	}
-}
-
-type rejectHandler struct {
-	sesEventHandler
-	Reason string
-}
-
-func (evh *rejectHandler) HandleEvent(ctx context.Context) {
-	evh.logOutcome(evh.Reason)
 }
