@@ -182,34 +182,6 @@ func TestParseSesEvent(t *testing.T) {
 	})
 }
 
-func TestSesEventHandlerHandleEvent(t *testing.T) {
-	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
-		f := newSesEventHandlerFixture(unimplementedEventJson)
-
-		f.handler.HandleEvent(f.ctx)
-
-		f.logs.AssertContains(t, "unimplemented event type: Open")
-	})
-
-	t.Run("LogsSuccessForSend", func(t *testing.T) {
-		f := newSesEventHandlerFixture(sendEventJson)
-
-		f.handler.HandleEvent(f.ctx)
-
-		f.logs.AssertContains(t, "Send [Id:")
-		f.logs.AssertContains(t, ": success: ")
-	})
-
-	t.Run("LogsSuccessForDelivery", func(t *testing.T) {
-		f := newSesEventHandlerFixture(deliveryEventJson)
-
-		f.handler.HandleEvent(f.ctx)
-
-		f.logs.AssertContains(t, "Delivery [Id:")
-		f.logs.AssertContains(t, ": success: ")
-	})
-}
-
 func TestRecipientUpdater(t *testing.T) {
 	t.Run("ReturnsSuccessfulOutcome", func(t *testing.T) {
 		updater := &recipientUpdater{
@@ -317,7 +289,35 @@ func TestSesEventHandler(t *testing.T) {
 	})
 }
 
-func TestBounceHandler(t *testing.T) {
+func TestSesEventHandlerHandleEvent(t *testing.T) {
+	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
+		f := newSesEventHandlerFixture(unimplementedEventJson)
+
+		f.handler.HandleEvent(f.ctx)
+
+		f.logs.AssertContains(t, "unimplemented event type: Open")
+	})
+
+	t.Run("LogsSuccessForSend", func(t *testing.T) {
+		f := newSesEventHandlerFixture(sendEventJson)
+
+		f.handler.HandleEvent(f.ctx)
+
+		f.logs.AssertContains(t, "Send [Id:")
+		f.logs.AssertContains(t, ": success: ")
+	})
+
+	t.Run("LogsSuccessForDelivery", func(t *testing.T) {
+		f := newSesEventHandlerFixture(deliveryEventJson)
+
+		f.handler.HandleEvent(f.ctx)
+
+		f.logs.AssertContains(t, "Delivery [Id:")
+		f.logs.AssertContains(t, ": success: ")
+	})
+}
+
+func TestHandleBounceEvent(t *testing.T) {
 	setup := func(bounceType, bounceSubType string) (
 		f *sesEventHandlerFixture,
 	) {
@@ -347,7 +347,7 @@ func TestBounceHandler(t *testing.T) {
 	})
 }
 
-func TestComplaintHandler(t *testing.T) {
+func TestHandleComplaintEvent(t *testing.T) {
 	setup := func(
 		complaintSubType, complaintFeedbackType string,
 	) (f *sesEventHandlerFixture) {
@@ -399,7 +399,7 @@ func TestComplaintHandler(t *testing.T) {
 	})
 }
 
-func TestRejectHandler(t *testing.T) {
+func TestHandleRejectEvent(t *testing.T) {
 	setup := func(reason string) (f *sesEventHandlerFixture) {
 		return newSesEventHandlerFixture(rejectEventJson(reason))
 	}
