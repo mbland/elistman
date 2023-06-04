@@ -33,8 +33,7 @@ func newSnsHandlerFixture() *snsHandlerFixture {
 
 // This and other test messages adapted from:
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
-const testMailJson = `
-  "mail": {
+const testMailJson = `  "mail": {
     "timestamp": "1970-09-18T12:45:00.000Z",
     "source": "no-reply@mike-bland.com",
     "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/mike-bland.com",
@@ -47,7 +46,7 @@ const testMailJson = `
     "headers": [
       { "name": "From", "value": "no-reply@mike-bland.com" },
       { "name": "To", "value": "recipient@example.com" },
-      { "name": "Subject", "value": "Message sent from Amazon SES" },
+      { "name": "Subject", "value": "Test message" },
       { "name": "MIME-Version", "value": "1.0" },
       {
         "name": "Content-Type",
@@ -72,20 +71,70 @@ const testMailJson = `
       "myCustomTag1": [ "myCustomTagValue1" ],
       "myCustomTag2": [ "myCustomTagValue2" ]      
     }
-  }
-`
+  }`
+
+const sendEventJson = `
+{
+  "eventType": "Send",
+  "send": {},
+` + testMailJson + `
+}`
+
+const deliveryEventJson = `
+{
+  "eventType": "Delivery",
+  "delivery": {
+    "timestamp": "1970-09-18T12:45:00.000Z",
+    "processingTimeMillis": 27,
+    "recipients": [ "recipient@example.com" ],
+    "smtpResponse": "250 2.6.0 Message received",
+    "reportingMTA": "mta.example.com"
+  },
+` + testMailJson + `
+}`
+
+func bounceEventJson(bounceType, bounceSubType string) string {
+	return `{
+  "eventType": "Bounce",
+  "bounce": {
+    "bounceType": "` + bounceType + `",
+    "bounceSubType": "` + bounceSubType + `"
+  },
+` + testMailJson + `
+}`
+}
+
+func complaintEventJson(complaintSubType, complaintFeedbackType string) string {
+	return `{
+  "eventType": "Complaint",
+  "complaint": {
+    "complaintSubType": "` + complaintSubType + `",
+    "complaintFeedbackType": "` + complaintFeedbackType + `"
+  },
+` + testMailJson + `
+}`
+}
+
+func rejectEventJson(reason string) string {
+	return `{
+  "eventType": "Reject",
+  "reject": {
+    "reason": "` + reason + `"
+  },
+` + testMailJson + `
+}`
+}
 
 const unimplementedEventJson = `
-	{
-		"eventType": "Open",
-		` + testMailJson + `,
-		"open": {
-			"ipAddress": "127.0.0.1",
-			"timestamp": "1970-09-18T12:45:00.000Z",
-			"userAgent": "doesn't matter"
-		}
-	}
-`
+{
+  "eventType": "Open",
+  "open": {
+    "ipAddress": "127.0.0.1",
+    "timestamp": "1970-09-18T12:45:00.000Z",
+    "userAgent": "doesn't matter"
+  },
+` + testMailJson + `
+}`
 
 func testEvent(eventMsg string) (event *events.SesEventRecord) {
 	event = &events.SesEventRecord{}
@@ -104,27 +153,20 @@ func assertTypesMatch(t *testing.T, lhs, rhs any) {
 
 func TestParseSesEvent(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		message := `
-			{
-				"eventType": "Send",
-				` + testMailJson + `,
-  				"send": {}
-			}`
-
-		event, handler, err := parseSesEvent(message)
+		handler, err := parseSesEvent(sendEventJson)
 
 		assert.NilError(t, err)
-		assert.Equal(t, "Send", event.EventType)
-		assert.Equal(t, "Send", handler.Type)
 
 		expected := &baseSesEventHandler{
+			Event:     &events.SesEventRecord{EventType: "Send"},
 			MessageId: "EXAMPLE7c191be45",
 			To:        []string{"recipient@example.com"},
 			From:      []string{"no-reply@mike-bland.com"},
 			Subject:   "Test message",
-			Details:   message,
+			Details:   sendEventJson,
 		}
 
+		assert.Equal(t, expected.Event.EventType, handler.Event.EventType)
 		assert.Equal(t, expected.MessageId, handler.MessageId)
 		assert.DeepEqual(t, expected.To, handler.To)
 		assert.DeepEqual(t, expected.From, handler.From)
@@ -133,9 +175,8 @@ func TestParseSesEvent(t *testing.T) {
 	})
 
 	t.Run("FailsOnParseError", func(t *testing.T) {
-		event, handler, err := parseSesEvent("")
+		handler, err := parseSesEvent("")
 
-		assert.Assert(t, is.Nil(event))
 		assert.Assert(t, is.Nil(handler))
 		assert.ErrorContains(t, err, "unexpected end of JSON input")
 	})
@@ -143,48 +184,26 @@ func TestParseSesEvent(t *testing.T) {
 
 func TestBaseSesEventHandlerHandleEvent(t *testing.T) {
 	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
-		event := testEvent(unimplementedEventJson)
+		f := newSesEventHandlerFixture(unimplementedEventJson)
 
-		f.handler.HandleEvent(f.ctx, event)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "unimplemented event type: Open")
 	})
 
 	t.Run("LogsSuccessForSend", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
-		event := testEvent(`
-			{
-				"eventType": "Send",
-				` + testMailJson + `,
-  				"send": {}
-			}`,
-		)
+		f := newSesEventHandlerFixture(sendEventJson)
 
-		f.handler.HandleEvent(f.ctx, event)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "Send [Id:")
 		f.logs.AssertContains(t, ": success: ")
 	})
 
 	t.Run("LogsSuccessForDelivery", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
-		event := testEvent(`
-			{
-				"eventType": "Delivery",
-				` + testMailJson + `,
-				"delivery": {
-					"timestamp": "1970-09-18T12:45:00.000Z",
-					"processingTimeMillis": 27,
-					"recipients": [ "recipient@example.com" ],
-					"smtpResponse": "250 2.6.0 Message received",
-					"reportingMTA": "mta.example.com"
-				}
-			}`,
-		)
-		f.handler.Type = "Delivery"
+		f := newSesEventHandlerFixture(deliveryEventJson)
 
-		f.handler.HandleEvent(f.ctx, event)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "Delivery [Id:")
 		f.logs.AssertContains(t, ": success: ")
@@ -229,24 +248,17 @@ type sesEventHandlerFixture struct {
 	ctx     context.Context
 }
 
-func newSesEventHandlerFixture() *sesEventHandlerFixture {
+func newSesEventHandlerFixture(eventMsg string) *sesEventHandlerFixture {
 	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
-	handler := *testBaseSesEventHandler
+	handler, err := parseSesEvent(eventMsg)
+	if err != nil {
+		panic("failed to parse test event: " + err.Error())
+	}
 
 	handler.Agent = agent
 	handler.Log = logger
-	return &sesEventHandlerFixture{&handler, agent, logs, context.Background()}
-}
-
-var testBaseSesEventHandler = &baseSesEventHandler{
-	Type:      "Send",
-	MessageId: "deadbeef",
-	From:      []string{"no-reply@mike-bland.com"},
-	To:        []string{"mbland@acm.org"},
-	Subject:   "Latest blog post",
-	// Use a stub, since we're assuming the object has already been parsed.
-	Details: `{ "description": "stubbed test message" }`,
+	return &sesEventHandlerFixture{handler, agent, logs, context.Background()}
 }
 
 func assertRecipientUpdated(
@@ -259,19 +271,18 @@ func assertRecipientUpdated(
 
 func TestBaseSesEventHandler(t *testing.T) {
 	t.Run("logOutcome", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
+		f := newSesEventHandlerFixture(sendEventJson)
 
 		f.handler.logOutcome("LGTM")
 
 		expected := `Send ` +
-			`[Id:"deadbeef" From:"no-reply@mike-bland.com" ` +
-			`To:"mbland@acm.org" Subject:"Latest blog post"]: LGTM: ` +
-			testBaseSesEventHandler.Details
+			`[Id:"EXAMPLE7c191be45" From:"no-reply@mike-bland.com" ` +
+			`To:"recipient@example.com" Subject:"Test message"]: LGTM: `
 		f.logs.AssertContains(t, expected)
 	})
 
 	t.Run("UpdateRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
+		f := newSesEventHandlerFixture(sendEventJson)
 		f.handler.To = []string{"mbland@acm.org", "foo@bar.com"}
 		updater := &recipientUpdater{
 			func(context.Context, string) error { return nil },
@@ -286,126 +297,117 @@ func TestBaseSesEventHandler(t *testing.T) {
 	})
 
 	t.Run("RemoveRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
+		f := newSesEventHandlerFixture(sendEventJson)
 
 		f.handler.removeRecipients(f.ctx, "testing")
 
-		f.logs.AssertContains(t, "removed mbland@acm.org due to: testing")
-		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
+		const expectedMsg = "removed recipient@example.com due to: testing"
+		f.logs.AssertContains(t, expectedMsg)
+		assertRecipientUpdated(t, f.agent, "Remove", "recipient@example.com")
 	})
 
 	t.Run("RestoreRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture()
+		f := newSesEventHandlerFixture(sendEventJson)
 
 		f.handler.restoreRecipients(f.ctx, "testing")
 
-		f.logs.AssertContains(t, "restored mbland@acm.org due to: testing")
-		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
+		const expectedMsg = "restored recipient@example.com due to: testing"
+		f.logs.AssertContains(t, expectedMsg)
+		assertRecipientUpdated(t, f.agent, "Restore", "recipient@example.com")
 	})
 }
 
 func TestBounceHandler(t *testing.T) {
-	setup := func() (handler *bounceHandler, f *sesEventHandlerFixture) {
-		f = newSesEventHandlerFixture()
-		handler = &bounceHandler{baseSesEventHandler: *f.handler}
-		handler.Type = "Bounce"
+	setup := func(bounceType, bounceSubType string) (
+		f *sesEventHandlerFixture,
+	) {
+		eventJson := bounceEventJson(bounceType, bounceSubType)
+		f = newSesEventHandlerFixture(eventJson)
 		return
 	}
 
 	t.Run("DoesNotRemoveRecipientsIfTransient", func(t *testing.T) {
-		handler, f := setup()
-		handler.BounceType = "Transient"
-		handler.BounceSubType = "General"
+		f := setup("Transient", "General")
 
-		handler.HandleEvent(f.ctx)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "not removing recipients: Transient/General")
 		assert.Assert(t, is.Nil(f.agent.Calls))
 	})
 
 	t.Run("RemovesRecipientsIfPermanent", func(t *testing.T) {
-		handler, f := setup()
-		handler.BounceType = "Permanent"
-		handler.BounceSubType = "General"
+		f := setup("Permanent", "General")
 
-		handler.HandleEvent(f.ctx)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(
-			t, "removed mbland@acm.org due to: Permanent/General",
+			t, "removed recipient@example.com due to: Permanent/General",
 		)
-		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
+		assertRecipientUpdated(t, f.agent, "Remove", "recipient@example.com")
 	})
 }
 
 func TestComplaintHandler(t *testing.T) {
-	setup := func() (handler *complaintHandler, f *sesEventHandlerFixture) {
-		f = newSesEventHandlerFixture()
-		handler = &complaintHandler{baseSesEventHandler: *f.handler}
-		handler.Type = "Complaint"
+	setup := func(
+		complaintSubType, complaintFeedbackType string,
+	) (f *sesEventHandlerFixture) {
+		eventJson := complaintEventJson(complaintSubType, complaintFeedbackType)
+		f = newSesEventHandlerFixture(eventJson)
 		return
 	}
 
+	const recipient = "recipient@example.com"
+
 	t.Run("RemovesRecipients", func(t *testing.T) {
-		const msgPrefix = "removed mbland@acm.org due to: "
+		const msgPrefix = "removed " + recipient + " due to: "
 
 		t.Run("IfSubTypeIsNotEmpty", func(t *testing.T) {
-			// Normally this wouldn't contain both complaintSubType and
-			// complaintFeedbackType, as a nonempty complaintSubType means the
-			// message wasn't even sent. The parser should be able to handle
-			// both fields being present at the same time regardless.
-			handler, f := setup()
-			handler.ComplaintSubType = "OnAccountSuppressionList"
+			f := setup("OnAccountSuppressionList", "")
 
-			handler.HandleEvent(f.ctx)
+			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"OnAccountSuppressionList")
-			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
+			assertRecipientUpdated(t, f.agent, "Remove", recipient)
 		})
 
 		t.Run("IfFeedbackIsSpamRelated", func(t *testing.T) {
-			handler, f := setup()
-			handler.ComplaintFeedbackType = "abuse"
+			f := setup("", "abuse")
 
-			handler.HandleEvent(f.ctx)
+			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"abuse")
-			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
+			assertRecipientUpdated(t, f.agent, "Remove", recipient)
 		})
 
 		t.Run("IfFeedbackIsUnknown", func(t *testing.T) {
-			handler, f := setup()
+			f := setup("", "")
 
-			handler.HandleEvent(f.ctx)
+			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"unknown")
-			assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
+			assertRecipientUpdated(t, f.agent, "Remove", recipient)
 		})
 	})
 
 	t.Run("RestoresRecipientsIfFeedbackIsNotSpam", func(t *testing.T) {
-		handler, f := setup()
-		handler.ComplaintFeedbackType = "not-spam"
+		f := setup("", "not-spam")
 
-		handler.HandleEvent(f.ctx)
+		f.handler.HandleEvent(f.ctx)
 
-		f.logs.AssertContains(t, "restored mbland@acm.org due to: not-spam")
-		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
+		f.logs.AssertContains(t, "restored "+recipient+" due to: not-spam")
+		assertRecipientUpdated(t, f.agent, "Restore", recipient)
 	})
 }
 
 func TestRejectHandler(t *testing.T) {
-	setup := func() (handler *rejectHandler, f *sesEventHandlerFixture) {
-		f = newSesEventHandlerFixture()
-		handler = &rejectHandler{baseSesEventHandler: *f.handler}
-		handler.Type = "Reject"
-		return
+	setup := func(reason string) (f *sesEventHandlerFixture) {
+		return newSesEventHandlerFixture(rejectEventJson(reason))
 	}
 
 	t.Run("LogsReason", func(t *testing.T) {
-		handler, f := setup()
-		handler.Reason = "Bad content"
+		f := setup("Bad content")
 
-		handler.HandleEvent(f.ctx)
+		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "Bad content")
 		assert.Assert(t, is.Nil(f.agent.Calls))

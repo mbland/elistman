@@ -21,7 +21,7 @@ type snsHandler struct {
 func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 	for _, snsRecord := range e.Records {
 		msg := snsRecord.SNS.Message
-		event, handler, err := parseSesEvent(msg)
+		handler, err := parseSesEvent(msg)
 
 		if err != nil {
 			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
@@ -29,14 +29,12 @@ func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 		}
 		handler.Agent = h.Agent
 		handler.Log = h.Log
-		handler.HandleEvent(ctx, event)
+		handler.HandleEvent(ctx)
 	}
 }
 
-func parseSesEvent(
-	message string,
-) (event *events.SesEventRecord, handler *baseSesEventHandler, err error) {
-	event = &events.SesEventRecord{}
+func parseSesEvent(message string) (handler *baseSesEventHandler, err error) {
+	event := &events.SesEventRecord{}
 	if err = json.Unmarshal([]byte(message), event); err != nil {
 		event = nil
 		return
@@ -44,7 +42,7 @@ func parseSesEvent(
 
 	mail := event.Mail
 	handler = &baseSesEventHandler{
-		Type:      event.EventType,
+		Event:     event,
 		MessageId: mail.MessageID,
 		To:        mail.CommonHeaders.To,
 		From:      mail.CommonHeaders.From,
@@ -55,7 +53,7 @@ func parseSesEvent(
 }
 
 type baseSesEventHandler struct {
-	Type      string
+	Event     *events.SesEventRecord
 	MessageId string
 	From      []string
 	To        []string
@@ -65,9 +63,8 @@ type baseSesEventHandler struct {
 	Log       *log.Logger
 }
 
-func (evh *baseSesEventHandler) HandleEvent(
-	ctx context.Context, event *events.SesEventRecord,
-) {
+func (evh *baseSesEventHandler) HandleEvent(ctx context.Context) {
+	event := evh.Event
 	switch event.EventType {
 	case "Bounce":
 		handler := &bounceHandler{
@@ -99,7 +96,7 @@ func (evh *baseSesEventHandler) HandleEvent(
 func (evh *baseSesEventHandler) logOutcome(outcome string) {
 	evh.Log.Printf(
 		`%s [Id:"%s" From:"%s" To:"%s" Subject:"%s"]: %s: %s`,
-		evh.Type,
+		evh.Event.EventType,
 		evh.MessageId,
 		strings.Join(evh.From, ","),
 		strings.Join(evh.To, ","),
