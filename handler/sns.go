@@ -22,7 +22,16 @@ type snsHandler struct {
 func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 	for _, snsRecord := range e.Records {
 		msg := snsRecord.SNS.Message
-		if sesHandler, err := newSesEventHandler(h, msg); err != nil {
+		event, handler, err := parseSesEvent(msg)
+
+		if err != nil {
+			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
+			continue
+		}
+		handler.Agent = h.Agent
+		handler.Log = h.Log
+
+		if sesHandler, err := newSesEventHandler(handler, event); err != nil {
 			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
 		} else {
 			sesHandler.HandleEvent(ctx)
@@ -35,7 +44,7 @@ type sesEventHandler interface {
 }
 
 func parseSesEvent(
-	sns *snsHandler, message string,
+	message string,
 ) (event *events.SesEventRecord, handler *baseSesEventHandler, err error) {
 	event = &events.SesEventRecord{}
 	if err = json.Unmarshal([]byte(message), event); err != nil {
@@ -51,21 +60,14 @@ func parseSesEvent(
 		From:      mail.CommonHeaders.From,
 		Subject:   mail.CommonHeaders.Subject,
 		Details:   message,
-		Agent:     sns.Agent,
-		Log:       sns.Log,
 	}
 	return
 }
 
 func newSesEventHandler(
-	sns *snsHandler, message string,
+	base *baseSesEventHandler, event *events.SesEventRecord,
 ) (handler sesEventHandler, err error) {
-	event, base, err := parseSesEvent(sns, message)
-	if err != nil {
-		return
-	}
-
-	switch base.Type {
+	switch event.EventType {
 	case "Bounce":
 		handler = &bounceHandler{
 			baseSesEventHandler: *base,
@@ -86,7 +88,7 @@ func newSesEventHandler(
 	case "Send", "Delivery":
 		handler = base
 	default:
-		err = fmt.Errorf("unimplemented event type: %s", base.Type)
+		err = fmt.Errorf("unimplemented event type: %s", event.EventType)
 	}
 	return
 }

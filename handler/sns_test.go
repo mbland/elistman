@@ -4,11 +4,13 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 
-	"github.com/aws/aws-lambda-go/events"
+	awsevents "github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/events"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -31,7 +33,7 @@ func newSnsHandlerFixture() *snsHandlerFixture {
 
 // This and other test messages adapted from:
 // https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
-var testMail = `
+const testMailJson = `
   "mail": {
     "timestamp": "1970-09-18T12:45:00.000Z",
     "source": "no-reply@mike-bland.com",
@@ -73,6 +75,28 @@ var testMail = `
   }
 `
 
+const unimplementedEventJson = `
+	{
+		"eventType": "Open",
+		` + testMailJson + `,
+		"open": {
+			"ipAddress": "127.0.0.1",
+			"timestamp": "1970-09-18T12:45:00.000Z",
+			"userAgent": "doesn't matter"
+		}
+	}
+`
+
+func testEvent(eventMsg string) (event *events.SesEventRecord) {
+	event = &events.SesEventRecord{}
+	var err error
+
+	if err = json.Unmarshal([]byte(eventMsg), event); err != nil {
+		panic("failed to parse event message: " + err.Error())
+	}
+	return
+}
+
 func assertTypesMatch(t *testing.T, lhs, rhs any) {
 	t.Helper()
 	assert.Equal(t, reflect.TypeOf(lhs), reflect.TypeOf(rhs))
@@ -80,15 +104,14 @@ func assertTypesMatch(t *testing.T, lhs, rhs any) {
 
 func TestParseSesEvent(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
-		f := newSnsHandlerFixture()
 		message := `
 			{
 				"eventType": "Send",
-				` + testMail + `,
+				` + testMailJson + `,
   				"send": {}
 			}`
 
-		event, handler, err := parseSesEvent(f.handler, message)
+		event, handler, err := parseSesEvent(message)
 
 		assert.NilError(t, err)
 		assert.Equal(t, "Send", event.EventType)
@@ -100,8 +123,6 @@ func TestParseSesEvent(t *testing.T) {
 			From:      []string{"no-reply@mike-bland.com"},
 			Subject:   "Test message",
 			Details:   message,
-			Agent:     f.handler.Agent,
-			Log:       f.handler.Log,
 		}
 
 		assert.Equal(t, expected.MessageId, handler.MessageId)
@@ -109,14 +130,10 @@ func TestParseSesEvent(t *testing.T) {
 		assert.DeepEqual(t, expected.From, handler.From)
 		assert.Equal(t, expected.Subject, handler.Subject)
 		assert.Equal(t, expected.Details, handler.Details)
-		assert.Equal(t, expected.Agent, handler.Agent)
-		assert.Equal(t, expected.Log, handler.Log)
 	})
 
 	t.Run("FailsOnParseError", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-
-		event, handler, err := parseSesEvent(f.handler, "")
+		event, handler, err := parseSesEvent("")
 
 		assert.Assert(t, is.Nil(event))
 		assert.Assert(t, is.Nil(handler))
@@ -125,69 +142,35 @@ func TestParseSesEvent(t *testing.T) {
 }
 
 func TestNewSesEventHandler(t *testing.T) {
-	t.Run("ReturnsParseError", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-
-		handler, err := newSesEventHandler(f.handler, "")
-
-		assert.Assert(t, is.Nil(handler))
-		assert.ErrorContains(t, err, "unexpected end of JSON input")
-	})
-
 	t.Run("ReturnsErrorForUnimplementedEventType", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-		message := `
-			{
-				"eventType": "Open",
-				` + testMail + `,
-				"open": {
-					"ipAddress": "127.0.0.1",
-					"timestamp": "1970-09-18T12:45:00.000Z",
-					"userAgent": "doesn't matter"
-				}
-			}`
+		event := testEvent(unimplementedEventJson)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.Assert(t, is.Nil(handler))
 		assert.ErrorContains(t, err, "unimplemented event type: Open")
 	})
 
 	t.Run("ReturnsBaseHandlerForSend", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-		message := `
+		event := testEvent(`
 			{
 				"eventType": "Send",
-				` + testMail + `,
+				` + testMailJson + `,
   				"send": {}
-			}`
+			}`,
+		)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.NilError(t, err)
 		assertTypesMatch(t, &baseSesEventHandler{}, handler)
-		baseHandler := handler.(*baseSesEventHandler)
-		assert.Equal(t, "Send", baseHandler.Type)
-
-		// Compare base handler values, which are the same for all handler
-		// types and so won't be repeated in other test cases.
-		assert.Equal(t, "EXAMPLE7c191be45", baseHandler.MessageId)
-		assert.DeepEqual(t, []string{"recipient@example.com"}, baseHandler.To)
-		assert.DeepEqual(
-			t, []string{"no-reply@mike-bland.com"}, baseHandler.From,
-		)
-		assert.Equal(t, "Test message", baseHandler.Subject)
-		assert.Equal(t, message, baseHandler.Details)
-		assert.Equal(t, f.handler.Agent, baseHandler.Agent)
-		assert.Equal(t, f.handler.Log, baseHandler.Log)
 	})
 
 	t.Run("ReturnsBaseHandlerForDelivery", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-		message := `
+		event := testEvent(`
 			{
 				"eventType": "Delivery",
-				` + testMail + `,
+				` + testMailJson + `,
 				"delivery": {
 					"timestamp": "1970-09-18T12:45:00.000Z",
 					"processingTimeMillis": 27,
@@ -195,22 +178,20 @@ func TestNewSesEventHandler(t *testing.T) {
 					"smtpResponse": "250 2.6.0 Message received",
 					"reportingMTA": "mta.example.com"
 				}
-			}`
+			}`,
+		)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.NilError(t, err)
 		assertTypesMatch(t, &baseSesEventHandler{}, handler)
-		baseHandler := handler.(*baseSesEventHandler)
-		assert.Equal(t, "Delivery", baseHandler.Type)
 	})
 
 	t.Run("ReturnsBounceHandler", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-		message := `
+		event := testEvent(`
 			{
 				"eventType": "Bounce",
-				` + testMail + `,
+				` + testMailJson + `,
 				"bounce":{
 					"bounceType":"Permanent",
 					"bounceSubType":"General",
@@ -226,28 +207,27 @@ func TestNewSesEventHandler(t *testing.T) {
 					"feedbackId":"deadbeef",
 					"reportingMTA":"dsn; mta.example.com"
 				}
-			}`
+			}`,
+		)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.NilError(t, err)
 		assertTypesMatch(t, &bounceHandler{}, handler)
 		bHandler := handler.(*bounceHandler)
-		assert.Equal(t, "Bounce", bHandler.Type)
 		assert.Equal(t, "Permanent", bHandler.BounceType)
 		assert.Equal(t, "General", bHandler.BounceSubType)
 	})
 
 	t.Run("ReturnsComplaintHandler", func(t *testing.T) {
-		f := newSnsHandlerFixture()
 		// Normally this wouldn't contain both complaintSubType and
 		// complaintFeedbackType, as a nonempty complaintSubType means the
 		// message wasn't even sent. The parser should be able to handle both
 		// fields being present at the same time regardless.
-		message := `
+		event := testEvent(`
 			{
 				"eventType": "Complaint",
-				` + testMail + `,
+				` + testMailJson + `,
 				"complaint": {
 					"complainedRecipients":[
 					  { "emailAddress":"recipient@example.com" }
@@ -259,33 +239,32 @@ func TestNewSesEventHandler(t *testing.T) {
 					"complaintFeedbackType":"abuse",
 					"arrivalDate":"1970-09-18T12:45:00.000Z"
 				  }
-			}`
+			}`,
+		)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.NilError(t, err)
 		assertTypesMatch(t, &complaintHandler{}, handler)
 		cHandler := handler.(*complaintHandler)
-		assert.Equal(t, "Complaint", cHandler.Type)
 		assert.Equal(t, "OnAccountSuppressionList", cHandler.ComplaintSubType)
 		assert.Equal(t, "abuse", cHandler.ComplaintFeedbackType)
 	})
 
 	t.Run("ReturnsRejectHandler", func(t *testing.T) {
-		f := newSnsHandlerFixture()
-		message := `
+		event := testEvent(`
 			{
 				"eventType": "Reject",
-				` + testMail + `,
+				` + testMailJson + `,
 				"reject": { "reason":"Bad content" }
-			}`
+			}`,
+		)
 
-		handler, err := newSesEventHandler(f.handler, message)
+		handler, err := newSesEventHandler(testBaseSesEventHandler, event)
 
 		assert.NilError(t, err)
 		assertTypesMatch(t, &rejectHandler{}, handler)
 		rHandler := handler.(*rejectHandler)
-		assert.Equal(t, "Reject", rHandler.Type)
 		assert.Equal(t, "Bad content", rHandler.Reason)
 	})
 }
@@ -529,7 +508,7 @@ func TestHandleSnsEvent(t *testing.T) {
 	t.Run("DoesNothingIfNoSnsRecords", func(t *testing.T) {
 		f := newSnsHandlerFixture()
 
-		f.handler.HandleEvent(f.ctx, &events.SNSEvent{})
+		f.handler.HandleEvent(f.ctx, &awsevents.SNSEvent{})
 
 		assert.Equal(t, "", f.logs.Logs())
 	})
@@ -544,6 +523,16 @@ func TestHandleSnsEvent(t *testing.T) {
 		expected := "parsing SES event from SNS failed: " +
 			"unexpected end of JSON input: "
 		f.logs.AssertContains(t, expected)
+	})
+
+	t.Run("LogsErrorForUnimplementedEventType", func(t *testing.T) {
+		f := newSnsHandlerFixture()
+		event := simpleNotificationServiceEvent()
+		event.Records[0].SNS.Message = unimplementedEventJson
+
+		f.handler.HandleEvent(f.ctx, event)
+
+		f.logs.AssertContains(t, "unimplemented event type: Open")
 	})
 
 	t.Run("SendEventSucceeds", func(t *testing.T) {
