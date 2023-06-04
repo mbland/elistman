@@ -4,13 +4,10 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"reflect"
 	"testing"
 
 	awsevents "github.com/aws/aws-lambda-go/events"
-	"github.com/mbland/elistman/events"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -135,21 +132,6 @@ const unimplementedEventJson = `
   },
 ` + testMailJson + `
 }`
-
-func testEvent(eventMsg string) (event *events.SesEventRecord) {
-	event = &events.SesEventRecord{}
-	var err error
-
-	if err = json.Unmarshal([]byte(eventMsg), event); err != nil {
-		panic("failed to parse event message: " + err.Error())
-	}
-	return
-}
-
-func assertTypesMatch(t *testing.T, lhs, rhs any) {
-	t.Helper()
-	assert.Equal(t, reflect.TypeOf(lhs), reflect.TypeOf(rhs))
-}
 
 func TestParseSesEvent(t *testing.T) {
 	f := newSnsHandlerFixture()
