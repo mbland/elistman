@@ -39,11 +39,7 @@ func parseSesEvent(message string) (handler *sesEventHandler, err error) {
 		event = nil
 		return
 	}
-
-	handler = &sesEventHandler{
-		Event:   event,
-		Details: message,
-	}
+	handler = &sesEventHandler{Event: event, Details: message}
 	return
 }
 
@@ -56,7 +52,7 @@ type sesEventHandler struct {
 
 func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 	event := evh.Event
-	switch event.EventType {
+	switch evh.Event.EventType {
 	case "Bounce":
 		evh.handleBounceEvent(ctx)
 	case "Complaint":
@@ -89,39 +85,32 @@ func (evh *sesEventHandler) logOutcome(outcome string) {
 func (evh *sesEventHandler) removeRecipients(
 	ctx context.Context, reason string,
 ) {
-	op := &recipientUpdater{evh.Agent.Remove, "removed", "error removing"}
-	evh.updateRecipients(ctx, reason, op)
+	remove := evh.Agent.Remove
+	evh.updateRecipients(ctx, reason, remove, "removed", "error removing")
 }
 
-func (evh *sesEventHandler) restoreRecipients(ctx context.Context, reason string,
+func (evh *sesEventHandler) restoreRecipients(
+	ctx context.Context, reason string,
 ) {
-	op := &recipientUpdater{evh.Agent.Restore, "restored", "error restoring"}
-	evh.updateRecipients(ctx, reason, op)
+	restore := evh.Agent.Restore
+	evh.updateRecipients(ctx, reason, restore, "restored", "error restoring")
 }
 
 func (evh *sesEventHandler) updateRecipients(
-	ctx context.Context, reason string, up *recipientUpdater,
+	ctx context.Context,
+	reason string,
+	action func(context.Context, string) error,
+	successPrefix, errPrefix string,
 ) {
 	for _, email := range evh.Event.Mail.CommonHeaders.To {
-		evh.logOutcome(up.updateRecipient(ctx, email, reason))
+		emailAndReason := " " + email + " due to: " + reason
+		outcome := successPrefix + emailAndReason
+
+		if err := action(ctx, email); err != nil {
+			outcome = errPrefix + emailAndReason + ": " + err.Error()
+		}
+		evh.logOutcome(outcome)
 	}
-}
-
-type recipientUpdater struct {
-	action        func(context.Context, string) error
-	successPrefix string
-	errPrefix     string
-}
-
-func (up *recipientUpdater) updateRecipient(
-	ctx context.Context, email, reason string,
-) string {
-	emailAndReason := " " + email + " due to: " + reason
-
-	if err := up.action(ctx, email); err != nil {
-		return up.errPrefix + emailAndReason + ": " + err.Error()
-	}
-	return up.successPrefix + emailAndReason
 }
 
 func (evh *sesEventHandler) handleBounceEvent(ctx context.Context) {

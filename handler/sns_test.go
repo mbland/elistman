@@ -174,34 +174,44 @@ func TestParseSesEvent(t *testing.T) {
 	})
 }
 
-func TestRecipientUpdater(t *testing.T) {
-	t.Run("ReturnsSuccessfulOutcome", func(t *testing.T) {
-		updater := &recipientUpdater{
-			func(context.Context, string) error { return nil },
-			"updated",
-			"error updating",
-		}
+func TestUpdateRecipients(t *testing.T) {
+	const successPrefix = "updated"
+	const errPrefix = "error updating"
 
-		result := updater.updateRecipient(
-			context.Background(), "mbland@acm.org", "testing",
+	setup := func() (f *sesEventHandlerFixture) {
+		f = newSesEventHandlerFixture(sendEventJson)
+		f.handler.Event.Mail.CommonHeaders.To = []string{
+			"mbland@acm.org", "foo@bar.com",
+		}
+		return
+	}
+
+	t.Run("LogsSuccessfulOutcome", func(t *testing.T) {
+		f := setup()
+
+		op := func(context.Context, string) error { return nil }
+
+		f.handler.updateRecipients(
+			context.Background(), "testing", op, successPrefix, errPrefix,
 		)
 
-		assert.Equal(t, "updated mbland@acm.org due to: testing", result)
+		f.logs.AssertContains(t, "updated mbland@acm.org due to: testing")
+		f.logs.AssertContains(t, "updated foo@bar.com due to: testing")
 	})
 
-	t.Run("ReturnsErrorOutcome", func(t *testing.T) {
-		updater := &recipientUpdater{
-			func(context.Context, string) error { return errors.New("d'oh!") },
-			"updated",
-			"error updating",
-		}
+	t.Run("LogsErrorOutcome", func(t *testing.T) {
+		f := setup()
+		op := func(context.Context, string) error { return errors.New("d'oh!") }
 
-		result := updater.updateRecipient(
-			context.Background(), "mbland@acm.org", "testing",
+		f.handler.updateRecipients(
+			context.Background(), "testing", op, successPrefix, errPrefix,
 		)
 
-		expected := "error updating mbland@acm.org due to: testing: d'oh!"
-		assert.Equal(t, expected, result)
+		expectedErr := func(recipient string) string {
+			return "error updating " + recipient + " due to: testing: d'oh!"
+		}
+		f.logs.AssertContains(t, expectedErr("mbland@acm.org"))
+		f.logs.AssertContains(t, expectedErr("foo@bar.com"))
 	})
 }
 
@@ -243,23 +253,6 @@ func TestSesEventHandler(t *testing.T) {
 			`[Id:"EXAMPLE7c191be45" From:"no-reply@mike-bland.com" ` +
 			`To:"recipient@example.com" Subject:"Test message"]: LGTM: `
 		f.logs.AssertContains(t, expected)
-	})
-
-	t.Run("UpdateRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture(sendEventJson)
-		f.handler.Event.Mail.CommonHeaders.To = []string{
-			"mbland@acm.org", "foo@bar.com",
-		}
-		updater := &recipientUpdater{
-			func(context.Context, string) error { return nil },
-			"updated",
-			"error updating",
-		}
-
-		f.handler.updateRecipients(f.ctx, "testing", updater)
-
-		f.logs.AssertContains(t, "updated mbland@acm.org due to: testing")
-		f.logs.AssertContains(t, "updated foo@bar.com due to: testing")
 	})
 
 	t.Run("RemoveRecipients", func(t *testing.T) {
