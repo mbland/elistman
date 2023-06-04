@@ -301,20 +301,20 @@ func TestRecipientUpdater(t *testing.T) {
 }
 
 type sesEventHandlerFixture struct {
-	agent *testAgent
-	logs  *testutils.Logs
-	ctx   context.Context
+	handler *baseSesEventHandler
+	agent   *testAgent
+	logs    *testutils.Logs
+	ctx     context.Context
 }
 
-func newSesEventHandlerFixture(
-	handler *baseSesEventHandler,
-) *sesEventHandlerFixture {
+func newSesEventHandlerFixture() *sesEventHandlerFixture {
 	logs, logger := testutils.NewLogs()
 	agent := &testAgent{}
+	handler := *testBaseSesEventHandler
 
 	handler.Agent = agent
 	handler.Log = logger
-	return &sesEventHandlerFixture{agent, logs, context.Background()}
+	return &sesEventHandlerFixture{&handler, agent, logs, context.Background()}
 }
 
 var testBaseSesEventHandler = &baseSesEventHandler{
@@ -336,15 +336,10 @@ func assertRecipientUpdated(
 }
 
 func TestBaseSesEventHandler(t *testing.T) {
-	setup := func() (*baseSesEventHandler, *sesEventHandlerFixture) {
-		var handler baseSesEventHandler = *testBaseSesEventHandler
-		return &handler, newSesEventHandlerFixture(&handler)
-	}
-
 	t.Run("logOutcome", func(t *testing.T) {
-		handler, f := setup()
+		f := newSesEventHandlerFixture()
 
-		handler.logOutcome("LGTM")
+		f.handler.logOutcome("LGTM")
 
 		expected := `Send ` +
 			`[Id:"deadbeef" From:"no-reply@mike-bland.com" ` +
@@ -355,42 +350,42 @@ func TestBaseSesEventHandler(t *testing.T) {
 
 	t.Run("HandleEvent", func(t *testing.T) {
 		t.Run("DoesNothingButLogSuccessfulOutcome", func(t *testing.T) {
-			handler, f := setup()
+			f := newSesEventHandlerFixture()
 
-			handler.HandleEvent(f.ctx)
+			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, ": success: ")
 		})
 	})
 
 	t.Run("UpdateRecipients", func(t *testing.T) {
-		handler, f := setup()
-		handler.To = []string{"mbland@acm.org", "foo@bar.com"}
+		f := newSesEventHandlerFixture()
+		f.handler.To = []string{"mbland@acm.org", "foo@bar.com"}
 		updater := &recipientUpdater{
 			func(context.Context, string) error { return nil },
 			"updated",
 			"error updating",
 		}
 
-		handler.updateRecipients(f.ctx, "testing", updater)
+		f.handler.updateRecipients(f.ctx, "testing", updater)
 
 		f.logs.AssertContains(t, "updated mbland@acm.org due to: testing")
 		f.logs.AssertContains(t, "updated foo@bar.com due to: testing")
 	})
 
 	t.Run("RemoveRecipients", func(t *testing.T) {
-		handler, f := setup()
+		f := newSesEventHandlerFixture()
 
-		handler.removeRecipients(f.ctx, "testing")
+		f.handler.removeRecipients(f.ctx, "testing")
 
 		f.logs.AssertContains(t, "removed mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Remove", "mbland@acm.org")
 	})
 
 	t.Run("RestoreRecipients", func(t *testing.T) {
-		handler, f := setup()
+		f := newSesEventHandlerFixture()
 
-		handler.restoreRecipients(f.ctx, "testing")
+		f.handler.restoreRecipients(f.ctx, "testing")
 
 		f.logs.AssertContains(t, "restored mbland@acm.org due to: testing")
 		assertRecipientUpdated(t, f.agent, "Restore", "mbland@acm.org")
@@ -398,12 +393,11 @@ func TestBaseSesEventHandler(t *testing.T) {
 }
 
 func TestBounceHandler(t *testing.T) {
-	setup := func() (*bounceHandler, *sesEventHandlerFixture) {
-		var handler *bounceHandler = &bounceHandler{
-			baseSesEventHandler: *testBaseSesEventHandler,
-		}
+	setup := func() (handler *bounceHandler, f *sesEventHandlerFixture) {
+		f = newSesEventHandlerFixture()
+		handler = &bounceHandler{baseSesEventHandler: *f.handler}
 		handler.Type = "Bounce"
-		return handler, newSesEventHandlerFixture(&handler.baseSesEventHandler)
+		return
 	}
 
 	t.Run("DoesNotRemoveRecipientsIfTransient", func(t *testing.T) {
@@ -432,12 +426,11 @@ func TestBounceHandler(t *testing.T) {
 }
 
 func TestComplaintHandler(t *testing.T) {
-	setup := func() (*complaintHandler, *sesEventHandlerFixture) {
-		var handler *complaintHandler = &complaintHandler{
-			baseSesEventHandler: *testBaseSesEventHandler,
-		}
+	setup := func() (handler *complaintHandler, f *sesEventHandlerFixture) {
+		f = newSesEventHandlerFixture()
+		handler = &complaintHandler{baseSesEventHandler: *f.handler}
 		handler.Type = "Complaint"
-		return handler, newSesEventHandlerFixture(&handler.baseSesEventHandler)
+		return
 	}
 
 	t.Run("RemovesRecipients", func(t *testing.T) {
@@ -485,12 +478,11 @@ func TestComplaintHandler(t *testing.T) {
 }
 
 func TestRejectHandler(t *testing.T) {
-	setup := func() (*rejectHandler, *sesEventHandlerFixture) {
-		var handler *rejectHandler = &rejectHandler{
-			baseSesEventHandler: *testBaseSesEventHandler,
-		}
+	setup := func() (handler *rejectHandler, f *sesEventHandlerFixture) {
+		f = newSesEventHandlerFixture()
+		handler = &rejectHandler{baseSesEventHandler: *f.handler}
 		handler.Type = "Reject"
-		return handler, newSesEventHandlerFixture(&handler.baseSesEventHandler)
+		return
 	}
 
 	t.Run("LogsReason", func(t *testing.T) {
