@@ -21,25 +21,23 @@ type snsHandler struct {
 func (h *snsHandler) HandleEvent(ctx context.Context, e *awsevents.SNSEvent) {
 	for _, snsRecord := range e.Records {
 		msg := snsRecord.SNS.Message
-		handler, err := parseSesEvent(msg)
-
-		if err != nil {
+		if handler, err := h.parseSesEvent(msg); err != nil {
 			h.Log.Printf("parsing SES event from SNS failed: %s: %s", err, msg)
-			continue
+		} else {
+			handler.HandleEvent(ctx)
 		}
-		handler.Agent = h.Agent
-		handler.Log = h.Log
-		handler.HandleEvent(ctx)
 	}
 }
 
-func parseSesEvent(message string) (handler *sesEventHandler, err error) {
+func (h *snsHandler) parseSesEvent(message string) (
+	handler *sesEventHandler, err error,
+) {
 	event := &events.SesEventRecord{}
-	if err = json.Unmarshal([]byte(message), event); err != nil {
-		event = nil
-		return
+	if err = json.Unmarshal([]byte(message), event); err == nil {
+		handler = &sesEventHandler{
+			Event: event, Details: message, Agent: h.Agent, Log: h.Log,
+		}
 	}
-	handler = &sesEventHandler{Event: event, Details: message}
 	return
 }
 
@@ -66,13 +64,40 @@ func (evh *sesEventHandler) HandleEvent(ctx context.Context) {
 	}
 }
 
+func (evh *sesEventHandler) handleBounceEvent(ctx context.Context) {
+	event := evh.Event.Bounce
+	reason := event.BounceType + "/" + event.BounceSubType
+	if event.BounceType == "Transient" {
+		evh.logOutcome("not removing recipients: " + reason)
+	} else {
+		evh.removeRecipients(ctx, reason)
+	}
+}
+
+func (evh *sesEventHandler) handleComplaintEvent(ctx context.Context) {
+	event := evh.Event.Complaint
+	reason := event.ComplaintSubType
+	if reason == "" {
+		reason = event.ComplaintFeedbackType
+	}
+	if reason == "" {
+		reason = "unknown"
+	}
+
+	if reason == "not-spam" {
+		evh.restoreRecipients(ctx, reason)
+	} else {
+		evh.removeRecipients(ctx, reason)
+	}
+}
+
 func (evh *sesEventHandler) logOutcome(outcome string) {
 	event := evh.Event
 	headers := &event.Mail.CommonHeaders
 
 	evh.Log.Printf(
 		`%s [Id:"%s" From:"%s" To:"%s" Subject:"%s"]: %s: %s`,
-		evh.Event.EventType,
+		event.EventType,
 		event.Mail.MessageID,
 		strings.Join(headers.From, ","),
 		strings.Join(headers.To, ","),
@@ -110,32 +135,5 @@ func (evh *sesEventHandler) updateRecipients(
 			outcome = errPrefix + emailAndReason + ": " + err.Error()
 		}
 		evh.logOutcome(outcome)
-	}
-}
-
-func (evh *sesEventHandler) handleBounceEvent(ctx context.Context) {
-	event := evh.Event.Bounce
-	reason := event.BounceType + "/" + event.BounceSubType
-	if event.BounceType == "Transient" {
-		evh.logOutcome("not removing recipients: " + reason)
-	} else {
-		evh.removeRecipients(ctx, reason)
-	}
-}
-
-func (evh *sesEventHandler) handleComplaintEvent(ctx context.Context) {
-	event := evh.Event.Complaint
-	reason := event.ComplaintSubType
-	if reason == "" {
-		reason = event.ComplaintFeedbackType
-	}
-	if reason == "" {
-		reason = "unknown"
-	}
-
-	if reason == "not-spam" {
-		evh.restoreRecipients(ctx, reason)
-	} else {
-		evh.removeRecipients(ctx, reason)
 	}
 }
