@@ -138,7 +138,7 @@ func TestSnsEvent(t *testing.T) {
 	})
 }
 
-func TestSendEvent(t *testing.T) {
+func TestCommandLineEvent(t *testing.T) {
 	const sendEventJson = `{
 		"elistmanCommand": "` + events.CommandLineSendEvent + `",
 		"send": ` + email.ExampleMessageJson + `
@@ -152,18 +152,7 @@ func TestSendEvent(t *testing.T) {
 		Type: CommandLineEvent,
 		CommandLineEvent: &events.CommandLineEvent{
 			EListManCommand: events.CommandLineSendEvent,
-			Send: &events.SendEvent{
-				Message: email.Message{
-					From:       "Foo Bar <foobar@example.com>",
-					Subject:    "Test object",
-					TextBody:   "Hello, World!",
-					TextFooter: "Unsubscribe: " + email.UnsubscribeUrlTemplate,
-					HtmlBody: "<!DOCTYPE html><html><head></head>" +
-						"<body>Hello, World!<br/>",
-					HtmlFooter: "<a href='" + email.UnsubscribeUrlTemplate +
-						"'>Unsubscribe</a></body></html>",
-				},
-			},
+			Send:            &events.SendEvent{Message: *email.ExampleMessage},
 		},
 	})
 }
