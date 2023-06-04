@@ -146,6 +146,7 @@ var invalidDomains = map[string]bool{
 	"vtext.com":   true,
 	"txt.att.net": true,
 	"tmomail.net": true,
+	"txt.bell.ca": true,
 }
 
 func isKnownInvalidAddress(user, domain string) bool {
