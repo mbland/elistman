@@ -37,8 +37,8 @@ func TestSend(t *testing.T) {
 
 		assert.Assert(t, f.Cmd.SilenceUsage == true)
 		assert.Equal(t, TestStackName, lambda.StackName)
-		req, isSendEvent := lambda.InvokeReq.(*events.CommandLineEvent)
-		assert.Assert(t, isSendEvent == true)
+		req, isCliEvent := lambda.InvokeReq.(*events.CommandLineEvent)
+		assert.Assert(t, isCliEvent == true)
 		expectedReq := &events.CommandLineEvent{
 			EListManCommand: events.CommandLineSendEvent,
 			Send:            &events.SendEvent{Message: *email.ExampleMessage},
