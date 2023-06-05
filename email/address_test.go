@@ -156,6 +156,16 @@ func TestIsSuspiciousAddress(t *testing.T) {
 	})
 }
 
+func TestIsProblematicYetValidDomain(t *testing.T) {
+	t.Run("ReturnsTrueIfInDomainsSet", func(t *testing.T) {
+		assert.Assert(t, isProblematicYetValidDomain("outlook.com") == true)
+	})
+
+	t.Run("ReturnsFalseOtherwise", func(t *testing.T) {
+		assert.Assert(t, isProblematicYetValidDomain("acm.org") == false)
+	})
+}
+
 type addressValidatorFixture struct {
 	av  *ProdAddressValidator
 	ts  *TestSuppressor
@@ -535,6 +545,18 @@ func TestValidateAddress(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(failure))
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
+	})
+
+	t.Run("SucceedsForProblematicYetValidDomain", func(t *testing.T) {
+		f := newAddressValidatorFixture()
+		const address = "probably-spam-but-cannot-tell-for-sure@hotmail.com"
+
+		failure, err := f.av.ValidateAddress(f.ctx, address)
+
+		assert.NilError(t, err)
+		assert.Assert(t, is.Nil(failure))
+		assert.Equal(t, address, f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
 

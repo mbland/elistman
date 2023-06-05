@@ -83,7 +83,38 @@ type ProdAddressValidator struct {
 // return an error describing all failed attempts to find a match.
 //
 // This algorithm was inspired by the "Reverse Entries for MX records" check
-// from [DNS Inspect].
+// from [DNS Inspect]. It's a pass-fast version of the following series of DNS
+// lookups, except that it examines each address depth first and stops when one
+// passes:
+//
+//	$ dig short -t mx mike-bland.com
+//	10 inbound-smtp.us-east-1.amazonaws.com
+//
+//	$ dig +short inbound-smtp.us-east-1.amazonaws.com
+//	44.206.9.87
+//	44.210.166.32
+//	54.164.173.191
+//	54.197.5.236
+//	3.211.210.226
+//
+//	$ dig +short -x 44.206.9.87 -x 44.210.166.32 -x 54.164.173.191 \
+//		-x 54.197.5.236 -x 3.211.210.226
+//	ec2-44-206-9-87.compute-1.amazonaws.com.
+//	ec2-44-210-166-32.compute-1.amazonaws.com.
+//	ec2-54-164-173-191.compute-1.amazonaws.com.
+//	ec2-54-197-5-236.compute-1.amazonaws.com.
+//	ec2-3-211-210-226.compute-1.amazonaws.com.
+//
+//	$ dig +short ec2-44-206-9-87.compute-1.amazonaws.com \
+//		ec2-44-210-166-32.compute-1.amazonaws.com \
+//		ec2-54-164-173-191.compute-1.amazonaws.com \
+//		ec2-54-197-5-236.compute-1.amazonaws.com \
+//		ec2-3-211-210-226.compute-1.amazonaws.com
+//	44.206.9.87
+//	44.210.166.32
+//	54.164.173.191
+//	54.197.5.236
+//	3.211.210.226
 //
 // Originally ValidateAddress was to implement the algorithm from [How to Verify
 // Email Address Without Sending an Email].  The idea is to confirm the username
@@ -113,6 +144,8 @@ func (av *ProdAddressValidator) ValidateAddress(
 		return
 	} else if result {
 		return &ValidationFailure{"suppressed email address: " + address}, nil
+	} else if isProblematicYetValidDomain(domain) {
+		return
 	} else if err = av.checkMailHosts(ctx, email, domain); err == nil {
 		return
 	} else if errors.Is(err, ops.ErrExternal) {
@@ -170,6 +203,45 @@ func isSuspiciousAddress(user, domain string) bool {
 		return true
 	}
 	return strings.ToUpper(user) == user || strings.ToUpper(domain) == domain
+}
+
+var problematicYetValidDomains = map[string]bool{
+	"outlook.com":   true,
+	"microsoft.com": true,
+	"hotmail.com":   true,
+	"live.com":      true,
+	"msn.com":       true,
+}
+
+// isProblematicYetValidDomain identifies valid domains that fail the DNS check.
+//
+// Microsoft is the reason this function exists. They use a rotating IP address
+// scheme for the MX hosts for their domains. None of those IP addresses have
+// PTR records necessary to pass the DNS check (checkMailHosts).
+//
+// For example, here are the DNS results at the time of writing:
+//
+//	$ dig +short -t mx outlook.com
+//	5 outlook-com.olc.protection.outlook.com.
+//
+//	$ dig +short outlook-com.olc.protection.outlook.com
+//	104.47.66.33
+//	104.47.59.161
+//
+//	$ dig +short -x 104.47.66.33 -x 104.47.59.161
+//	[...no results...]
+//
+// Contrast this with the example from [ProdAddressValidator.ValidateAddress].
+//
+// Granted, a lot of spam signups come from these domains. But perfectly valid
+// ones can still come from them as well, and the verification link mechanism
+// blocks most remaining spam.
+//
+// Arguably, we could include gmail.com and other known good domains here.
+// However, the point is that we shouldn't have to. Inclusion in the
+// knownGoodDomains set is a workaround, not an optimization.
+func isProblematicYetValidDomain(domain string) bool {
+	return problematicYetValidDomains[domain]
 }
 
 func (av *ProdAddressValidator) checkMailHosts(
