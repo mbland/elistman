@@ -208,7 +208,7 @@ func (a *ProdAgent) Validate(
 	if failure, err = a.Validator.ValidateAddress(ctx, address); err != nil {
 		return
 	} else if failure != nil {
-		a.Log.Printf("%s failed validation: %s", address, failure)
+		a.Log.Printf("validation failed: %s", failure)
 	} else {
 		ok = true
 	}

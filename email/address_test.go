@@ -85,7 +85,7 @@ func TestParseAddress(t *testing.T) {
 		assert.Equal(t, "", email)
 		assert.Equal(t, "", user)
 		assert.Equal(t, "", host)
-		assert.ErrorContains(t, err, `invalid email address: mblandATacm.org`)
+		assert.ErrorContains(t, err, `missing '@' or angle-addr`)
 		assert.ErrorContains(t, err, `missing '@'`)
 	})
 }
@@ -566,7 +566,7 @@ func TestValidateAddress(t *testing.T) {
 		failure, err := f.av.ValidateAddress(f.ctx, "mblandATacm.org")
 
 		assert.NilError(t, err)
-		const expectedReason = "address failed to parse: mblandATacm.org"
+		const expectedReason = "mblandATacm.org: failed to parse"
 		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
@@ -578,7 +578,7 @@ func TestValidateAddress(t *testing.T) {
 		failure, err := f.av.ValidateAddress(f.ctx, "abuse@acm.org")
 
 		assert.NilError(t, err)
-		assert.Equal(t, "invalid email address: abuse@acm.org", failure.Reason)
+		assert.Equal(t, "abuse@acm.org: invalid", failure.String())
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -589,8 +589,8 @@ func TestValidateAddress(t *testing.T) {
 		failure, err := f.av.ValidateAddress(f.ctx, "MBLAND@ACM.ORG")
 
 		assert.NilError(t, err)
-		const expectedReason = "suspicious email address: MBLAND@ACM.ORG"
-		assert.Equal(t, expectedReason, failure.Reason)
+		const expectedReason = "MBLAND@ACM.ORG: suspicious"
+		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
@@ -602,7 +602,7 @@ func TestValidateAddress(t *testing.T) {
 		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
 		assert.NilError(t, err)
-		const expectedReason = "suppressed email address: mbland@acm.org"
+		const expectedReason = "mbland@acm.org: suppressed"
 		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
@@ -630,9 +630,8 @@ func TestValidateAddress(t *testing.T) {
 		failure, err := f.av.ValidateAddress(f.ctx, "mbland@acm.org")
 
 		assert.NilError(t, err)
-		const expectedReason = "address failed DNS validation: " +
-			"mbland@acm.org: no valid MX hosts for acm.org: " +
-			"no records for mail.mailroute.net"
+		const expectedReason = "mbland@acm.org: failed DNS validation: " +
+			"no valid MX hosts for acm.org: no records for mail.mailroute.net"
 		assert.Equal(t, expectedReason, failure.String())
 		assert.Equal(t, "mbland@acm.org", f.ts.checkedEmail)
 		assert.Equal(t, "mbland@acm.org", f.ts.suppressedEmail)

@@ -158,14 +158,16 @@ func TestValidate(t *testing.T) {
 
 	t.Run("FailsIfValidationFails", func(t *testing.T) {
 		agent, validator, logs := setup()
-		validator.Failure = &email.ValidationFailure{Reason: "test failure"}
+		validator.Failure = &email.ValidationFailure{
+			Address: testEmail, Reason: "test failure",
+		}
 
 		ok, err := agent.Validate(ctx, testEmail)
 
 		assert.NilError(t, err)
 		assert.Assert(t, ok == false)
 		validator.AssertValidated(t, testEmail)
-		logs.AssertContains(t, testEmail+" failed validation: test failure")
+		logs.AssertContains(t, "validation failed: "+testEmail+": test failure")
 	})
 
 	t.Run("PassesThroughError", func(t *testing.T) {
@@ -264,14 +266,16 @@ func TestSubscribe(t *testing.T) {
 
 	t.Run("ReturnsInvalidIfAddressFailsValidation", func(t *testing.T) {
 		f, ctx := setup()
-		f.validator.Failure = &email.ValidationFailure{Reason: "testing"}
+		f.validator.Failure = &email.ValidationFailure{
+			Address: testEmail, Reason: "testing",
+		}
 
 		result, err := f.agent.Subscribe(ctx, testEmail)
 
 		assert.NilError(t, err)
 		assert.Equal(t, ops.Invalid, result)
 		f.mailer.AssertNoMessageSent(t, testEmail)
-		f.logs.AssertContains(t, testEmail+" failed validation: testing")
+		f.logs.AssertContains(t, "validation failed: "+testEmail+": testing")
 	})
 
 	t.Run("PassesThroughValidateAddressError", func(t *testing.T) {

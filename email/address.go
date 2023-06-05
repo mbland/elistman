@@ -27,11 +27,12 @@ type AddressValidator interface {
 }
 
 type ValidationFailure struct {
-	Reason string
+	Address string
+	Reason  string
 }
 
 func (vf *ValidationFailure) String() string {
-	return vf.Reason
+	return fmt.Sprintf("%s: %s", vf.Address, vf.Reason)
 }
 
 // Resolver wraps several methods from the net standard library.
@@ -135,15 +136,15 @@ func (av *ProdAddressValidator) ValidateAddress(
 	email, user, domain, err := parseAddress(address)
 
 	if err != nil {
-		return &ValidationFailure{"address failed to parse: " + address}, nil
+		return &ValidationFailure{address, "failed to parse"}, nil
 	} else if isKnownInvalidAddress(user, domain) {
-		return &ValidationFailure{"invalid email address: " + address}, nil
+		return &ValidationFailure{address, "invalid"}, nil
 	} else if isSuspiciousAddress(user, domain) {
-		return &ValidationFailure{"suspicious email address: " + address}, nil
+		return &ValidationFailure{address, "suspicious"}, nil
 	} else if result, err = av.Suppressor.IsSuppressed(ctx, email); err != nil {
 		return
 	} else if result {
-		return &ValidationFailure{"suppressed email address: " + address}, nil
+		return &ValidationFailure{address, "suppressed"}, nil
 	} else if isProblematicYetValidDomain(domain) {
 		return
 	} else if err = av.checkMailHosts(ctx, email, domain); err == nil {
@@ -152,15 +153,15 @@ func (av *ProdAddressValidator) ValidateAddress(
 		return
 	}
 
-	const dnsFailFmt = "address failed DNS validation: %s: %s"
-	return &ValidationFailure{fmt.Sprintf(dnsFailFmt, address, err)}, nil
+	const dnsFailFmt = "failed DNS validation: %s"
+	return &ValidationFailure{address, fmt.Sprintf(dnsFailFmt, err)}, nil
 }
 
 func parseAddress(address string) (email, user, domain string, err error) {
-	addr, parseErr := mail.ParseAddress(address)
+	addr, err := mail.ParseAddress(address)
 
-	if parseErr != nil {
-		err = fmt.Errorf("invalid email address: %s: %s", address, parseErr)
+	if err != nil {
+		return
 	} else {
 		email = addr.Address
 		// mail.ParseAddress guarantees an "@domain" part is present.
