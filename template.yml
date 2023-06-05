@@ -51,11 +51,13 @@ Resources:
     # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
     Metadata:
       BuildMethod: makefile
+    DependsOn: FunctionLogs
     Properties:
       Handler: elistman-lambda
       Runtime: go1.x
       Description: Coordinates between the API Gateway, DynamoDB, SES, and SNS
       Timeout: 5
+      FunctionName: !Sub "${AWS::StackName}-function"
       # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -167,14 +169,14 @@ Resources:
     # https://awslabs.github.io/serverless-rules/rules/lambda/log_retention/
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Function}"
-      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-function"
+      RetentionInDays: 14
 
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "${AWS::StackName}-api"
-      RetentionInDays: 30
+      RetentionInDays: 14
 
   ReceiptRuleSetPermission:
     Type: AWS::Lambda::Permission
