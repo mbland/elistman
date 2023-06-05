@@ -133,6 +133,54 @@ func TestPutSubscriber(t *testing.T) {
 	})
 }
 
+func TestValidate(t *testing.T) {
+	setup := func() (
+		agent *ProdAgent,
+		validator *testdoubles.AddressValidator,
+		logs *tu.Logs,
+	) {
+		f := newProdAgentTestFixture()
+		return f.agent, f.validator, f.logs
+	}
+
+	ctx := context.Background()
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, validator, logs := setup()
+
+		ok, err := agent.Validate(ctx, testEmail)
+
+		assert.NilError(t, err)
+		assert.Assert(t, ok == true)
+		validator.AssertValidated(t, testEmail)
+		assert.Equal(t, "", logs.Builder.String())
+	})
+
+	t.Run("FailsIfValidationFails", func(t *testing.T) {
+		agent, validator, logs := setup()
+		validator.Failure = &email.ValidationFailure{Reason: "test failure"}
+
+		ok, err := agent.Validate(ctx, testEmail)
+
+		assert.NilError(t, err)
+		assert.Assert(t, ok == false)
+		validator.AssertValidated(t, testEmail)
+		logs.AssertContains(t, testEmail+" failed validation: test failure")
+	})
+
+	t.Run("PassesThroughError", func(t *testing.T) {
+		agent, validator, logs := setup()
+		validator.Error = makeServerError("test error")
+
+		ok, err := agent.Validate(ctx, testEmail)
+
+		assert.Assert(t, ok == false)
+		validator.AssertValidated(t, testEmail)
+		assert.Equal(t, "", logs.Builder.String())
+		assertServerErrorContains(t, err, "test error")
+	})
+}
+
 func TestMakeVerificationEmail(t *testing.T) {
 	setup := func() *ProdAgent {
 		f := newProdAgentTestFixture()

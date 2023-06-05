@@ -21,6 +21,7 @@ type SubscriptionAgent interface {
 	Unsubscribe(
 		ctx context.Context, email string, uid uuid.UUID,
 	) (ops.OperationResult, error)
+	Validate(ctx context.Context, address string) (ok bool, err error)
 	Remove(ctx context.Context, email string) error
 	Restore(ctx context.Context, email string) error
 	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
@@ -44,18 +45,12 @@ type ProdAgent struct {
 func (a *ProdAgent) Subscribe(
 	ctx context.Context, address string,
 ) (result ops.OperationResult, err error) {
-	var failure *email.ValidationFailure
-
-	if failure, err = a.Validator.ValidateAddress(ctx, address); err != nil {
-		return
-	} else if failure != nil {
-		a.Log.Printf("%s failed validation: %s", address, failure)
-		return
-	}
-
+	var ok bool
 	var sub *db.Subscriber
 
-	if sub, err = a.Db.Get(ctx, address); err == nil {
+	if ok, err = a.Validate(ctx, address); !ok {
+		return
+	} else if sub, err = a.Db.Get(ctx, address); err == nil {
 		switch sub.Status {
 		case db.SubscriberPending:
 			result = ops.VerifyLinkSent
@@ -201,6 +196,21 @@ func (a *ProdAgent) getSubscriber(
 		return
 	} else if sub.Uid != uid {
 		sub = nil
+	}
+	return
+}
+
+func (a *ProdAgent) Validate(
+	ctx context.Context, address string,
+) (ok bool, err error) {
+	var failure *email.ValidationFailure
+
+	if failure, err = a.Validator.ValidateAddress(ctx, address); err != nil {
+		return
+	} else if failure != nil {
+		a.Log.Printf("%s failed validation: %s", address, failure)
+	} else {
+		ok = true
 	}
 	return
 }
