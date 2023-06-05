@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/mail"
+	"strconv"
 	"strings"
 
 	"github.com/mbland/elistman/ops"
@@ -106,6 +107,8 @@ func (av *ProdAddressValidator) ValidateAddress(
 		return &ValidationFailure{"address failed to parse: " + address}, nil
 	} else if isKnownInvalidAddress(user, domain) {
 		return &ValidationFailure{"invalid email address: " + address}, nil
+	} else if isSuspiciousAddress(user, domain) {
+		return &ValidationFailure{"suspicious email address: " + address}, nil
 	} else if result, err = av.Suppressor.IsSuppressed(ctx, email); err != nil {
 		return
 	} else if result {
@@ -160,6 +163,13 @@ func isKnownInvalidAddress(user, domain string) bool {
 func getPrimaryDomain(domainName string) string {
 	parts := strings.Split(domainName, ".")
 	return strings.Join(parts[len(parts)-2:], ".")
+}
+
+func isSuspiciousAddress(user, domain string) bool {
+	if _, err := strconv.Atoi(user); err == nil {
+		return true
+	}
+	return strings.ToUpper(user) == user || strings.ToUpper(domain) == domain
 }
 
 func (av *ProdAddressValidator) checkMailHosts(

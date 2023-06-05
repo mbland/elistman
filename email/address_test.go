@@ -138,6 +138,24 @@ func TestIsKnownInvalidAddress(t *testing.T) {
 	})
 }
 
+func TestIsSuspiciousAddress(t *testing.T) {
+	t.Run("ReturnsFalseIfNoCriteriaMet", func(t *testing.T) {
+		assert.Assert(t, isSuspiciousAddress("mbland", "acm.org") == false)
+	})
+
+	t.Run("ReturnsTrueIfUsernameIsAnInt", func(t *testing.T) {
+		assert.Assert(t, isSuspiciousAddress("5558675309", "acm.org") == true)
+		assert.Assert(
+			t, isSuspiciousAddress("jenny5558675309", "acm.org") == false,
+		)
+	})
+
+	t.Run("ReturnsTrueIfEitherComponentIsAllUppercase", func(t *testing.T) {
+		assert.Assert(t, isSuspiciousAddress("MBLAND", "acm.org") == true)
+		assert.Assert(t, isSuspiciousAddress("mbland", "ACM.ORG") == true)
+	})
+}
+
 type addressValidatorFixture struct {
 	av  *ProdAddressValidator
 	ts  *TestSuppressor
@@ -539,6 +557,18 @@ func TestValidateAddress(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, "invalid email address: abuse@acm.org", failure.Reason)
+		assert.Equal(t, "", f.ts.checkedEmail)
+		assert.Equal(t, "", f.ts.suppressedEmail)
+	})
+
+	t.Run("FailsIfSuspiciousAddress", func(t *testing.T) {
+		f := newAddressValidatorFixture()
+
+		failure, err := f.av.ValidateAddress(f.ctx, "MBLAND@ACM.ORG")
+
+		assert.NilError(t, err)
+		const expectedReason = "suspicious email address: MBLAND@ACM.ORG"
+		assert.Equal(t, expectedReason, failure.Reason)
 		assert.Equal(t, "", f.ts.checkedEmail)
 		assert.Equal(t, "", f.ts.suppressedEmail)
 	})
