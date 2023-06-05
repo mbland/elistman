@@ -22,12 +22,14 @@ import (
 )
 
 type testAgent struct {
-	Email    string
-	Uid      uuid.UUID
-	OpResult ops.OperationResult
-	NumSent  int
-	Error    error
-	Calls    []testAgentCalls
+	Email             string
+	Uid               uuid.UUID
+	OpResult          ops.OperationResult
+	NumSent           int
+	ImportedAddresses []string
+	ImportResponse    func(address string) error
+	Error             error
+	Calls             []testAgentCalls
 }
 
 type testAgentCalls struct {
@@ -76,9 +78,8 @@ func (a *testAgent) Validate(
 }
 
 func (a *testAgent) Import(_ context.Context, address string) (err error) {
-	// This method isn't used directly by any handlers, but is part of the
-	// public API used by the command line interface.
-	return nil
+	a.ImportedAddresses = append(a.ImportedAddresses, address)
+	return a.ImportResponse(address)
 }
 
 func (a *testAgent) Remove(ctx context.Context, email string) error {
