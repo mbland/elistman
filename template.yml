@@ -162,14 +162,6 @@ Resources:
         ThrottlingRateLimit: 10
         ThrottlingBurstLimit: 100
 
-  FunctionLogs:
-    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-retentionindays
-    # https://awslabs.github.io/serverless-rules/rules/lambda/log_retention/
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${Function}"
-      RetentionInDays: 30
-
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
     Properties:
