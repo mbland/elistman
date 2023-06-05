@@ -50,6 +50,10 @@ func (a *DecoyAgent) Validate(
 	return nil, nil
 }
 
+func (a *DecoyAgent) Import(ctx context.Context, address string) (err error) {
+	return nil
+}
+
 func (a *DecoyAgent) Remove(ctx context.Context, email string) error {
 	return nil
 }

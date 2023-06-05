@@ -24,6 +24,7 @@ type SubscriptionAgent interface {
 	Validate(
 		ctx context.Context, address string,
 	) (failure *email.ValidationFailure, err error)
+	Import(ctx context.Context, address string) (err error)
 	Remove(ctx context.Context, email string) error
 	Restore(ctx context.Context, email string) error
 	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
@@ -209,6 +210,26 @@ func (a *ProdAgent) Validate(
 	ctx context.Context, address string,
 ) (failure *email.ValidationFailure, err error) {
 	return a.Validator.ValidateAddress(ctx, address)
+}
+
+func (a *ProdAgent) Import(ctx context.Context, address string) (err error) {
+	var failure *email.ValidationFailure
+	var sub *db.Subscriber
+
+	if failure, err = a.Validate(ctx, address); err != nil {
+		return
+	} else if failure != nil {
+		return errors.New(failure.Reason)
+	} else if sub, err = a.Db.Get(ctx, address); err == nil {
+		if sub.Status == db.SubscriberVerified {
+			return errors.New("already a verified subscriber")
+		}
+	} else if !errors.Is(err, db.ErrSubscriberNotFound) {
+		return
+	}
+	sub = &db.Subscriber{Email: address, Status: db.SubscriberVerified}
+	err = a.putSubscriber(ctx, sub)
+	return
 }
 
 func (a *ProdAgent) Remove(ctx context.Context, address string) (err error) {

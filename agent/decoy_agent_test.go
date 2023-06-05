@@ -32,6 +32,9 @@ func TestDecoyAgent(t *testing.T) {
 	assert.Assert(t, is.Nil(failure))
 	assert.NilError(t, err)
 
+	err = da.Import(ctx, "foo@bar.com")
+	assert.NilError(t, err)
+
 	err = da.Remove(ctx, "foo@bar.com")
 	assert.NilError(t, err)
 

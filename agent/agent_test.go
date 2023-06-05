@@ -513,6 +513,112 @@ func TestUnsubscribe(t *testing.T) {
 	})
 }
 
+func TestImport(t *testing.T) {
+	setup := func() (
+		agent *ProdAgent,
+		validator *testdoubles.AddressValidator,
+		dbase *testdoubles.Database,
+		subscriber *db.Subscriber,
+	) {
+		f := newProdAgentTestFixture()
+		agent = f.agent
+		validator = f.validator
+		dbase = f.db
+		uid, _ := agent.NewUid()
+		subscriber = &db.Subscriber{
+			Email:     testEmail,
+			Uid:       uid,
+			Status:    db.SubscriberVerified,
+			Timestamp: agent.CurrentTime(),
+		}
+		return
+	}
+
+	ctx := context.Background()
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, validator, dbase, expectedSubscriber := setup()
+
+		err := agent.Import(ctx, testEmail)
+
+		assert.NilError(t, err)
+		validator.AssertValidated(t, testEmail)
+		assert.DeepEqual(t, expectedSubscriber, dbase.Index[testEmail])
+	})
+
+	t.Run("OverwritesExistingPendingSubscriber", func(t *testing.T) {
+		agent, validator, dbase, expectedSubscriber := setup()
+		dbase.Put(ctx, pendingSubscriber)
+
+		err := agent.Import(ctx, testEmail)
+
+		assert.NilError(t, err)
+		validator.AssertValidated(t, testEmail)
+		assert.DeepEqual(t, expectedSubscriber, dbase.Index[testEmail])
+	})
+
+	t.Run("ReturnsValidationError", func(t *testing.T) {
+		agent, validator, dbase, _ := setup()
+		validator.Failure = &email.ValidationFailure{
+			Address: testEmail, Reason: "test failure",
+		}
+
+		err := agent.Import(ctx, testEmail)
+
+		validator.AssertValidated(t, testEmail)
+		assert.ErrorContains(t, err, validator.Failure.Reason)
+		assert.Assert(t, is.Nil(dbase.Index[testEmail]))
+	})
+
+	t.Run("ReportsValidationFailureAsError", func(t *testing.T) {
+		agent, validator, dbase, _ := setup()
+		validator.Error = makeServerError("test error")
+
+		err := agent.Import(ctx, testEmail)
+
+		validator.AssertValidated(t, testEmail)
+		assertServerErrorContains(t, err, "test error")
+		assert.Assert(t, is.Nil(dbase.Index[testEmail]))
+	})
+
+	t.Run("ReturnsErrorIfVerifiedSubscriberAlreadyExists", func(t *testing.T) {
+		agent, validator, dbase, _ := setup()
+		// verifiedSubscriber.UUID is different from that of a new subscriber.
+		dbase.Put(ctx, verifiedSubscriber)
+
+		err := agent.Import(ctx, testEmail)
+
+		assert.ErrorContains(t, err, "already a verified subscriber")
+		validator.AssertValidated(t, testEmail)
+		assert.DeepEqual(t, verifiedSubscriber, dbase.Index[testEmail])
+	})
+
+	t.Run("PassesThroughDatabaseGetError", func(t *testing.T) {
+		agent, validator, dbase, _ := setup()
+		dbase.SimulateGetErr = func(_ string) error {
+			return makeServerError("test error")
+		}
+
+		err := agent.Import(ctx, testEmail)
+
+		validator.AssertValidated(t, testEmail)
+		assertServerErrorContains(t, err, "test error")
+	})
+
+	t.Run("PassesThroughDatabasePutError", func(t *testing.T) {
+		agent, validator, dbase, _ := setup()
+		dbase.SimulatePutErr = func(_ string) error {
+			return makeServerError("test error")
+		}
+
+		err := agent.Import(ctx, testEmail)
+
+		validator.AssertValidated(t, testEmail)
+		assertServerErrorContains(t, err, "test error")
+		assert.Assert(t, is.Nil(dbase.Index[testEmail]))
+	})
+}
+
 func TestRemove(t *testing.T) {
 	setup := func() (
 		*ProdAgent,

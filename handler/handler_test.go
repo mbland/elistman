@@ -75,6 +75,12 @@ func (a *testAgent) Validate(
 	return nil, nil
 }
 
+func (a *testAgent) Import(_ context.Context, address string) (err error) {
+	// This method isn't used directly by any handlers, but is part of the
+	// public API used by the command line interface.
+	return nil
+}
+
 func (a *testAgent) Remove(ctx context.Context, email string) error {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Remove", Email: email})
 	a.Email = email
