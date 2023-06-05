@@ -67,10 +67,12 @@ func (a *testAgent) Unsubscribe(
 	return a.OpResult, a.Error
 }
 
-func (a *testAgent) Validate(_ context.Context, address string) (bool, error) {
+func (a *testAgent) Validate(
+	_ context.Context, address string,
+) (*email.ValidationFailure, error) {
 	// This method isn't used directly by any handlers, but is part of the
 	// public API used by the command line interface.
-	return true, nil
+	return nil, nil
 }
 
 func (a *testAgent) Remove(ctx context.Context, email string) error {

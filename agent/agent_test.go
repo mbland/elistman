@@ -135,50 +135,45 @@ func TestPutSubscriber(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	setup := func() (
-		agent *ProdAgent,
-		validator *testdoubles.AddressValidator,
-		logs *tu.Logs,
+		agent *ProdAgent, validator *testdoubles.AddressValidator,
 	) {
 		f := newProdAgentTestFixture()
-		return f.agent, f.validator, f.logs
+		return f.agent, f.validator
 	}
 
 	ctx := context.Background()
 
 	t.Run("Succeeds", func(t *testing.T) {
-		agent, validator, logs := setup()
+		agent, validator := setup()
 
-		ok, err := agent.Validate(ctx, testEmail)
+		failure, err := agent.Validate(ctx, testEmail)
 
 		assert.NilError(t, err)
-		assert.Assert(t, ok == true)
+		assert.Assert(t, is.Nil(failure))
 		validator.AssertValidated(t, testEmail)
-		assert.Equal(t, "", logs.Builder.String())
 	})
 
 	t.Run("FailsIfValidationFails", func(t *testing.T) {
-		agent, validator, logs := setup()
+		agent, validator := setup()
 		validator.Failure = &email.ValidationFailure{
 			Address: testEmail, Reason: "test failure",
 		}
 
-		ok, err := agent.Validate(ctx, testEmail)
+		failure, err := agent.Validate(ctx, testEmail)
 
 		assert.NilError(t, err)
-		assert.Assert(t, ok == false)
+		assert.Equal(t, validator.Failure, failure)
 		validator.AssertValidated(t, testEmail)
-		logs.AssertContains(t, "validation failed: "+testEmail+": test failure")
 	})
 
 	t.Run("PassesThroughError", func(t *testing.T) {
-		agent, validator, logs := setup()
+		agent, validator := setup()
 		validator.Error = makeServerError("test error")
 
-		ok, err := agent.Validate(ctx, testEmail)
+		failure, err := agent.Validate(ctx, testEmail)
 
-		assert.Assert(t, ok == false)
+		assert.Assert(t, is.Nil(failure))
 		validator.AssertValidated(t, testEmail)
-		assert.Equal(t, "", logs.Builder.String())
 		assertServerErrorContains(t, err, "test error")
 	})
 }

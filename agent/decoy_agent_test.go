@@ -9,6 +9,7 @@ import (
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testdata"
 	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestDecoyAgent(t *testing.T) {
@@ -25,6 +26,10 @@ func TestDecoyAgent(t *testing.T) {
 
 	result, err = da.Unsubscribe(ctx, "foo@bar.com", testdata.TestUid)
 	assert.Equal(t, ops.Unsubscribed, result)
+	assert.NilError(t, err)
+
+	failure, err := da.Validate(ctx, "foo@bar.com")
+	assert.Assert(t, is.Nil(failure))
 	assert.NilError(t, err)
 
 	err = da.Remove(ctx, "foo@bar.com")

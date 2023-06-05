@@ -44,8 +44,10 @@ func (a *DecoyAgent) Unsubscribe(
 	return ops.Unsubscribed, nil
 }
 
-func (a *DecoyAgent) Validate(_ context.Context, address string) (bool, error) {
-	return true, nil
+func (a *DecoyAgent) Validate(
+	_ context.Context, address string,
+) (*email.ValidationFailure, error) {
+	return nil, nil
 }
 
 func (a *DecoyAgent) Remove(ctx context.Context, email string) error {
