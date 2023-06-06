@@ -23,7 +23,7 @@ program that creates message input JSON:
   generate-email | elistman preview
 
 To send an email to the list, given the STACK_NAME of the EListMan instance:
-  generate-email | elistman send STACK_NAME
+  generate-email | elistman send -s STACK_NAME
 `
 
 var rootCmd = &cobra.Command{

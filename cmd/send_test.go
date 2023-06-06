@@ -24,7 +24,7 @@ func TestSend(t *testing.T) {
 			}),
 		)
 		f.Cmd.SetIn(strings.NewReader(email.ExampleMessageJson))
-		f.Cmd.SetArgs([]string{TestStackName})
+		f.Cmd.SetArgs([]string{"-s", TestStackName})
 		return
 	}
 
@@ -44,6 +44,16 @@ func TestSend(t *testing.T) {
 			Send:            &events.SendEvent{Message: *email.ExampleMessage},
 		}
 		assert.DeepEqual(t, expectedReq, req)
+	})
+
+	t.Run("FailsIfStackNameNotSpecified", func(t *testing.T) {
+		f, _ := setup()
+		f.Cmd.SetArgs([]string{})
+
+		err := f.Cmd.Execute()
+
+		const expectedErr = "required flag(s) \"" + FlagStackName + "\" not set"
+		assert.ErrorContains(t, err, expectedErr)
 	})
 
 	t.Run("FailsIfCannotParseInput", func(t *testing.T) {

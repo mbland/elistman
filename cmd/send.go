@@ -26,16 +26,19 @@ func init() {
 	rootCmd.AddCommand(newSendCmd(NewEListManLambda))
 }
 
-func newSendCmd(newFunc EListManFactoryFunc) *cobra.Command {
-	return &cobra.Command{
+func newSendCmd(newFunc EListManFactoryFunc) (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:   "send",
 		Short: "Send an email message to the mailing list",
 		Long:  sendDescription,
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return sendMessage(cmd, newFunc, args[0])
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) (err error) {
+			return sendMessage(cmd, newFunc, getStackName(cmd))
 		},
 	}
+	registerStackName(cmd)
+	cmd.MarkFlagRequired(FlagStackName)
+	return
 }
 
 func sendMessage(
