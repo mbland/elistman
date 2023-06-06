@@ -100,14 +100,11 @@ func TestImport(t *testing.T) {
 		f.ExecuteAndAssertStdoutContains(t, expectedOut)
 
 		assert.Assert(t, f.Cmd.SilenceUsage == true)
-		assert.Equal(t, TestStackName, lambda.StackName)
-		req, isCliEvent := lambda.InvokeReq.(*events.CommandLineEvent)
-		assert.Assert(t, isCliEvent == true)
 		expectedReq := &events.CommandLineEvent{
 			EListManCommand: events.CommandLineImportEvent,
 			Import:          &events.ImportEvent{Addresses: addrs},
 		}
-		assert.DeepEqual(t, expectedReq, req)
+		f.AssertCommandLineEventMatches(t, lambda, TestStackName, expectedReq)
 	})
 
 	t.Run("FailsIfStackNameNotSpecified", func(t *testing.T) {

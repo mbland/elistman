@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/mbland/elistman/events"
 	"github.com/spf13/cobra"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -56,6 +57,21 @@ func (f *CommandTestFixture) ExecuteAndAssertErrorContains(
 	assert.ErrorContains(t, err, expectedErrMsg)
 	assert.Equal(t, fmt.Sprintf("Error: %s\n", err), f.Stderr.String())
 	return
+}
+
+func (f *CommandTestFixture) AssertCommandLineEventMatches(
+	t *testing.T,
+	lambda *TestEListManFunc,
+	stackName string,
+	expectedEvent *events.CommandLineEvent,
+) {
+	t.Helper()
+
+	assert.Equal(t, stackName, lambda.StackName, "stack names should match")
+	const cliEventMsg = "lambda request should be an *events.CommandLineEvent"
+	req, isCliEvent := lambda.InvokeReq.(*events.CommandLineEvent)
+	assert.Assert(t, isCliEvent == true, cliEventMsg)
+	assert.DeepEqual(t, expectedEvent, req)
 }
 
 type TestCloudFormationClient struct {
