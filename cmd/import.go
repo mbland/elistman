@@ -47,12 +47,9 @@ func importAddresses(
 ) (err error) {
 	cmd.SilenceUsage = true
 	var addresses []string
-	var elistmanFunc EListManFunc
 
 	if addresses, err = readLines(cmd.InOrStdin()); err != nil {
 		err = fmt.Errorf("failed to read email addresses from stdin: %w", err)
-		return
-	} else if elistmanFunc, err = newFunc(stackName); err != nil {
 		return
 	}
 
@@ -61,12 +58,11 @@ func importAddresses(
 		EListManCommand: events.CommandLineImportEvent,
 		Import:          &events.ImportEvent{Addresses: addresses},
 	}
-	var response *events.ImportResponse
+	response := &events.ImportResponse{}
 
-	if err = elistmanFunc.Invoke(ctx, evt, &response); err != nil {
+	if err = newFunc.Invoke(ctx, stackName, evt, response); err != nil {
 		return fmt.Errorf("import failed: %w", err)
 	}
-
 	cmd.Print(importSuccessMessage(response.NumImported, len(addresses)))
 	err = errorIfImportFailures(response.Failures)
 	return

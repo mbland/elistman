@@ -5,8 +5,10 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"gotest.tools/assert"
 )
 
 type TestLambdaClient struct {
@@ -45,6 +47,10 @@ func (lambda *TestEListManFunc) GetFactoryFunc() EListManFactoryFunc {
 	}
 }
 
+func (lambda *TestEListManFunc) SetResponseJson(resJson string) {
+	lambda.InvokeResJson = []byte(resJson)
+}
+
 func (l *TestEListManFunc) Invoke(_ context.Context, req, res any) error {
 	l.InvokeReq = req
 
@@ -52,4 +58,13 @@ func (l *TestEListManFunc) Invoke(_ context.Context, req, res any) error {
 		return l.InvokeError
 	}
 	return json.Unmarshal(l.InvokeResJson, res)
+}
+
+func (l *TestEListManFunc) AssertMatches(
+	t *testing.T, stackName string, expectedEvent any,
+) {
+	t.Helper()
+
+	assert.Equal(t, stackName, l.StackName, "stack names should match")
+	assert.DeepEqual(t, expectedEvent, l.InvokeReq)
 }

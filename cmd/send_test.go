@@ -25,7 +25,7 @@ func TestSend(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeResJson = []byte(`{"Success": true, "NumSent": 27}`)
+		lambda.SetResponseJson(`{"Success": true, "NumSent": 27}`)
 
 		const expectedOut = "Sent the message successfully to 27 recipients.\n"
 		f.ExecuteAndAssertStdoutContains(t, expectedOut)
@@ -35,7 +35,7 @@ func TestSend(t *testing.T) {
 			EListManCommand: events.CommandLineSendEvent,
 			Send:            &events.SendEvent{Message: *email.ExampleMessage},
 		}
-		f.AssertCommandLineEventMatches(t, lambda, TestStackName, expectedReq)
+		lambda.AssertMatches(t, TestStackName, expectedReq)
 	})
 
 	t.Run("FailsIfStackNameNotSpecified", func(t *testing.T) {
@@ -56,16 +56,6 @@ func TestSend(t *testing.T) {
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
 	})
 
-	t.Run("FailsIfCreatingLambdaFails", func(t *testing.T) {
-		f, lambda := setup()
-		const errFmt = "%w: creating lambda failed"
-		lambda.CreateFuncError = fmt.Errorf(errFmt, ops.ErrExternal)
-
-		err := f.ExecuteAndAssertErrorContains(t, "creating lambda failed")
-
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
-	})
-
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
 		f, lambda := setup()
 		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
@@ -78,7 +68,7 @@ func TestSend(t *testing.T) {
 
 	t.Run("FailsIfSendingFailed", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeResJson = []byte(
+		lambda.SetResponseJson(
 			`{"Success": false, "NumSent": 9, "Details": "test failure"}`,
 		)
 

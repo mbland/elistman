@@ -46,11 +46,8 @@ func sendMessage(
 ) (err error) {
 	cmd.SilenceUsage = true
 	var msg *email.Message
-	var elistmanFunc EListManFunc
 
 	if msg, err = email.NewMessageFromJson(cmd.InOrStdin()); err != nil {
-		return
-	} else if elistmanFunc, err = newFunc(stackName); err != nil {
 		return
 	}
 
@@ -59,9 +56,9 @@ func sendMessage(
 		EListManCommand: events.CommandLineSendEvent,
 		Send:            &events.SendEvent{Message: *msg},
 	}
-	var response events.SendResponse
+	response := &events.SendResponse{}
 
-	if err = elistmanFunc.Invoke(ctx, evt, &response); err != nil {
+	if err = newFunc.Invoke(ctx, stackName, evt, response); err != nil {
 		return fmt.Errorf("sending failed: %w", err)
 	} else if !response.Success {
 		const errFmt = "sending failed after sending to %d recipients: %s"

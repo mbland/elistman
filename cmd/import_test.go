@@ -94,7 +94,7 @@ func TestImport(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeResJson = []byte(`{"NumImported": 3}`)
+		lambda.SetResponseJson(`{"NumImported": 3}`)
 
 		const expectedOut = "Successfully imported 3 of 3 addresses.\n"
 		f.ExecuteAndAssertStdoutContains(t, expectedOut)
@@ -104,7 +104,7 @@ func TestImport(t *testing.T) {
 			EListManCommand: events.CommandLineImportEvent,
 			Import:          &events.ImportEvent{Addresses: addrs},
 		}
-		f.AssertCommandLineEventMatches(t, lambda, TestStackName, expectedReq)
+		lambda.AssertMatches(t, TestStackName, expectedReq)
 	})
 
 	t.Run("FailsIfStackNameNotSpecified", func(t *testing.T) {
@@ -126,16 +126,6 @@ func TestImport(t *testing.T) {
 		f.ExecuteAndAssertErrorContains(t, expectedErr)
 	})
 
-	t.Run("FailsIfCreatingLambdaFails", func(t *testing.T) {
-		f, lambda := setup()
-		const errFmt = "%w: creating lambda failed"
-		lambda.CreateFuncError = fmt.Errorf(errFmt, ops.ErrExternal)
-
-		err := f.ExecuteAndAssertErrorContains(t, "creating lambda failed")
-
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
-	})
-
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
 		f, lambda := setup()
 		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
@@ -148,7 +138,7 @@ func TestImport(t *testing.T) {
 
 	t.Run("FailsIfFailedToImportAnyAddresses", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeResJson = []byte(`{
+		lambda.SetResponseJson(`{
 			"NumImported": 1,
 			"Failures": [
 				"foo@text.com: first error",

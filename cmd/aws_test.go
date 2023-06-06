@@ -32,6 +32,62 @@ func TestAwsFactoryFunctions(t *testing.T) {
 	assert.ErrorContains(t, err, expectedLambdaErr)
 }
 
+func TestEListManFactoryFuncInvoke(t *testing.T) {
+	type TestRequest struct {
+		Request string
+	}
+
+	type TestResponse struct {
+		Response string
+	}
+
+	setup := func() (
+		lambda *TestEListManFunc,
+		req *TestRequest,
+		res *TestResponse,
+		newFunc EListManFactoryFunc,
+	) {
+		lambda = NewTestEListManFunc()
+		req = &TestRequest{Request: "Hello, World!"}
+		lambda.SetResponseJson(`{"Response":"Goodbye, World!"}`)
+		newFunc = lambda.GetFactoryFunc()
+		res = &TestResponse{}
+		return
+	}
+
+	ctx := context.Background()
+
+	t.Run("Succeeds", func(t *testing.T) {
+		lambda, req, res, newFunc := setup()
+
+		err := newFunc.Invoke(ctx, TestStackName, req, res)
+
+		assert.NilError(t, err)
+		lambda.AssertMatches(t, TestStackName, req)
+		assert.DeepEqual(t, &TestResponse{Response: "Goodbye, World!"}, res)
+	})
+
+	t.Run("FailsIfCreatingLambdaFails", func(t *testing.T) {
+		lambda, req, res, newFunc := setup()
+		const errFmt = "%w: creating lambda failed"
+		lambda.CreateFuncError = fmt.Errorf(errFmt, ops.ErrExternal)
+
+		err := newFunc.Invoke(ctx, TestStackName, req, res)
+
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+	})
+
+	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
+		lambda, req, res, newFunc := setup()
+		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
+
+		err := newFunc.Invoke(ctx, TestStackName, req, res)
+
+		assert.ErrorContains(t, err, "invoke failed")
+		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+	})
+}
+
 func TestGetLambdaArn(t *testing.T) {
 	t.Run("Succeeds", func(t *testing.T) {
 		cfc := NewTestCloudFormationClient()

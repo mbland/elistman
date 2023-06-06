@@ -59,6 +59,19 @@ type EListManFunc interface {
 
 type EListManFactoryFunc func(stackName string) (EListManFunc, error)
 
+func (newFunc EListManFactoryFunc) Invoke(
+	ctx context.Context,
+	stackName string,
+	request, response any,
+) (err error) {
+	var elistmanFunc EListManFunc
+
+	if elistmanFunc, err = newFunc(stackName); err != nil {
+		return
+	}
+	return elistmanFunc.Invoke(ctx, request, response)
+}
+
 func NewEListManLambda(stackName string) (EListManFunc, error) {
 	cfc := NewCloudFormationClient()
 	lc := NewLambdaClient()
