@@ -58,6 +58,18 @@ func (f *CommandTestFixture) ExecuteAndAssertErrorContains(
 	return
 }
 
+func (f *CommandTestFixture) AssertFailsIfRequiredFlagMissing(
+	t *testing.T, flagName string, argv []string,
+) {
+	t.Helper()
+	f.Cmd.SetArgs(argv)
+
+	err := f.Cmd.Execute()
+
+	expectedErr := "required flag(s) \"" + flagName + "\" not set"
+	assert.ErrorContains(t, err, expectedErr)
+}
+
 type TestCloudFormationClient struct {
 	DescribeStacksInput  *cloudformation.DescribeStacksInput
 	DescribeStacksOutput *cloudformation.DescribeStacksOutput

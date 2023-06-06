@@ -38,14 +38,9 @@ func TestSend(t *testing.T) {
 		lambda.AssertMatches(t, TestStackName, expectedReq)
 	})
 
-	t.Run("FailsIfStackNameNotSpecified", func(t *testing.T) {
+	t.Run("RequiresStackNameFlag", func(t *testing.T) {
 		f, _ := setup()
-		f.Cmd.SetArgs([]string{})
-
-		err := f.Cmd.Execute()
-
-		const expectedErr = "required flag(s) \"" + FlagStackName + "\" not set"
-		assert.ErrorContains(t, err, expectedErr)
+		f.AssertFailsIfRequiredFlagMissing(t, FlagStackName, []string{})
 	})
 
 	t.Run("FailsIfCannotParseInput", func(t *testing.T) {
