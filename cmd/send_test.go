@@ -40,7 +40,7 @@ func TestSend(t *testing.T) {
 		f.AssertFailsIfRequiredFlagMissing(t, FlagStackName, []string{})
 	})
 
-	t.Run("FailsIfCannotParseInput", func(t *testing.T) {
+	t.Run("FailsIfCannotParseMessageFromStdin", func(t *testing.T) {
 		f, _ := setup()
 		f.Cmd.SetIn(strings.NewReader("not a message input"))
 
