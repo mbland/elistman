@@ -41,7 +41,7 @@ func (f *CommandTestFixture) ExecuteAndAssertStdoutContains(
 	err := f.Cmd.Execute()
 
 	assert.NilError(t, err)
-	assert.Equal(t, "", f.Stderr.String())
+	assert.Equal(t, "", f.Stderr.String(), "stderr should be empty")
 	assert.Assert(t, is.Contains(f.Stdout.String(), expectedOutput))
 }
 
@@ -52,7 +52,7 @@ func (f *CommandTestFixture) ExecuteAndAssertErrorContains(
 
 	err = f.Cmd.Execute()
 
-	assert.Equal(t, "", f.Stdout.String())
+	assert.Equal(t, "", f.Stdout.String(), "stdout should be empty")
 	assert.ErrorContains(t, err, expectedErrMsg)
 	assert.Equal(t, fmt.Sprintf("Error: %s\n", err), f.Stderr.String())
 	return
