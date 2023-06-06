@@ -16,13 +16,8 @@ import (
 
 func TestSend(t *testing.T) {
 	setup := func() (f *CommandTestFixture, lambda *TestEListManFunc) {
-		lambda = &TestEListManFunc{InvokeResJson: []byte{}}
-		f = NewCommandTestFixture(
-			newSendCmd(func(stackName string) (EListManFunc, error) {
-				lambda.StackName = stackName
-				return lambda, lambda.CreateFuncError
-			}),
-		)
+		lambda = NewTestEListManFunc()
+		f = NewCommandTestFixture(newSendCmd(lambda.GetFactoryFunc()))
 		f.Cmd.SetIn(strings.NewReader(email.ExampleMessageJson))
 		f.Cmd.SetArgs([]string{"-s", TestStackName})
 		return

@@ -85,13 +85,8 @@ func TestImport(t *testing.T) {
 	addrs := []string{"foo@test.com", "bar@test.com", "baz@test.com"}
 
 	setup := func() (f *CommandTestFixture, lambda *TestEListManFunc) {
-		lambda = &TestEListManFunc{InvokeResJson: []byte{}}
-		f = NewCommandTestFixture(
-			newImportCmd(func(stackName string) (EListManFunc, error) {
-				lambda.StackName = stackName
-				return lambda, lambda.CreateFuncError
-			}),
-		)
+		lambda = NewTestEListManFunc()
+		f = NewCommandTestFixture(newImportCmd(lambda.GetFactoryFunc()))
 		f.Cmd.SetIn(strings.NewReader(strings.Join(addrs, "\n")))
 		f.Cmd.SetArgs([]string{"-s", TestStackName})
 		return

@@ -34,6 +34,17 @@ type TestEListManFunc struct {
 	InvokeError     error
 }
 
+func NewTestEListManFunc() *TestEListManFunc {
+	return &TestEListManFunc{InvokeResJson: []byte{}}
+}
+
+func (lambda *TestEListManFunc) GetFactoryFunc() EListManFactoryFunc {
+	return func(stackName string) (EListManFunc, error) {
+		lambda.StackName = stackName
+		return lambda, lambda.CreateFuncError
+	}
+}
+
 func (l *TestEListManFunc) Invoke(_ context.Context, req, res any) error {
 	l.InvokeReq = req
 
