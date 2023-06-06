@@ -4,13 +4,10 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/mbland/elistman/events"
-	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
@@ -123,12 +120,7 @@ func TestImport(t *testing.T) {
 
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
-
-		err := f.ExecuteAndAssertErrorContains(t, "import failed: ")
-
-		assert.ErrorContains(t, err, "invoke failed")
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+		f.AssertReturnsLambdaError(t, lambda, "import failed: ")
 	})
 
 	t.Run("FailsIfFailedToImportAnyAddresses", func(t *testing.T) {

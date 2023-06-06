@@ -11,6 +11,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/mbland/elistman/ops"
+	"github.com/mbland/elistman/testutils"
 	"github.com/spf13/cobra"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -68,6 +70,18 @@ func (f *CommandTestFixture) AssertFailsIfRequiredFlagMissing(
 
 	expectedErr := "required flag(s) \"" + flagName + "\" not set"
 	assert.ErrorContains(t, err, expectedErr)
+}
+
+func (f *CommandTestFixture) AssertReturnsLambdaError(
+	t *testing.T, lambda *TestEListManFunc, expectedErr string,
+) {
+	t.Helper()
+	lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
+
+	err := f.ExecuteAndAssertErrorContains(t, expectedErr)
+
+	assert.ErrorContains(t, err, "invoke failed")
+	assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
 }
 
 type TestCloudFormationClient struct {

@@ -3,14 +3,11 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/mbland/elistman/email"
 	"github.com/mbland/elistman/events"
-	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
 
@@ -53,12 +50,7 @@ func TestSend(t *testing.T) {
 
 	t.Run("FailsIfInvokingLambdaFails", func(t *testing.T) {
 		f, lambda := setup()
-		lambda.InvokeError = fmt.Errorf("%w: invoke failed", ops.ErrExternal)
-
-		err := f.ExecuteAndAssertErrorContains(t, "sending failed: ")
-
-		assert.ErrorContains(t, err, "invoke failed")
-		assert.Assert(t, testutils.ErrorIs(err, ops.ErrExternal))
+		f.AssertReturnsLambdaError(t, lambda, "sending failed: ")
 	})
 
 	t.Run("FailsIfSendingFailed", func(t *testing.T) {
