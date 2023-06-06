@@ -212,13 +212,14 @@ var problematicYetValidDomains = map[string]bool{
 	"hotmail.com":   true,
 	"live.com":      true,
 	"msn.com":       true,
+	"126.com":       true,
 }
 
 // isProblematicYetValidDomain identifies valid domains that fail the DNS check.
 //
-// Microsoft is the reason this function exists. They use a rotating IP address
-// scheme for the MX hosts for their domains. None of those IP addresses have
-// PTR records necessary to pass the DNS check (checkMailHosts).
+// Microsoft is the original reason this function exists. They use a rotating IP
+// address scheme for the MX hosts for their domains. None of those IP addresses
+// have PTR records necessary to pass the DNS check (checkMailHosts).
 //
 // For example, here are the DNS results at the time of writing:
 //
