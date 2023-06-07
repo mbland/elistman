@@ -25,7 +25,7 @@ type SubscriptionAgent interface {
 		ctx context.Context, address string,
 	) (failure *email.ValidationFailure, err error)
 	Import(ctx context.Context, address string) (err error)
-	Remove(ctx context.Context, email string) error
+	Remove(ctx context.Context, email string, reason ops.RemoveReason) error
 	Restore(ctx context.Context, email string) error
 	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
 }
@@ -232,7 +232,9 @@ func (a *ProdAgent) Import(ctx context.Context, address string) (err error) {
 	return
 }
 
-func (a *ProdAgent) Remove(ctx context.Context, address string) (err error) {
+func (a *ProdAgent) Remove(
+	ctx context.Context, address string, reason ops.RemoveReason,
+) (err error) {
 	if err = a.Db.Delete(ctx, address); err == nil {
 		err = a.Suppressor.Suppress(ctx, address)
 	}

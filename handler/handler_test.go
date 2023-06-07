@@ -37,6 +37,7 @@ type testAgentCalls struct {
 	Email  string
 	Uid    uuid.UUID
 	Msg    *email.Message
+	Reason ops.RemoveReason
 }
 
 func (a *testAgent) Subscribe(
@@ -82,8 +83,11 @@ func (a *testAgent) Import(_ context.Context, address string) (err error) {
 	return a.ImportResponse(address)
 }
 
-func (a *testAgent) Remove(ctx context.Context, email string) error {
-	a.Calls = append(a.Calls, testAgentCalls{Method: "Remove", Email: email})
+func (a *testAgent) Remove(
+	ctx context.Context, email string, reason ops.RemoveReason,
+) error {
+	agentCall := testAgentCalls{Method: "Remove", Email: email, Reason: reason}
+	a.Calls = append(a.Calls, agentCall)
 	a.Email = email
 	return a.Error
 }

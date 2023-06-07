@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	awsevents "github.com/aws/aws-lambda-go/events"
+	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -218,7 +219,18 @@ func newSesEventHandlerFixture(eventMsg string) *sesEventHandlerFixture {
 	return &sesEventHandlerFixture{handler, f.agent, f.logs, ctx}
 }
 
-func assertRecipientUpdated(
+func assertRecipientRemoved(
+	t *testing.T,
+	agent *testAgent,
+	method, email string,
+	reason ops.RemoveReason,
+) {
+	t.Helper()
+	calls := []testAgentCalls{{Method: method, Email: email, Reason: reason}}
+	assert.DeepEqual(t, calls, agent.Calls)
+}
+
+func assertRecipientRestored(
 	t *testing.T, agent *testAgent, method, email string,
 ) {
 	t.Helper()
@@ -227,6 +239,8 @@ func assertRecipientUpdated(
 }
 
 func TestSesEventHandler(t *testing.T) {
+	const reasonComplaint = ops.RemoveReasonComplaint
+
 	t.Run("logOutcome", func(t *testing.T) {
 		f := newSesEventHandlerFixture(sendEventJson)
 
@@ -239,23 +253,26 @@ func TestSesEventHandler(t *testing.T) {
 	})
 
 	t.Run("RemoveRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture(sendEventJson)
+		f := newSesEventHandlerFixture(complaintEventJson("", ""))
 
-		f.handler.removeRecipients(f.ctx, "testing")
+		f.handler.removeRecipients(f.ctx, string(reasonComplaint))
 
-		const expectedMsg = "removed recipient@example.com due to: testing"
+		const expectedMsg = "removed recipient@example.com due to: " +
+			string(reasonComplaint)
 		f.logs.AssertContains(t, expectedMsg)
-		assertRecipientUpdated(t, f.agent, "Remove", "recipient@example.com")
+		assertRecipientRemoved(
+			t, f.agent, "Remove", "recipient@example.com", reasonComplaint,
+		)
 	})
 
 	t.Run("RestoreRecipients", func(t *testing.T) {
-		f := newSesEventHandlerFixture(sendEventJson)
+		f := newSesEventHandlerFixture(complaintEventJson("", "not-spam"))
 
-		f.handler.restoreRecipients(f.ctx, "testing")
+		f.handler.restoreRecipients(f.ctx, "not-spam")
 
-		const expectedMsg = "restored recipient@example.com due to: testing"
+		const expectedMsg = "restored recipient@example.com due to: not-spam"
 		f.logs.AssertContains(t, expectedMsg)
-		assertRecipientUpdated(t, f.agent, "Restore", "recipient@example.com")
+		assertRecipientRestored(t, f.agent, "Restore", "recipient@example.com")
 	})
 }
 
@@ -296,6 +313,8 @@ func TestHandleBounceEvent(t *testing.T) {
 		return
 	}
 
+	const reasonBounce = ops.RemoveReasonBounce
+
 	t.Run("DoesNotRemoveRecipientsIfTransient", func(t *testing.T) {
 		f := setup("Transient", "General")
 
@@ -313,7 +332,9 @@ func TestHandleBounceEvent(t *testing.T) {
 		f.logs.AssertContains(
 			t, "removed recipient@example.com due to: Permanent/General",
 		)
-		assertRecipientUpdated(t, f.agent, "Remove", "recipient@example.com")
+		assertRecipientRemoved(
+			t, f.agent, "Remove", "recipient@example.com", reasonBounce,
+		)
 	})
 }
 
@@ -327,6 +348,7 @@ func TestHandleComplaintEvent(t *testing.T) {
 	}
 
 	const recipient = "recipient@example.com"
+	const reasonComplaint = ops.RemoveReasonComplaint
 
 	t.Run("RemovesRecipients", func(t *testing.T) {
 		const msgPrefix = "removed " + recipient + " due to: "
@@ -337,7 +359,9 @@ func TestHandleComplaintEvent(t *testing.T) {
 			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"OnAccountSuppressionList")
-			assertRecipientUpdated(t, f.agent, "Remove", recipient)
+			assertRecipientRemoved(
+				t, f.agent, "Remove", recipient, reasonComplaint,
+			)
 		})
 
 		t.Run("IfFeedbackIsSpamRelated", func(t *testing.T) {
@@ -346,7 +370,9 @@ func TestHandleComplaintEvent(t *testing.T) {
 			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"abuse")
-			assertRecipientUpdated(t, f.agent, "Remove", recipient)
+			assertRecipientRemoved(
+				t, f.agent, "Remove", recipient, reasonComplaint,
+			)
 		})
 
 		t.Run("IfFeedbackIsUnknown", func(t *testing.T) {
@@ -355,7 +381,9 @@ func TestHandleComplaintEvent(t *testing.T) {
 			f.handler.HandleEvent(f.ctx)
 
 			f.logs.AssertContains(t, msgPrefix+"unknown")
-			assertRecipientUpdated(t, f.agent, "Remove", recipient)
+			assertRecipientRemoved(
+				t, f.agent, "Remove", recipient, reasonComplaint,
+			)
 		})
 	})
 
@@ -365,7 +393,7 @@ func TestHandleComplaintEvent(t *testing.T) {
 		f.handler.HandleEvent(f.ctx)
 
 		f.logs.AssertContains(t, "restored "+recipient+" due to: not-spam")
-		assertRecipientUpdated(t, f.agent, "Restore", recipient)
+		assertRecipientRestored(t, f.agent, "Restore", recipient)
 	})
 }
 

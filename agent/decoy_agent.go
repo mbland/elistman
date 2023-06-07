@@ -54,7 +54,8 @@ func (a *DecoyAgent) Import(ctx context.Context, address string) (err error) {
 	return nil
 }
 
-func (a *DecoyAgent) Remove(ctx context.Context, email string) error {
+func (a *DecoyAgent) Remove(
+	ctx context.Context, email string, reason ops.RemoveReason) error {
 	return nil
 }
 

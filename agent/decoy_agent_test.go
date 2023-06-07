@@ -35,7 +35,7 @@ func TestDecoyAgent(t *testing.T) {
 	err = da.Import(ctx, "foo@bar.com")
 	assert.NilError(t, err)
 
-	err = da.Remove(ctx, "foo@bar.com")
+	err = da.Remove(ctx, "foo@bar.com", ops.RemoveReasonBounce)
 	assert.NilError(t, err)
 
 	err = da.Restore(ctx, "foo@bar.com")

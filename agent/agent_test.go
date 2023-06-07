@@ -640,7 +640,7 @@ func TestRemove(t *testing.T) {
 		agent, dbase, suppressor, sub, ctx := setup()
 		assert.NilError(t, dbase.Put(ctx, sub))
 
-		err := agent.Remove(ctx, sub.Email)
+		err := agent.Remove(ctx, sub.Email, ops.RemoveReasonComplaint)
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(dbase.Index[sub.Email]))
@@ -653,7 +653,7 @@ func TestRemove(t *testing.T) {
 			return makeServerError("failed to delete " + address)
 		}
 
-		err := agent.Remove(ctx, sub.Email)
+		err := agent.Remove(ctx, sub.Email, ops.RemoveReasonComplaint)
 
 		assertServerErrorContains(t, err, "failed to delete "+sub.Email)
 	})
@@ -663,7 +663,7 @@ func TestRemove(t *testing.T) {
 		errMsg := "failed to suppress " + sub.Email
 		suppressor.Errors[sub.Email] = makeServerError(errMsg)
 
-		err := agent.Remove(ctx, sub.Email)
+		err := agent.Remove(ctx, sub.Email, ops.RemoveReasonComplaint)
 
 		assertServerErrorContains(t, err, errMsg)
 	})

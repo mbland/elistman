@@ -9,6 +9,7 @@ import (
 	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/mbland/elistman/agent"
 	"github.com/mbland/elistman/events"
+	"github.com/mbland/elistman/ops"
 )
 
 type snsHandler struct {
@@ -110,7 +111,10 @@ func (evh *sesEventHandler) logOutcome(outcome string) {
 func (evh *sesEventHandler) removeRecipients(
 	ctx context.Context, reason string,
 ) {
-	remove := evh.Agent.Remove
+	remove := func(ctx context.Context, email string) error {
+		reason := ops.RemoveReason(evh.Event.EventType)
+		return evh.Agent.Remove(ctx, email, reason)
+	}
 	evh.updateRecipients(ctx, reason, remove, "removed", "error removing")
 }
 
