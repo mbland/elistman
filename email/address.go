@@ -283,7 +283,7 @@ func (av *ProdAddressValidator) checkMailHosts(
 	//
 	// If it is a network issue, suppression will probably fail as well, so we
 	// likely won't accidentally suppress anyone.
-	suppressionErr := av.Suppressor.Suppress(ctx, email)
+	suppressionErr := av.Suppressor.Suppress(ctx, email, ops.RemoveReasonBounce)
 	return errors.Join(err, suppressionErr)
 }
 

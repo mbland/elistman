@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/mbland/elistman/ops"
 	tu "github.com/mbland/elistman/testutils"
 	"gotest.tools/assert"
 )
@@ -106,6 +107,7 @@ type TestSuppressor struct {
 	isSuppressedResult bool
 	isSuppressedErr    error
 	suppressedEmail    string
+	suppressedReason   ops.RemoveReason
 	suppressErr        error
 	unsuppressedEmail  string
 	unsuppressErr      error
@@ -118,8 +120,10 @@ func (ts *TestSuppressor) IsSuppressed(
 	return ts.isSuppressedResult, ts.isSuppressedErr
 }
 
-func (ts *TestSuppressor) Suppress(ctx context.Context, email string) error {
+func (ts *TestSuppressor) Suppress(
+	ctx context.Context, email string, reason ops.RemoveReason) error {
 	ts.suppressedEmail = email
+	ts.suppressedReason = reason
 	return ts.suppressErr
 }
 

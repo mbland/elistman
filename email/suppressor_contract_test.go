@@ -25,7 +25,7 @@ func TestSesSuppressor(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, verdict == false)
 
-	err = suppressor.Suppress(ctx, email)
+	err = suppressor.Suppress(ctx, email, ops.RemoveReasonBounce)
 	assert.NilError(t, err)
 
 	verdict, err = suppressor.IsSuppressed(ctx, email)
@@ -33,7 +33,7 @@ func TestSesSuppressor(t *testing.T) {
 	assert.Assert(t, verdict == true)
 
 	// Suppressing an already suppressed address should be OK.
-	err = suppressor.Suppress(ctx, email)
+	err = suppressor.Suppress(ctx, email, ops.RemoveReasonBounce)
 	assert.NilError(t, err)
 
 	err = suppressor.Unsuppress(ctx, email)

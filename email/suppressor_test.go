@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 	"github.com/mbland/elistman/ops"
 	"github.com/mbland/elistman/testutils"
@@ -67,19 +68,35 @@ func TestSuppress(t *testing.T) {
 		return testSesV2, suppressor, context.Background()
 	}
 
-	t.Run("Succeeds", func(t *testing.T) {
-		_, suppressor, ctx := setup()
+	const reasonBounce = ops.RemoveReasonBounce
+	const reasonComplaint = ops.RemoveReasonComplaint
 
-		err := suppressor.Suppress(ctx, "foo@bar.com")
+	t.Run("SucceedsForBounce", func(t *testing.T) {
+		testSesV2, suppressor, ctx := setup()
+
+		err := suppressor.Suppress(ctx, "foo@bar.com", reasonBounce)
 
 		assert.NilError(t, err)
+		actualReq := testSesV2.putSupDestInput
+		assert.Equal(t, "foo@bar.com", aws.ToString(actualReq.EmailAddress))
+		assert.Equal(t, types.SuppressionListReasonBounce, actualReq.Reason)
+	})
+
+	t.Run("SucceedsForComplaint", func(t *testing.T) {
+		testSesV2, suppressor, ctx := setup()
+
+		err := suppressor.Suppress(ctx, "foo@bar.com", reasonComplaint)
+
+		assert.NilError(t, err)
+		actualReason := testSesV2.putSupDestInput.Reason
+		assert.Equal(t, types.SuppressionListReasonComplaint, actualReason)
 	})
 
 	t.Run("ReturnsAnError", func(t *testing.T) {
 		testSesV2, suppressor, ctx := setup()
 		testSesV2.putSupDestError = testutils.AwsServerError("testing")
 
-		err := suppressor.Suppress(ctx, "foo@bar.com")
+		err := suppressor.Suppress(ctx, "foo@bar.com", reasonComplaint)
 
 		assert.ErrorContains(t, err, "failed to suppress foo@bar.com: ")
 		assert.ErrorContains(t, err, "testing")

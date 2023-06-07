@@ -236,7 +236,7 @@ func (a *ProdAgent) Remove(
 	ctx context.Context, address string, reason ops.RemoveReason,
 ) (err error) {
 	if err = a.Db.Delete(ctx, address); err == nil {
-		err = a.Suppressor.Suppress(ctx, address)
+		err = a.Suppressor.Suppress(ctx, address, reason)
 	}
 	return
 }

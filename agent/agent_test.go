@@ -638,13 +638,14 @@ func TestRemove(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		agent, dbase, suppressor, sub, ctx := setup()
+		reason := ops.RemoveReasonComplaint
 		assert.NilError(t, dbase.Put(ctx, sub))
 
-		err := agent.Remove(ctx, sub.Email, ops.RemoveReasonComplaint)
+		err := agent.Remove(ctx, sub.Email, reason)
 
 		assert.NilError(t, err)
 		assert.Assert(t, is.Nil(dbase.Index[sub.Email]))
-		assert.Assert(t, suppressor.Addresses[sub.Email] == true)
+		assert.Equal(t, reason, suppressor.Addresses[sub.Email])
 	})
 
 	t.Run("PassesThroughDeleteError", func(t *testing.T) {
@@ -688,13 +689,15 @@ func TestRestore(t *testing.T) {
 
 	t.Run("Succeeds", func(t *testing.T) {
 		agent, dbase, suppressor, expectedSub, ctx := setup()
-		suppressor.Addresses[expectedSub.Email] = true
+		suppressor.Addresses[expectedSub.Email] = ops.RemoveReasonComplaint
 
 		err := agent.Restore(ctx, expectedSub.Email)
 
 		assert.NilError(t, err)
 		assert.DeepEqual(t, expectedSub, dbase.Index[expectedSub.Email])
-		assert.Assert(t, suppressor.Addresses[expectedSub.Email] == false)
+		assert.Equal(
+			t, ops.RemoveReasonNil, suppressor.Addresses[expectedSub.Email],
+		)
 	})
 
 	t.Run("PassesThroughPutError", func(t *testing.T) {

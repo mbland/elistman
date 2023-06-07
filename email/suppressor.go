@@ -20,7 +20,7 @@ type Suppressor interface {
 	IsSuppressed(ctx context.Context, email string) (bool, error)
 
 	// Suppress adds an email address to the SES account-level suppression list.
-	Suppress(ctx context.Context, email string) error
+	Suppress(ctx context.Context, email string, reason ops.RemoveReason) error
 
 	// Unsuppress removes an email address from the SES account-level
 	// suppression list.
@@ -48,12 +48,20 @@ func (mailer *SesSuppressor) IsSuppressed(
 	return
 }
 
-func (mailer *SesSuppressor) Suppress(ctx context.Context, email string) error {
+func (mailer *SesSuppressor) Suppress(
+	ctx context.Context, email string, reason ops.RemoveReason,
+) error {
 	input := &sesv2.PutSuppressedDestinationInput{
 		EmailAddress: aws.String(email),
 		Reason:       sesv2types.SuppressionListReasonBounce,
 	}
 
+	// Technically we may want to report an error if we get an unexpected
+	// RemoveReason. But in production, I'd rather err on the side of
+	// suppressing using the default BOUNCE reason.
+	if reason == ops.RemoveReasonComplaint {
+		input.Reason = sesv2types.SuppressionListReasonComplaint
+	}
 	_, err := mailer.Client.PutSuppressedDestination(ctx, input)
 
 	if err != nil {

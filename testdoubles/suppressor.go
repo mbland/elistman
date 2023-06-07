@@ -1,15 +1,19 @@
 package testdoubles
 
-import "context"
+import (
+	"context"
+
+	"github.com/mbland/elistman/ops"
+)
 
 type Suppressor struct {
-	Addresses map[string]bool
+	Addresses map[string]ops.RemoveReason
 	Errors    map[string]error
 }
 
 func NewSuppressor() *Suppressor {
 	return &Suppressor{
-		Addresses: make(map[string]bool, 10),
+		Addresses: make(map[string]ops.RemoveReason, 10),
 		Errors:    make(map[string]error, 10),
 	}
 }
@@ -20,15 +24,16 @@ func (s *Suppressor) IsSuppressed(
 	if err = s.Errors[address]; err != nil {
 		return
 	}
-	ok = s.Addresses[address]
+	ok = s.Addresses[address] == ops.RemoveReasonNil
 	return
 }
 
-func (s *Suppressor) Suppress(ctx context.Context, address string) error {
+func (s *Suppressor) Suppress(
+	ctx context.Context, address string, reason ops.RemoveReason) error {
 	if err := s.Errors[address]; err != nil {
 		return err
 	}
-	s.Addresses[address] = true
+	s.Addresses[address] = reason
 	return nil
 }
 
