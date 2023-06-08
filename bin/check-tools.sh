@@ -25,7 +25,16 @@ find_tool() {
     return 1
   fi
 
-  local version="$(tool_version "$tool" "$version_flag")"
+  # goenv will install a shim into ${GOENV_ROOT}/shims for every tool installed
+  # into ${GOPATH}/bin via `go install`. If the current Go version doesn't have
+  # a tool, but another version does, the shim emits a "command not found"
+  # message to stderr. So we check for "command not found" to ensure the script
+  # will reinstall the tool for the current Go version.
+  local version="$(tool_version "$tool" "$version_flag" 2>&1)"
+
+  if [[ "$version" =~ \ command\ not\ found ]]; then
+    return 1
+  fi
   printf "Found: %s\n       %s\n" "$tool" "${version%%$'\n'*}"
 }
 
