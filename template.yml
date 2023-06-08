@@ -156,7 +156,7 @@ Resources:
     Properties:
       # Block automatic creation of the "Stage" stage per:
       # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-openapiversion
-      OpenApiVersion: "3.1.0"
+      OpenApiVersion: "3.0.1"
       StageName: !Ref AWS::StackName
       AccessLogSetting:
         # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigatewayv2-stage-accesslogsettings.html
