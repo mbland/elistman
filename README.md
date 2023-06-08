@@ -183,6 +183,42 @@ $ aws apigatewayv2 get-domain-names
 }
 ```
 
+Next, [set up an IAM role to allow the API to write CloudWatch logs][]. You only
+need to execute the steps in the **Create an IAM role for logging to
+CloudWatch** section. One possible name for the new IAM role would be
+`ApiGatewayCloudWatchLogging`.
+
+The last step from the above instructions is to
+
+```sh
+$ ARN="arn:aws:iam::...:role/ApiGatewayCloudWatchLogging"
+$ aws apigateway update-account --patch-operations \
+    op='replace',path='/cloudwatchRoleArn',value='$ARN'
+```
+
+If successful, the output should resemble the following, where `<ARN>` is the value of `$ARN` from above:
+
+```sh
+{
+    "cloudwatchRoleArn": "<ARN>",
+    "throttleSettings": {
+        "burstLimit": ...,
+        "rateLimit": ...
+    },
+    "features": []
+}
+```
+
+_Note:_ Per the documentation for the [AWS::ApiGateway::Account CloudFormation
+entity][], "you should only have one `AWS::ApiGateway::Account` resource per
+region per account." This is why it's not included in `template.yml` in favor of
+the one-time-per-account instructions above.
+
+However, if you want to try using SAM/CloudFormation to manage it, see:
+
+- [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM
+  template][]
+
 ### Run tests
 
 To make sure the local environment is in good shape, and your AWS services are
@@ -715,6 +751,9 @@ For each permutation described below:
 [Verifying your domain for Amazon SES email receiving]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-verification.html
 [Receipt Rule Set]: https://docs.aws.amazon.com/ses/latest/dg/receiving-email-receipt-rules-console-walkthrough.html
 [Setting up custom domain names for HTTP APIs]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-custom-domain-names.html
+[set up an IAM role to allow the API to write CloudWatch logs]: https://repost.aws/knowledge-center/api-gateway-cloudwatch-logs
+[AWS::ApiGateway::Account CloudFormation entity]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
+[Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM template]: https://stackoverflow.com/a/74985768
 [Docker]: https://www.docker.com
 [amazon/dynamodb-local]: https://hub.docker.com/r/amazon/dynamodb-local
 [Visual Studio Code]: https://code.visualstudio.com
