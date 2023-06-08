@@ -26,8 +26,10 @@ func init() {
 		"From: address, must be one you've verified for your AWS account",
 	)
 
-	// This may not strictly be necessary, but we set it to the name of the
-	// configuration set created as part of the elistman-dev pipeline.
+	// Defaults to the configuration set created as part of the elistman-dev
+	// stack deployed by the mbland/elistman GitHub CI/CD pipeline. The test
+	// will fail if the elistman-dev stack isn't running, or if this value
+	// doesn't specify another valid SES configuration set.
 	flag.StringVar(
 		&configurationSetName,
 		"configSet",
@@ -72,6 +74,9 @@ func TestSendWithLiveSes(t *testing.T) {
 		msgBuf.WriteString("This should work just fine.\r\n")
 		msg := msgBuf.Bytes()
 
+		// This will fail if the SES configuration set specified by the
+		// -configSet flag isn't available. Generally, this means it will fail
+		// if the elistman-dev stack isn't running.
 		_, err := mailer.Send(ctx, "success@simulator.amazonses.com", msg)
 
 		assert.NilError(t, err)
