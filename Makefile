@@ -45,7 +45,7 @@ deploy: sam-build deploy.env
 	bin/sam-with-env.sh deploy.env deploy
 
 delete: template.yml
-	sam delete
+	bin/sam-with-env.sh deploy.env delete
 
 clean:
 	rm -rf coverage.out .aws-sam
