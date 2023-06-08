@@ -39,9 +39,10 @@ func TestUnmarshalUnknownEvent(t *testing.T) {
 }
 
 const apiRequestJson = `{
-	"version": "2.0",
-	"routeKey": "POST /subscribe",
-	"rawPath": "/subscribe"
+	"httpMethod": "POST",
+	"requestContext": {
+		"resourcePath": "/subscribe"
+	}
 }`
 
 func TestApiRequest(t *testing.T) {
@@ -52,10 +53,11 @@ func TestApiRequest(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, e, Event{
 		Type: ApiRequest,
-		ApiRequest: &awsevents.APIGatewayV2HTTPRequest{
-			Version:  "2.0",
-			RouteKey: "POST /subscribe",
-			RawPath:  "/subscribe",
+		ApiRequest: &awsevents.APIGatewayProxyRequest{
+			HTTPMethod: "POST",
+			RequestContext: awsevents.APIGatewayProxyRequestContext{
+				ResourcePath: "/subscribe",
+			},
 		},
 	})
 }

@@ -145,12 +145,9 @@ check_response_for() {
   passing_results+=("$(printf '%s: %s' "$name" "$actual")")
 }
 
-printf_info 'SUITE: Not found (403 locally, 404 in prod)\n'
+printf_info 'SUITE: Not found (reported as 403 Forbidden)\n'
 
-not_found_status=404
-if [[ -n "$LOCAL" ]]; then
-  not_found_status=403
-fi
+not_found_status=403
 
 expect_status_from_endpoint 'invalid endpoint not found' \
   POST 'foobar/mbland%40acm.org' \

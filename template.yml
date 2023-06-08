@@ -112,27 +112,27 @@ Resources:
           UNSUBSCRIBED_PATH: !Ref UnsubscribedPath
       Events:
         Subscribe:
-          Type: HttpApi
+          Type: Api
           Properties:
-            ApiId: !Ref HttpApi
+            RestApiId: !Ref Api
             Path: /subscribe
             Method: POST
         Verify:
-          Type: HttpApi
+          Type: Api
           Properties:
-            ApiId: !Ref HttpApi
+            RestApiId: !Ref Api
             Path: /verify/{email}/{uid}
             Method: GET
         UnsubscribeGet:
-          Type: HttpApi
+          Type: Api
           Properties:
-            ApiId: !Ref HttpApi
+            RestApiId: !Ref Api
             Path: /unsubscribe/{email}/{uid}
             Method: GET
         UnsubscribePost:
-          Type: HttpApi
+          Type: Api
           Properties:
-            ApiId: !Ref HttpApi
+            RestApiId: !Ref Api
             Path: /unsubscribe/{email}/{uid}
             Method: POST
         DeliveryNotification:
@@ -143,26 +143,34 @@ Resources:
   ApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
     Properties:
-      ApiId: !Ref HttpApi
+      ApiId: !Ref Api
       DomainName: !Ref ApiDomainName
       ApiMappingKey: !Ref ApiMappingKey
       # https://github.com/aws/serverless-application-model/issues/192#issuecomment-520893111
-      Stage: !Ref HttpApi.Stage
+      Stage: !Ref Api.Stage
 
-  HttpApi:
-    Type: AWS::Serverless::HttpApi
+  Api:
+    # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html
+    Type: AWS::Serverless::Api
+    DependsOn: ApiAccessLogs
     Properties:
-      AccessLogSettings:
+      # Block automatic creation of the "Stage" stage per:
+      # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-openapiversion
+      OpenApiVersion: "3.1.0"
+      StageName: !Ref AWS::StackName
+      AccessLogSetting:
         # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigatewayv2-stage-accesslogsettings.html
         # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html
         # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging-variables.html
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         Format: '"$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.path $context.protocol" $context.status $context.responseLength $context.requestId"'
-      DefaultRouteSettings:
+      MethodSettings:
         # https://stackoverflow.com/a/70423772
         # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
-        ThrottlingRateLimit: 10
-        ThrottlingBurstLimit: 100
+        - HttpMethod: "*"
+          ResourcePath: "/*"
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 100
 
   FunctionLogs:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-retentionindays

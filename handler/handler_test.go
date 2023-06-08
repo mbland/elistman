@@ -177,23 +177,22 @@ func newHandlerFixture() *handlerFixture {
 	return &handlerFixture{agent, logs, bouncer, handler, ctx, &Event{}}
 }
 
-func apiGatewayRequest(method, path string) *awsevents.APIGatewayV2HTTPRequest {
-	return &awsevents.APIGatewayV2HTTPRequest{
-		RawPath: path,
-		RequestContext: awsevents.APIGatewayV2HTTPRequestContext{
-			RequestID: "deadbeef",
-			HTTP: awsevents.APIGatewayV2HTTPRequestContextHTTPDescription{
+func apiGatewayRequest(method, path string) *awsevents.APIGatewayProxyRequest {
+	return &awsevents.APIGatewayProxyRequest{
+		HTTPMethod: method,
+		RequestContext: awsevents.APIGatewayProxyRequestContext{
+			RequestID:    "deadbeef",
+			ResourcePath: path,
+			Protocol:     "HTTP/2",
+			Identity: awsevents.APIGatewayRequestIdentity{
 				SourceIP: "192.168.0.1",
-				Method:   method,
-				Path:     path,
-				Protocol: "HTTP/2",
 			},
 		},
 	}
 }
 
-func apiGatewayResponse(status int) *awsevents.APIGatewayV2HTTPResponse {
-	return &awsevents.APIGatewayV2HTTPResponse{
+func apiGatewayResponse(status int) *awsevents.APIGatewayProxyResponse {
+	return &awsevents.APIGatewayProxyResponse{
 		StatusCode: status, Headers: map[string]string{},
 	}
 }
@@ -334,7 +333,7 @@ func TestHandleEvent(t *testing.T) {
 
 		assert.NilError(t, err)
 		assert.Equal(t, "mbland@acm.org", f.agent.Email)
-		apiResponse, ok := response.(*awsevents.APIGatewayV2HTTPResponse)
+		apiResponse, ok := response.(*awsevents.APIGatewayProxyResponse)
 		assert.Assert(t, ok)
 		assert.Equal(t, http.StatusSeeOther, apiResponse.StatusCode)
 		expectedRedirect := f.handler.api.Redirects[ops.VerifyLinkSent]

@@ -223,14 +223,13 @@ func TestNewApiRequest(t *testing.T) {
 		"email": "mbland@acm.org", "uid": "0123-456-789",
 	}
 
-	newReq := func() *events.APIGatewayV2HTTPRequest {
-		return &events.APIGatewayV2HTTPRequest{
-			RawPath: rawPath,
-			RequestContext: events.APIGatewayV2HTTPRequestContext{
-				RequestID: requestId,
-				HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-					Method: http.MethodPost,
-				},
+	newReq := func() *events.APIGatewayProxyRequest {
+		return &events.APIGatewayProxyRequest{
+			HTTPMethod: http.MethodPost,
+			RequestContext: events.APIGatewayProxyRequestContext{
+				RequestID:    requestId,
+				ResourcePath: rawPath,
+				Identity:     events.APIGatewayRequestIdentity{},
 			},
 			Headers:        map[string]string{"content-type": contentType},
 			PathParameters: pathParams,

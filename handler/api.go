@@ -89,8 +89,8 @@ func initResponseBodyTemplate(
 }
 
 func (h *apiHandler) HandleEvent(
-	ctx context.Context, origReq *events.APIGatewayV2HTTPRequest,
-) (res *events.APIGatewayV2HTTPResponse) {
+	ctx context.Context, origReq *events.APIGatewayProxyRequest,
+) (res *events.APIGatewayProxyResponse) {
 	req, err := newApiRequest(origReq)
 
 	if err == nil {
@@ -105,7 +105,7 @@ func (h *apiHandler) HandleEvent(
 }
 
 func (h *apiHandler) addResponseBody(
-	res *events.APIGatewayV2HTTPResponse, body string,
+	res *events.APIGatewayProxyResponse, body string,
 ) {
 	httpStatus := res.StatusCode
 	title := fmt.Sprintf("%d %s", httpStatus, http.StatusText(httpStatus))
@@ -123,8 +123,8 @@ func (h *apiHandler) addResponseBody(
 	}
 }
 
-func (h *apiHandler) errorResponse(err error) *events.APIGatewayV2HTTPResponse {
-	res := &events.APIGatewayV2HTTPResponse{
+func (h *apiHandler) errorResponse(err error) *events.APIGatewayProxyResponse {
+	res := &events.APIGatewayProxyResponse{
 		StatusCode: http.StatusInternalServerError,
 		Headers:    map[string]string{},
 	}
@@ -142,26 +142,29 @@ func (h *apiHandler) errorResponse(err error) *events.APIGatewayV2HTTPResponse {
 
 func logApiResponse(
 	log *log.Logger,
-	req *events.APIGatewayV2HTTPRequest,
-	res *events.APIGatewayV2HTTPResponse,
+	req *events.APIGatewayProxyRequest,
+	res *events.APIGatewayProxyResponse,
 	err error,
 ) {
 	reqId := req.RequestContext.RequestID
-	desc := req.RequestContext.HTTP
+	desc := req.RequestContext
 	errMsg := ""
 
 	if err != nil {
 		errMsg = ": " + err.Error()
 	}
 
-	log.Printf(`%s: %s "%s %s %s" %d%s`,
+	log.Printf(
+		`%s: %s "%s %s %s" %d%s`,
 		reqId,
-		desc.SourceIP, desc.Method, desc.Path, desc.Protocol, res.StatusCode,
+		desc.Identity.SourceIP,
+		req.HTTPMethod, desc.ResourcePath, desc.Protocol,
+		res.StatusCode,
 		errMsg,
 	)
 }
 
-func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
+func newApiRequest(req *events.APIGatewayProxyRequest) (*apiRequest, error) {
 	contentType, foundContentType := req.Headers["content-type"]
 	body := req.Body
 
@@ -202,8 +205,8 @@ func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
 
 	return &apiRequest{
 		req.RequestContext.RequestID,
-		req.RawPath,
-		req.RequestContext.HTTP.Method,
+		req.RequestContext.ResourcePath,
+		req.HTTPMethod,
 		contentType,
 		req.PathParameters,
 		body,
@@ -212,8 +215,8 @@ func newApiRequest(req *events.APIGatewayV2HTTPRequest) (*apiRequest, error) {
 
 func (h *apiHandler) handleApiRequest(
 	ctx context.Context, req *apiRequest,
-) (*events.APIGatewayV2HTTPResponse, error) {
-	res := &events.APIGatewayV2HTTPResponse{Headers: map[string]string{}}
+) (*events.APIGatewayProxyResponse, error) {
+	res := &events.APIGatewayProxyResponse{Headers: map[string]string{}}
 	res.Headers["content-type"] = "text/plain; charset=utf-8"
 
 	if op, err := parseApiRequest(req); err != nil {
@@ -232,8 +235,8 @@ func (h *apiHandler) handleApiRequest(
 }
 
 func (h *apiHandler) respondToParseError(
-	response *events.APIGatewayV2HTTPResponse, err error,
-) (*events.APIGatewayV2HTTPResponse, error) {
+	response *events.APIGatewayProxyResponse, err error,
+) (*events.APIGatewayProxyResponse, error) {
 	if !errors.Is(err, ErrUserInput) {
 		response.StatusCode = http.StatusBadRequest
 		body := "<p>Parsing the request failed:</p>\n" +

@@ -21,7 +21,7 @@ const (
 
 type Event struct {
 	Type             EventType
-	ApiRequest       *awsevents.APIGatewayV2HTTPRequest
+	ApiRequest       *awsevents.APIGatewayProxyRequest
 	MailtoEvent      *awsevents.SimpleEmailEvent
 	SnsEvent         *awsevents.SNSEvent
 	CommandLineEvent *events.CommandLineEvent
@@ -35,9 +35,9 @@ type Event struct {
 func (event *Event) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte("null")) {
 		return nil
-	} else if bytes.Contains(data, []byte(`"rawPath":`)) {
+	} else if bytes.Contains(data, []byte(`"httpMethod":`)) {
 		event.Type = ApiRequest
-		event.ApiRequest = &awsevents.APIGatewayV2HTTPRequest{}
+		event.ApiRequest = &awsevents.APIGatewayProxyRequest{}
 		return json.Unmarshal(data, event.ApiRequest)
 	} else if bytes.Contains(data, []byte(`"ses":`)) {
 		event.Type = MailtoEvent
