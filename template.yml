@@ -186,6 +186,53 @@ Resources:
       LogGroupName: !Sub "${AWS::StackName}-api"
       RetentionInDays: 14
 
+  WebAcl:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "${AWS::StackName}-api-acl"
+      Description: "Protect the /subscribe form from spam bots"
+      DefaultAction:
+        Allow: {}
+      Scope: REGIONAL
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "${AWS::StackName}-api-acl"
+        SampledRequestsEnabled: true
+      TokenDomains:
+        - !Ref EmailDomainName
+      Rules:
+        - Name: "subscribe"
+          Priority: 0
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "${AWS::StackName}-api-acl-subscribe"
+            SampledRequestsEnabled: true
+          Statement:
+            ByteMatchStatement:
+              FieldToMatch:
+                UriPath: {}
+              SearchString: !Sub "/${ApiMappingKey}/subscribe"
+              PositionalConstraint: STARTS_WITH
+              TextTransformations:
+                - Priority: 0
+                  Type: URL_DECODE
+                - Priority: 1
+                  Type: NORMALIZE_PATH
+          Action:
+            Captcha: {}
+          CaptchaConfig:
+            ImmunityTimeProperty:
+              ImmunityTime: 60
+
+  WebAclAssociation:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      # https://docs.aws.amazon.com/apigateway/latest/developerguide/arn-format-reference.html
+      ResourceArn: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:${AWS::AccountId}:/restapis/${Api}/stages/${AWS::StackName}"
+      WebACLArn: !GetAtt WebAcl.Arn
+
   ReceiptRuleSetPermission:
     Type: AWS::Lambda::Permission
     Properties:
