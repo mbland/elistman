@@ -177,7 +177,7 @@ else
     expect_status_from_endpoint '/subscribe protected by AWS WAF CAPTCHA' \
       POST 'subscribe' \
       405 "" \
-      'application/x-www-form-urlencoded' 'email=smoke-test@mike-bland.com'
+      'application/x-www-form-urlencoded' 'email=smoke-test@example.com'
 fi
 
 printf_info 'SUITE: All other missing or invalid parameters return 400\n'
