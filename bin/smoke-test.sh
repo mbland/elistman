@@ -153,22 +153,32 @@ expect_status_from_endpoint 'invalid endpoint not found' \
   POST 'foobar/mbland%40acm.org' \
   "$not_found_status"
 
-expect_status_from_endpoint '/subscribe with trailing component not found' \
-  POST 'subscribe/foobar' \
-  "$not_found_status"
+if [[ -n "$LOCAL" ]]; then
+    expect_status_from_endpoint '/subscribe with trailing component not found' \
+      POST 'subscribe/foobar' \
+      "$not_found_status"
 
-printf_info '%s\n' \
-  'SUITE: Redirect if missing or invalid email address for /subscribe'
+    printf_info '%s\n' \
+      'SUITE: Redirect if missing or invalid email address for /subscribe'
 
-expect_status_from_endpoint 'missing email address' \
-  POST 'subscribe' \
-  303 "$INVALID_REQUEST_PATH" \
-  'application/x-www-form-urlencoded' ''
+    expect_status_from_endpoint 'missing email address' \
+      POST 'subscribe' \
+      303 "$INVALID_REQUEST_PATH" \
+      'application/x-www-form-urlencoded' ''
 
-expect_status_from_endpoint 'invalid email address' \
-  POST 'subscribe' \
-  303 "$INVALID_REQUEST_PATH" \
-  'application/x-www-form-urlencoded' 'email=foo bar'
+    expect_status_from_endpoint 'invalid email address' \
+      POST 'subscribe' \
+      303 "$INVALID_REQUEST_PATH" \
+      'application/x-www-form-urlencoded' 'email=foo bar'
+else
+    printf_info '%s\n' \
+      'SUITE: /subscribe protected by AWS WAF CAPTCHA'
+
+    expect_status_from_endpoint '/subscribe protected by AWS WAF CAPTCHA' \
+      POST 'subscribe' \
+      405 "" \
+      'application/x-www-form-urlencoded' 'email=smoke-test@mike-bland.com'
+fi
 
 printf_info 'SUITE: All other missing or invalid parameters return 400\n'
 
