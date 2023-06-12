@@ -254,27 +254,19 @@ func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 func (a *ProdAgent) Send(
 	ctx context.Context, msg *email.Message,
 ) (numSent int, err error) {
-	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err != nil {
+	var mt *email.MessageTemplate
+	if mt, err = a.newTemplate(msg); err != nil {
 		return
 	} else if err = a.Mailer.BulkCapacityAvailable(ctx); err != nil {
 		err = fmt.Errorf("couldn't send to subscribers: %w", err)
 		return
 	}
 
-	mt := email.NewMessageTemplate(msg)
 	var sendErr error
-
 	sender := db.SubscriberFunc(func(sub *db.Subscriber) bool {
-		recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
-		recipient.SetUnsubscribeInfo(a.UnsubscribeEmail, a.ApiBaseUrl)
-
-		m := mt.GenerateMessage(recipient)
-		var msgId string
-
-		if msgId, sendErr = a.Mailer.Send(ctx, sub.Email, m); sendErr != nil {
+		if sendErr = a.sendOneEmail(ctx, msg.Subject, mt, sub); sendErr != nil {
 			return false
 		}
-		a.Log.Printf("sent \"%s\" id: %s to: %s", msg.Subject, msgId, sub.Email)
 		numSent++
 		return true
 	})
@@ -283,6 +275,33 @@ func (a *ProdAgent) Send(
 	if err = errors.Join(err, sendErr); err != nil {
 		const errFmt = "error sending \"%s\" to list: %w"
 		err = fmt.Errorf(errFmt, msg.Subject, err)
+	}
+	return
+}
+
+func (a *ProdAgent) newTemplate(
+	msg *email.Message,
+) (mt *email.MessageTemplate, err error) {
+	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err == nil {
+		mt = email.NewMessageTemplate(msg)
+	}
+	return
+}
+
+func (a *ProdAgent) sendOneEmail(
+	ctx context.Context,
+	subject string,
+	mt *email.MessageTemplate,
+	sub *db.Subscriber,
+) (err error) {
+	recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
+	recipient.SetUnsubscribeInfo(a.UnsubscribeEmail, a.ApiBaseUrl)
+
+	m := mt.GenerateMessage(recipient)
+	var msgId string
+
+	if msgId, err = a.Mailer.Send(ctx, sub.Email, m); err == nil {
+		a.Log.Printf("sent \"%s\" id: %s to: %s", subject, msgId, sub.Email)
 	}
 	return
 }
