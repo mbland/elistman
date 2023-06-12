@@ -106,11 +106,11 @@ func (a *ProdAgent) putSubscriber(
 const verifySubjectPrefix = "Verify your email subscription to "
 
 const verifyTextFormat = `` +
-	`Please verify your email subscription to %s by clicking:
+	`Please ignore this email if you did not subscribe to %s.
+
+Otherwise, please verify your subscription by clicking:
 
 - %s
-
-If you did not subscribe, please ignore this email.
 `
 
 const verifyHtmlFormat = `<!DOCTYPE html ` +
@@ -123,9 +123,9 @@ const verifyHtmlFormat = `<!DOCTYPE html ` +
 <title>Verify your email subscription to %s</title>
 </head>
 <body>
-<p>Please verify your email subscription to %s by clicking:</p>
+<p>Please ignore this email if you did not subscribe to %s.</p>
+<p>Otherwise, please verify your subscription by clicking:</p>
 <ul><li><a href="%s">%s</a></li></ul>
-<p>If you did not subscribe, please ignore this email.</p>
 </body>
 </html>
 `
