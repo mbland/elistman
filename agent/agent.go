@@ -279,6 +279,45 @@ func (a *ProdAgent) Send(
 	return
 }
 
+func (a *ProdAgent) SendTargeted(
+	ctx context.Context, msg *email.Message, addrs []string,
+) (numSent int, err error) {
+	var mt *email.MessageTemplate
+	if mt, err = a.newTemplate(msg); err != nil {
+		return
+	}
+
+	errs := make([]error, 0, len(addrs))
+	addError := func(addr string, err error) {
+		errs = append(errs, fmt.Errorf("%s: %w", addr, err))
+	}
+
+	// It's possible to implement Database.BatchGet, but I'm not sure it's worth
+	// it. This function is generally intended to be used with only a few
+	// addresses at most. However, replacing this loop with Database.BatchGet
+	// one day should only require adding testdoubles.Database.BatchGet and
+	// using that in the tests. Other than that, the tests shouldn't need to
+	// change.
+	for _, addr := range addrs {
+		var sub *db.Subscriber
+		if sub, err = a.Db.Get(ctx, addr); err != nil {
+			addError(addr, err)
+		} else if sub.Status != db.SubscriberVerified {
+			addError(addr, errors.New("not verified"))
+		} else if err = a.sendOneEmail(ctx, msg.Subject, mt, sub); err != nil {
+			addError(addr, err)
+		} else {
+			numSent++
+		}
+	}
+
+	if err = errors.Join(errs...); err != nil {
+		const errFmt = "error sending \"%s\" to targeted recipients: %w"
+		err = fmt.Errorf(errFmt, msg.Subject, err)
+	}
+	return
+}
+
 func (a *ProdAgent) newTemplate(
 	msg *email.Message,
 ) (mt *email.MessageTemplate, err error) {
