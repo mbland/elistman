@@ -35,10 +35,14 @@ func (h *cliHandler) HandleSendEvent(
 	res = &events.SendResponse{}
 	var err error
 
-	if res.NumSent, err = h.Agent.Send(ctx, &e.Message); err != nil {
-		res.Details = err.Error()
+	if len(e.Addresses) == 0 {
+		res.NumSent, err = h.Agent.Send(ctx, &e.Message)
 	} else {
-		res.Success = true
+		res.NumSent, err = h.Agent.SendTargeted(ctx, &e.Message, e.Addresses)
+	}
+
+	if res.Success = err == nil; !res.Success {
+		res.Details = err.Error()
 	}
 
 	const logFmt = "send: subject: \"%s\"; success: %t; num sent: %d"

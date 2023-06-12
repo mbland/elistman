@@ -18,6 +18,7 @@ type CommandLineEvent struct {
 }
 
 type SendEvent struct {
+	Addresses []string
 	email.Message
 }
 
