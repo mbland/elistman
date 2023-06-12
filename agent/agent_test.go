@@ -28,6 +28,16 @@ const testDomainName = "foo.com"
 const testUnsubEmail = "unsubscribe@foo.com"
 const testUnsubBaseUrl = "https://foo.com/email/"
 
+func testMessage() (msg *email.Message) {
+	msg = &email.Message{}
+	err := json.Unmarshal([]byte(email.ExampleMessageJson), &msg)
+	if err != nil {
+		panic("email.ExampleMessageJson failed to unmarshal: " + err.Error())
+	}
+	msg.From = testSender
+	return
+}
+
 var pendingSubscriber *db.Subscriber = &db.Subscriber{
 	Email:     testEmail,
 	Uid:       td.TestUid,
@@ -78,6 +88,18 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 		logger,
 	}
 	return &prodAgentTestFixture{pa, db, av, m, sup, logs}
+}
+
+func (f *prodAgentTestFixture) setupTestSubscribers() {
+	ctx := context.Background()
+	for i, sub := range db.TestSubscribers {
+		if err := f.db.Put(ctx, sub); err != nil {
+			msg := "failed to Put test subscriber " + sub.Email + ": " +
+				err.Error()
+			panic(msg)
+		}
+		f.mailer.MessageIds[sub.Email] = fmt.Sprintf("msg-%d", i)
+	}
 }
 
 func makeServerError(msg string) error {
@@ -722,13 +744,90 @@ func TestRestore(t *testing.T) {
 	})
 }
 
-func TestSend(t *testing.T) {
-	msg := &email.Message{}
-	err := json.Unmarshal([]byte(email.ExampleMessageJson), &msg)
-	if err != nil {
-		panic("email.ExampleMessageJson failed to unmarshal: " + err.Error())
+func TestNewTemplate(t *testing.T) {
+	agent := &ProdAgent{EmailDomainName: testDomainName}
+
+	t.Run("Succeeds", func(t *testing.T) {
+		msg := testMessage()
+
+		mt, err := agent.newTemplate(msg)
+
+		assert.NilError(t, err)
+		assert.Assert(t, mt != nil)
+	})
+
+	t.Run("FailsIfFromDomainFailsValidation", func(t *testing.T) {
+		msg := testMessage()
+		msg.From = "Blog Updates <updates@bar.com>"
+
+		mt, err := agent.newTemplate(msg)
+
+		assert.Assert(t, mt == nil)
+		const expectedErr = "domain of From address is not " + testDomainName
+		assert.ErrorContains(t, err, expectedErr)
+	})
+}
+
+func assertSentToVerifiedSubscriber(
+	t *testing.T,
+	subject string,
+	sub *db.Subscriber,
+	mailer *testdoubles.Mailer,
+	logs *tu.Logs,
+) {
+	t.Helper()
+
+	msgId, m := mailer.GetMessageTo(t, sub.Email)
+	unsubUrl := ops.UnsubscribeUrl(testUnsubBaseUrl, sub.Email, sub.Uid)
+	unsubMailto := ops.UnsubscribeMailto(testUnsubEmail, sub.Email, sub.Uid)
+	expectedLogMsg := fmt.Sprintf(
+		"sent \"%s\" id: %s to: %s", subject, msgId, sub.Email,
+	)
+	assert.Assert(t, is.Contains(m, unsubUrl))
+	assert.Assert(t, is.Contains(m, unsubMailto))
+	logs.AssertContains(t, expectedLogMsg)
+}
+
+func TestSendOneEmail(t *testing.T) {
+	msg := testMessage()
+	mt := email.NewMessageTemplate(msg)
+
+	setup := func() (
+		*ProdAgent,
+		*testdoubles.Mailer,
+		*tu.Logs,
+		*db.Subscriber,
+		context.Context) {
+		f := newProdAgentTestFixture()
+		sub := db.TestVerifiedSubscribers[1]
+
+		f.setupTestSubscribers()
+		return f.agent, f.mailer, f.logs, sub, context.Background()
 	}
-	msg.From = testSender
+
+	t.Run("Succeeds", func(t *testing.T) {
+		agent, mailer, logs, sub, ctx := setup()
+
+		err := agent.sendOneEmail(ctx, msg.Subject, mt, sub)
+
+		assert.NilError(t, err)
+		assertSentToVerifiedSubscriber(t, msg.Subject, sub, mailer, logs)
+	})
+
+	t.Run("FailsIfMailerSendFails", func(t *testing.T) {
+		agent, mailer, _, sub, ctx := setup()
+		sendErr := errors.New("Mailer.Send failed")
+		mailer.RecipientErrors[sub.Email] = sendErr
+
+		err := agent.sendOneEmail(ctx, msg.Subject, mt, sub)
+
+		mailer.AssertNoMessageSent(t, sub.Email)
+		assert.Assert(t, tu.ErrorIs(err, sendErr))
+	})
+}
+
+func TestSend(t *testing.T) {
+	msg := testMessage()
 
 	setup := func() (
 		*ProdAgent,
@@ -739,36 +838,8 @@ func TestSend(t *testing.T) {
 		f := newProdAgentTestFixture()
 		ctx := context.Background()
 
-		for i, sub := range db.TestSubscribers {
-			if err := f.db.Put(ctx, sub); err != nil {
-				msg := "failed to Put test subscriber " + sub.Email + ": " +
-					err.Error()
-				panic(msg)
-			}
-			f.mailer.MessageIds[sub.Email] = fmt.Sprintf("msg-%d", i)
-		}
+		f.setupTestSubscribers()
 		return f.agent, f.db, f.mailer, f.logs, ctx
-	}
-
-	assertSentToVerifiedSubscriber := func(
-		t *testing.T,
-		i int,
-		sub *db.Subscriber,
-		mailer *testdoubles.Mailer,
-		logs *tu.Logs,
-	) {
-		t.Helper()
-
-		msgId, m := mailer.GetMessageTo(t, sub.Email)
-		unsubUrl := ops.UnsubscribeUrl(testUnsubBaseUrl, sub.Email, sub.Uid)
-		unsubMailto := ops.UnsubscribeMailto(testUnsubEmail, sub.Email, sub.Uid)
-		expectedLogMsg := fmt.Sprintf(
-			"sent \"%s\" id: %s to: %s", msg.Subject, msgId, sub.Email,
-		)
-		assert.Equal(t, mailer.MessageIds[sub.Email], msgId)
-		assert.Assert(t, is.Contains(m, unsubUrl))
-		assert.Assert(t, is.Contains(m, unsubMailto))
-		logs.AssertContains(t, expectedLogMsg)
 	}
 
 	assertSentToVerifiedSubscribers := func(
@@ -776,8 +847,8 @@ func TestSend(t *testing.T) {
 	) {
 		t.Helper()
 
-		for i, sub := range db.TestVerifiedSubscribers {
-			assertSentToVerifiedSubscriber(t, i, sub, mailer, logs)
+		for _, sub := range db.TestVerifiedSubscribers {
+			assertSentToVerifiedSubscriber(t, msg.Subject, sub, mailer, logs)
 		}
 	}
 
@@ -853,7 +924,7 @@ func TestSend(t *testing.T) {
 
 		assert.Assert(t, tu.ErrorIs(err, sendErr))
 		assertSentToVerifiedSubscriber(
-			t, 0, db.TestVerifiedSubscribers[0], mailer, logs,
+			t, msg.Subject, db.TestVerifiedSubscribers[0], mailer, logs,
 		)
 		mailer.AssertNoMessageSent(t, secondSub.Email)
 		assert.Equal(t, 1, numSent)
