@@ -21,6 +21,7 @@ Implemented in [Go][] using the following [Amazon Web Services][]:
 - [DynamoDB][]
 - [Simple Email Service][]
 - [Simple Notification Service][]
+- [Web Application Firewall][]
 
 Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
 deploying the Lambda function, binding to the API Gateway, managing permissions,
@@ -218,6 +219,138 @@ However, if you want to try using SAM/CloudFormation to manage it, see:
 
 - [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM
   template][]
+
+### Consider using an AWS Web Application Firewall CAPTCHA (optional)
+
+The EListMan system tries to validate email addresses through its own up front
+analysis and by sending validation links to subscribers. However, opportunistic
+spam bots can still—and will—submit many valid email addresses without either
+the knowledge or consent of the actual owner.
+
+Fortunately, the validation link mechanism prevents most bogus subscriptions,
+and DynamoDB's Time To Live feature cleans them from the database automatically.
+A bounce or complaint also notifies the EListMan Lambda to add the address to
+your [account-level suppression list][], so you won't send to it again.
+
+This means most bogus subscriptions will not pollute the verified subscriber
+list, and such recipients will not receive further emails. However, generating
+these bogus subscriptions still consumes resources, and can yield bounced
+messages and complaints that will harm your [SES reputation metrics][].
+
+Having learned this the hard (naïve) way, I recommend using a [CAPTCHA][] to
+prevent spam bot abuse. After deploying it, my own account dropped from dozens
+of bogus subscription requests a day to zero.
+
+EListMan's CloudFormation/SAM template configures an AWS Web Application
+Firewall (WAF) CAPTCHA, creating one Web ACL and one Rule associated with it.
+If you choose to use it, note that it does incur additional charges. See [AWS
+WAF Pricing][] for details.
+
+If you choose not to use it, comment out or delete the `WebAcl` and
+`WebAclAssociation` resources in [template.yml](./template.yml).
+
+### Generate an AWS Web Application Firewall CAPTCHA API KEY (optional)
+
+To use EListMan's Web ACL configuration, you'll need to [generate an API key for
+the CAPTCHA API][]. Include whichever domain will serve the submission form in
+the list of domains used to generate the API key.
+
+The default EListMan configuration expects this domain to be the same as
+`EMAIL_DOMAIN_NAME`, described below.  If you use a different domain, set
+`WebAcl > Properties > TokenDomains` in [template.yml](./template.yml)
+appropriately.
+
+### Generate your email submission form programmatically (optional)
+
+You may gain extra protection from spam bots by generating the subscription form
+using JavaScript instead of embedding a [&lt;form&gt;][] element directly in
+your HTML.
+
+In other words, instead of this (where `API_DOMAIN_NAME` is your own custom
+domain name from the **Configure AWS API Gateway** step):
+
+```html
+<!-- subscribe.html -->
+
+<form method="post" action="https://API_DOMAIN_NAME/email/subscribe">
+  <input name="email" placeholder="Please enter your email address."/>
+  <button type="submit">Subscribe</button>
+</form>
+```
+
+Use something like this:
+
+```html
+<!-- subscribe.html -->
+
+<div class="subscribe-form">
+  <button>Show subscribe form</button>
+</div>
+```
+
+```js
+// subscribe.js
+
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+  var container = document.querySelector(".subscribe-form")
+
+  var showForm = () => {
+    var f = document.createElement("form")
+    // The following should generate the value for API_DOMAIN_NAME.
+    var api_domain_name = ["my", "api", "com"].join(".")
+    f.action = ["https:", "", api_domain_name, "email", "subscribe"].join("/")
+    f.method = "post"
+
+    var i = document.createElement("input")
+    i.name = "email"
+    i.type = "email"
+    i.placeholder = "Please enter your email address."
+    f.appendChild(i)
+
+    var s = document.createElement("button")
+    s.type = "submit"
+    s.appendChild(document.createTextNode("Subscribe"))
+    f.appendChild(s)
+
+    container.parentNode.replaceChild(f, container)
+  }
+
+  container.querySelector("button").addEventListener('click', showForm)
+})
+```
+
+### Integrate the CAPTCHA into your subscription form (optional)
+
+Using the recommended HTML from above, the code below will [render the AWS WAF
+CAPTCHA puzzle][] when the subscriber clicks the button. When they solve the
+puzzle, it will then reveal the submission form.
+
+Remember to substitute `YOUR_AWS_WAF_CAPTCHA_API_KEY` with your own API key:
+
+```js
+// subscribe.js
+
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+  var container = document.querySelector(".subscribe-form")
+
+  var showForm = () => {
+    // Same implementation as above
+  }
+
+  container.querySelector("button").addEventListener('click', () => {
+    AwsWafCaptcha.renderCaptcha(container, {
+      apiKey: YOUR_AWS_WAF_CAPTCHA_API_KEY,
+      onSuccess: showForm,
+      dynamicWidth: true,
+      skipTitle: true
+    });
+  })
+})
+```
 
 ### Run tests
 
@@ -738,6 +871,7 @@ For each permutation described below:
 [DynamoDB]: https://aws.amazon.com/dynamodb/
 [Simple Email Service]: https://aws.amazon.com/ses/
 [Simple Notification Service]: https://aws.amazon.com/sns/
+[Web Application Firewall]: https://aws.amazon.com/waf/
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [AWS Serverless Application Model (SAM)]: https://aws.amazon.com/serverless/sam/
 [victoriadrake/simple-subscribe]: https://github.com/victoriadrake/simple-subscribe/
@@ -754,6 +888,12 @@ For each permutation described below:
 [set up an IAM role to allow the API to write CloudWatch logs]: https://repost.aws/knowledge-center/api-gateway-cloudwatch-logs
 [AWS::ApiGateway::Account CloudFormation entity]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
 [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM template]: https://stackoverflow.com/a/74985768
+[SES reputation metrics]: https://docs.aws.amazon.com/ses/latest/dg/monitor-sender-reputation.html
+[CAPTCHA]: https://docs.aws.amazon.com/waf/latest/developerguide/waf-captcha-puzzle.html
+[AWS WAF Pricing]: https://aws.amazon.com/waf/pricing/
+[generate an API key for the CAPTCHA API]: https://docs.aws.amazon.com/waf/latest/developerguide/waf-js-captcha-api-key.html
+[&lt;form&gt;]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form
+[Render the AWS WAF CAPTCHA puzzle]: https://docs.aws.amazon.com/waf/latest/developerguide/waf-js-captcha-api-render.html
 [Docker]: https://www.docker.com
 [amazon/dynamodb-local]: https://hub.docker.com/r/amazon/dynamodb-local
 [Visual Studio Code]: https://code.visualstudio.com
