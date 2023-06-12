@@ -788,6 +788,26 @@ func assertSentToVerifiedSubscriber(
 	logs.AssertContains(t, expectedLogMsg)
 }
 
+func assertSentToVerifiedSubscribers(
+	t *testing.T, subject string, mailer *testdoubles.Mailer, logs *tu.Logs,
+) {
+	t.Helper()
+
+	for _, sub := range db.TestVerifiedSubscribers {
+		assertSentToVerifiedSubscriber(t, subject, sub, mailer, logs)
+	}
+}
+
+func assertDidNotSendToPendingSubscribers(
+	t *testing.T, mailer *testdoubles.Mailer,
+) {
+	t.Helper()
+
+	for _, sub := range db.TestPendingSubscribers {
+		mailer.AssertNoMessageSent(t, sub.Email)
+	}
+}
+
 func TestSendOneEmail(t *testing.T) {
 	msg := testMessage()
 	mt := email.NewMessageTemplate(msg)
@@ -842,33 +862,13 @@ func TestSend(t *testing.T) {
 		return f.agent, f.db, f.mailer, f.logs, ctx
 	}
 
-	assertSentToVerifiedSubscribers := func(
-		t *testing.T, mailer *testdoubles.Mailer, logs *tu.Logs,
-	) {
-		t.Helper()
-
-		for _, sub := range db.TestVerifiedSubscribers {
-			assertSentToVerifiedSubscriber(t, msg.Subject, sub, mailer, logs)
-		}
-	}
-
-	assertDidNotSendToPendingSubscribers := func(
-		t *testing.T, mailer *testdoubles.Mailer,
-	) {
-		t.Helper()
-
-		for _, sub := range db.TestPendingSubscribers {
-			mailer.AssertNoMessageSent(t, sub.Email)
-		}
-	}
-
 	t.Run("Succeeds", func(t *testing.T) {
 		agent, _, mailer, logs, ctx := setup()
 
 		numSent, err := agent.Send(ctx, msg)
 
 		assert.NilError(t, err)
-		assertSentToVerifiedSubscribers(t, mailer, logs)
+		assertSentToVerifiedSubscribers(t, msg.Subject, mailer, logs)
 		assertDidNotSendToPendingSubscribers(t, mailer)
 		assert.Equal(t, len(db.TestVerifiedSubscribers), numSent)
 	})
