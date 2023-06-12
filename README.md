@@ -27,6 +27,8 @@ Uses [CloudFormation][] and the [AWS Serverless Application Model (SAM)][] for
 deploying the Lambda function, binding to the API Gateway, managing permissions,
 and other configuration parameters.
 
+Originally implemented to support <https://mike-bland.com/subscribe/>.
+
 The very earliest stages of the implementation were based on hints from
 [victoriadrake/simple-subscribe][], but all the code is original.
 
