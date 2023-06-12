@@ -27,8 +27,7 @@ type SubscriptionAgent interface {
 	Import(ctx context.Context, address string) (err error)
 	Remove(ctx context.Context, email string, reason ops.RemoveReason) error
 	Restore(ctx context.Context, email string) error
-	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
-	SendTargeted(
+	Send(
 		ctx context.Context, msg *email.Message, addrs []string,
 	) (numSent int, err error)
 }
@@ -253,21 +252,29 @@ func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 	}
 	return
 }
-
 func (a *ProdAgent) Send(
-	ctx context.Context, msg *email.Message,
+	ctx context.Context, msg *email.Message, addrs []string,
 ) (numSent int, err error) {
 	var mt *email.MessageTemplate
 	if mt, err = a.newTemplate(msg); err != nil {
 		return
-	} else if err = a.Mailer.BulkCapacityAvailable(ctx); err != nil {
+	} else if len(addrs) == 0 {
+		return a.send(ctx, msg.Subject, mt)
+	}
+	return a.sendTargeted(ctx, msg.Subject, mt, addrs)
+}
+
+func (a *ProdAgent) send(
+	ctx context.Context, subject string, mt *email.MessageTemplate,
+) (numSent int, err error) {
+	if err = a.Mailer.BulkCapacityAvailable(ctx); err != nil {
 		err = fmt.Errorf("couldn't send to subscribers: %w", err)
 		return
 	}
 
 	var sendErr error
 	sender := db.SubscriberFunc(func(sub *db.Subscriber) bool {
-		if sendErr = a.sendOneEmail(ctx, msg.Subject, mt, sub); sendErr != nil {
+		if sendErr = a.sendOneEmail(ctx, subject, mt, sub); sendErr != nil {
 			return false
 		}
 		numSent++
@@ -277,19 +284,17 @@ func (a *ProdAgent) Send(
 	err = a.Db.ProcessSubscribers(ctx, db.SubscriberVerified, sender)
 	if err = errors.Join(err, sendErr); err != nil {
 		const errFmt = "error sending \"%s\" to list: %w"
-		err = fmt.Errorf(errFmt, msg.Subject, err)
+		err = fmt.Errorf(errFmt, subject, err)
 	}
 	return
 }
 
-func (a *ProdAgent) SendTargeted(
-	ctx context.Context, msg *email.Message, addrs []string,
+func (a *ProdAgent) sendTargeted(
+	ctx context.Context,
+	subject string,
+	mt *email.MessageTemplate,
+	addrs []string,
 ) (numSent int, err error) {
-	var mt *email.MessageTemplate
-	if mt, err = a.newTemplate(msg); err != nil {
-		return
-	}
-
 	errs := make([]error, 0, len(addrs))
 	addError := func(addr string, err error) {
 		errs = append(errs, fmt.Errorf("%s: %w", addr, err))
@@ -307,7 +312,7 @@ func (a *ProdAgent) SendTargeted(
 			addError(addr, err)
 		} else if sub.Status != db.SubscriberVerified {
 			addError(addr, errors.New("not verified"))
-		} else if err = a.sendOneEmail(ctx, msg.Subject, mt, sub); err != nil {
+		} else if err = a.sendOneEmail(ctx, subject, mt, sub); err != nil {
 			addError(addr, err)
 		} else {
 			numSent++
@@ -316,7 +321,7 @@ func (a *ProdAgent) SendTargeted(
 
 	if err = errors.Join(errs...); err != nil {
 		const errFmt = "error sending \"%s\" to targeted recipients: %w"
-		err = fmt.Errorf(errFmt, msg.Subject, err)
+		err = fmt.Errorf(errFmt, subject, err)
 	}
 	return
 }

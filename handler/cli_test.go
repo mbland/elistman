@@ -39,10 +39,10 @@ func TestCliHandlerHandleSendEvent(t *testing.T) {
 		return fmt.Sprintf(logFmt, msg.Subject, res.Success, res.NumSent)
 	}
 
-	t.Run("SucceedsSendingToList", func(t *testing.T) {
+	t.Run("SucceedsSendingToEntireList", func(t *testing.T) {
 		handler, agent, logs, ctx := setupTestCliHandler()
 		numSent := 27
-		agent.SendResponse = func(_ *email.Message) (int, error) {
+		agent.SendResponse = func(_ *email.Message, _ []string) (int, error) {
 			return numSent, nil
 		}
 
@@ -57,9 +57,7 @@ func TestCliHandlerHandleSendEvent(t *testing.T) {
 
 	t.Run("SucceedsSendingToSpecificAddresses", func(t *testing.T) {
 		handler, agent, logs, ctx := setupTestCliHandler()
-		agent.SendTargetedResponse = func(
-			_ *email.Message, addrs []string,
-		) (int, error) {
+		agent.SendResponse = func(_ *email.Message, addrs []string) (int, error) {
 			return len(targetedEvent.Addresses), nil
 		}
 
@@ -72,7 +70,7 @@ func TestCliHandlerHandleSendEvent(t *testing.T) {
 		logs.AssertContains(t, expectedLogMsg(&event.Message, expectedResult))
 		expectedCalls := []testAgentCalls{
 			{
-				Method: "SendTargeted",
+				Method: "Send",
 				Msg:    &event.Message,
 				Addrs:  targetedEvent.Addresses,
 			},
@@ -82,28 +80,8 @@ func TestCliHandlerHandleSendEvent(t *testing.T) {
 
 	t.Run("FailsIfSendRaisesError", func(t *testing.T) {
 		handler, agent, logs, ctx := setupTestCliHandler()
-		sendErr := errors.New("simulated Send error")
-		agent.SendResponse = func(_ *email.Message) (int, error) {
-			// Pretend one of the sends succeeded, to make sure NumSent is set
-			// properly.
-			return 1, sendErr
-		}
-
-		res := handler.HandleSendEvent(ctx, event)
-
-		expectedResult := &events.SendResponse{
-			Success: false, Details: sendErr.Error(), NumSent: 1,
-		}
-		assert.DeepEqual(t, expectedResult, res)
-		logs.AssertContains(t, expectedLogMsg(&event.Message, expectedResult))
-	})
-
-	t.Run("FailsIfSendTargetedRaisesError", func(t *testing.T) {
-		handler, agent, logs, ctx := setupTestCliHandler()
 		sendTargetedErr := errors.New("simulated SendTargeted error")
-		agent.SendTargetedResponse = func(
-			_ *email.Message, addrs []string,
-		) (int, error) {
+		agent.SendResponse = func(_ *email.Message, _ []string) (int, error) {
 			// Pretend one of the sends succeeded, to make sure NumSent is set
 			// properly.
 			return 1, sendTargetedErr
@@ -185,7 +163,7 @@ func TestCliHandlerHandleEvent(t *testing.T) {
 			Send:            &events.SendEvent{Message: *email.ExampleMessage},
 		}
 		numSent := 27
-		agent.SendResponse = func(_ *email.Message) (int, error) {
+		agent.SendResponse = func(_ *email.Message, _ []string) (int, error) {
 			return numSent, nil
 		}
 

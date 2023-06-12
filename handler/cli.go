@@ -35,11 +35,7 @@ func (h *cliHandler) HandleSendEvent(
 	res = &events.SendResponse{}
 	var err error
 
-	if len(e.Addresses) == 0 {
-		res.NumSent, err = h.Agent.Send(ctx, &e.Message)
-	} else {
-		res.NumSent, err = h.Agent.SendTargeted(ctx, &e.Message, e.Addresses)
-	}
+	res.NumSent, err = h.Agent.Send(ctx, &e.Message, e.Addresses)
 
 	if res.Success = err == nil; !res.Success {
 		res.Details = err.Error()

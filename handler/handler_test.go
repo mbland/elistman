@@ -22,16 +22,15 @@ import (
 )
 
 type testAgent struct {
-	Email                string
-	Uid                  uuid.UUID
-	OpResult             ops.OperationResult
-	NumSent              int
-	ImportedAddresses    []string
-	ImportResponse       func(address string) error
-	SendResponse         func(msg *email.Message) (int, error)
-	SendTargetedResponse func(msg *email.Message, addrs []string) (int, error)
-	Error                error
-	Calls                []testAgentCalls
+	Email             string
+	Uid               uuid.UUID
+	OpResult          ops.OperationResult
+	NumSent           int
+	ImportedAddresses []string
+	ImportResponse    func(address string) error
+	SendResponse      func(msg *email.Message, addrs []string) (int, error)
+	Error             error
+	Calls             []testAgentCalls
 }
 
 type testAgentCalls struct {
@@ -101,17 +100,12 @@ func (a *testAgent) Restore(ctx context.Context, email string) error {
 	return a.Error
 }
 
-func (a *testAgent) Send(_ context.Context, msg *email.Message) (int, error) {
-	a.Calls = append(a.Calls, testAgentCalls{Method: "Send", Msg: msg})
-	return a.SendResponse(msg)
-}
-
-func (a *testAgent) SendTargeted(
+func (a *testAgent) Send(
 	ctx context.Context, msg *email.Message, addrs []string,
 ) (numSent int, err error) {
-	call := testAgentCalls{Method: "SendTargeted", Msg: msg, Addrs: addrs}
+	call := testAgentCalls{Method: "Send", Msg: msg, Addrs: addrs}
 	a.Calls = append(a.Calls, call)
-	return a.SendTargetedResponse(msg, addrs)
+	return a.SendResponse(msg, addrs)
 }
 
 const testEmailDomain = "mike-bland.com"
@@ -391,7 +385,7 @@ func TestHandleEvent(t *testing.T) {
 			Send:            &events.SendEvent{Message: *email.ExampleMessage},
 		}
 		numSent := 27
-		f.agent.SendResponse = func(_ *email.Message) (int, error) {
+		f.agent.SendResponse = func(_ *email.Message, _ []string) (int, error) {
 			return numSent, nil
 		}
 
