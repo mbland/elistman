@@ -28,6 +28,9 @@ type SubscriptionAgent interface {
 	Remove(ctx context.Context, email string, reason ops.RemoveReason) error
 	Restore(ctx context.Context, email string) error
 	Send(ctx context.Context, msg *email.Message) (numSent int, err error)
+	SendTargeted(
+		ctx context.Context, msg *email.Message, addrs []string,
+	) (numSent int, err error)
 }
 
 type ProdAgent struct {

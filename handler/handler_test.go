@@ -38,6 +38,7 @@ type testAgentCalls struct {
 	Uid    uuid.UUID
 	Msg    *email.Message
 	Reason ops.RemoveReason
+	Addrs  []string
 }
 
 func (a *testAgent) Subscribe(
@@ -100,6 +101,14 @@ func (a *testAgent) Restore(ctx context.Context, email string) error {
 
 func (a *testAgent) Send(_ context.Context, msg *email.Message) (int, error) {
 	a.Calls = append(a.Calls, testAgentCalls{Method: "Send", Msg: msg})
+	return a.NumSent, a.Error
+}
+
+func (a *testAgent) SendTargeted(
+	ctx context.Context, msg *email.Message, addrs []string,
+) (numSent int, err error) {
+	call := testAgentCalls{Method: "SendTargeted", Msg: msg, Addrs: addrs}
+	a.Calls = append(a.Calls, call)
 	return a.NumSent, a.Error
 }
 

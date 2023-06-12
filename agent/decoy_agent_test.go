@@ -44,4 +44,8 @@ func TestDecoyAgent(t *testing.T) {
 	numSent, err := da.Send(ctx, nil)
 	assert.NilError(t, err)
 	assert.Equal(t, 0, numSent)
+
+	numSent, err = da.SendTargeted(ctx, nil, []string{})
+	assert.NilError(t, err)
+	assert.Equal(t, 0, numSent)
 }

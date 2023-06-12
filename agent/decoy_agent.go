@@ -66,3 +66,9 @@ func (a *DecoyAgent) Restore(ctx context.Context, email string) error {
 func (a *DecoyAgent) Send(_ context.Context, _ *email.Message) (int, error) {
 	return 0, nil
 }
+
+func (a *DecoyAgent) SendTargeted(
+	ctx context.Context, msg *email.Message, addrs []string,
+) (numSent int, err error) {
+	return 0, nil
+}
