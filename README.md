@@ -186,6 +186,8 @@ $ aws apigatewayv2 get-domain-names
 }
 ```
 
+### Configure API Gateway to write CloudWatch logs
+
 Next, [set up an IAM role to allow the API to write CloudWatch logs][]. You only
 need to execute the steps in the **Create an IAM role for logging to
 CloudWatch** section. One possible name for the new IAM role would be
@@ -222,7 +224,7 @@ However, if you want to try using SAM/CloudFormation to manage it, see:
 - [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM
   template][]
 
-### Consider using an AWS Web Application Firewall CAPTCHA (optional)
+### Understand the danger of spam bots and the need for a CAPTCHA
 
 The EListMan system tries to validate email addresses through its own up front
 analysis and by sending validation links to subscribers. However, opportunistic
@@ -242,6 +244,8 @@ messages and complaints that will harm your [SES reputation metrics][].
 Having learned this the hard (naïve) way, I recommend using a [CAPTCHA][] to
 prevent spam bot abuse. After deploying it, my own account dropped from dozens
 of bogus subscription requests a day to zero.
+
+### Decide whether or not to use the AWS WAF CAPTCHA
 
 EListMan's CloudFormation/SAM template configures an AWS Web Application
 Firewall (WAF) CAPTCHA, creating one Web ACL and one Rule associated with it.
