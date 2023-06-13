@@ -742,12 +742,6 @@ available for such messages.
 
 ## Unimplemented/possible future features
 
-### Sending a test message to a specific address
-
-This would involve extending email.SendEvent, sendHandler.HandleEvent, and
-agent.SubscriptionAgent. Should be easy, but it will have to come after the
-initial production launch.
-
 ### Automated End-to-End tests
 
 This is something I _really_ want to pull off, but without blocking the first
@@ -771,6 +765,10 @@ Here is what I anticipate the implementation will involve (beyond some of the ex
 For each permutation described below:
 
 - Send a request to subscribe the valid random username.
+  - _Note:_ The `/subscribe` endpoint is CAPTCHA-protected on the dev and prod
+    instances. We may need to bring up an alternate API Gateway instance
+    for the test without CAPTCHA protection, or call `ProdAgent.Subscribe()`
+    through another method.
 - Read the S3 bucket to get the validation URL.
 - Request the validation URL.
 - Form an unsubscribe request (either URL or mailto) from the validation URL.
