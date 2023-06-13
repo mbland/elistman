@@ -13,7 +13,37 @@ import (
 	"github.com/mbland/elistman/ops"
 )
 
+// SubscriptionAgent is the interface for the core EListMan business logic.
+//
+// Subscribe validates a pending subscriber and sends a verification email.
+//
+// Verify marks a pending subscriber as verified.
+//
+// Unsubscribe removes a verified subscriber from the list.
+//
+// Import adds a new verified subscriber without sending a verification email.
+// It's intended to allow importing of an existing subscriber from another email
+// system. It still performs address validation and will refuse to import
+// addresses that fail.
+//
+// Remove removes a subscriber from the list. It's used by the SNS handler to
+// automatically remove addresses in response to bounces or complaints.
+//
+// Restore adds a verified subscriber without verification. It's used by the SNS
+// handler to automatically restore addresses in response to "complaint"
+// messages with feedback type "not-spam". It doesn't perform address
+// validation, since only valid addresses should be capable producing "not-spam"
+// responses. (If that assumption ever proves untrue, it may be replaced by
+// Import.)
+//
+// Send sends a message to the entire list, or to specified subscribers only. If
+// the `addrs` argument is empty, Send will send the message to the entire list.
+// If `addrs` isn't empty, it will send the message only to those addresses that
+// match verified subscribers. If `addrs` contains invalid addresses, Send will
+// still send to every valid address that it can and report the rest in an
+// error.
 type SubscriptionAgent interface {
+	//
 	Subscribe(ctx context.Context, email string) (ops.OperationResult, error)
 	Verify(
 		ctx context.Context, email string, uid uuid.UUID,
@@ -32,6 +62,7 @@ type SubscriptionAgent interface {
 	) (numSent int, err error)
 }
 
+// ProdAgent is the production implementation of core EListMan business logic.
 type ProdAgent struct {
 	SenderAddress    string
 	EmailSiteTitle   string
