@@ -224,140 +224,6 @@ However, if you want to try using SAM/CloudFormation to manage it, see:
 - [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM
   template][]
 
-### Understand the danger of spam bots and the need for a CAPTCHA
-
-The EListMan system tries to validate email addresses through its own up front
-analysis and by sending validation links to subscribers. However, opportunistic
-spam bots can still—and will—submit many valid email addresses without either
-the knowledge or consent of the actual owner.
-
-Fortunately, the validation link mechanism prevents most bogus subscriptions,
-and DynamoDB's Time To Live feature cleans them from the database automatically.
-A bounce or complaint also notifies the EListMan Lambda to add the address to
-your [account-level suppression list][], so you won't send to it again.
-
-This means most bogus subscriptions will not pollute the verified subscriber
-list, and such recipients will not receive further emails. However, generating
-these bogus subscriptions still consumes resources, and can yield bounced
-messages and complaints that will harm your [SES reputation metrics][].
-
-Having learned this the hard (naïve) way, I recommend using a [CAPTCHA][] to
-prevent spam bot abuse. After deploying it, my own account dropped from dozens
-of bogus subscription requests a day to zero.
-
-### Decide whether or not to use the AWS WAF CAPTCHA
-
-EListMan's CloudFormation/SAM template configures an AWS Web Application
-Firewall (WAF) CAPTCHA, creating one Web ACL and one Rule associated with it.
-If you choose to use it, note that it does incur additional charges. See [AWS
-WAF Pricing][] for details.
-
-If you choose not to use it, comment out or delete the `WebAcl` and
-`WebAclAssociation` resources in [template.yml](./template.yml).
-
-### Generate an AWS Web Application Firewall CAPTCHA API KEY (optional)
-
-To use EListMan's Web ACL configuration, you'll need to [generate an API key for
-the CAPTCHA API][]. Include whichever domain will serve the submission form in
-the list of domains used to generate the API key.
-
-The default EListMan configuration expects this domain to be the same as
-`EMAIL_DOMAIN_NAME`, described below.  If you use a different domain, set
-`WebAcl > Properties > TokenDomains` in [template.yml](./template.yml)
-appropriately.
-
-### Generate your email submission form programmatically (optional)
-
-You may gain extra protection from spam bots by generating the subscription form
-using JavaScript instead of embedding a [&lt;form&gt;][] element directly in
-your HTML.
-
-In other words, instead of this (where `API_DOMAIN_NAME` is your own custom
-domain name from the **Configure AWS API Gateway** step):
-
-```html
-<!-- subscribe.html -->
-
-<form method="post" action="https://API_DOMAIN_NAME/email/subscribe">
-  <input name="email" placeholder="Please enter your email address."/>
-  <button type="submit">Subscribe</button>
-</form>
-```
-
-Use something like this:
-
-```html
-<!-- subscribe.html -->
-
-<div class="subscribe-form">
-  <button>Show subscribe form</button>
-</div>
-```
-
-```js
-// subscribe.js
-
-"use strict";
-
-document.addEventListener("DOMContentLoaded", () => {
-  var container = document.querySelector(".subscribe-form")
-
-  var showForm = () => {
-    var f = document.createElement("form")
-    // The following should generate the value for API_DOMAIN_NAME.
-    var api_domain_name = ["my", "api", "com"].join(".")
-    f.action = ["https:", "", api_domain_name, "email", "subscribe"].join("/")
-    f.method = "post"
-
-    var i = document.createElement("input")
-    i.name = "email"
-    i.type = "email"
-    i.placeholder = "Please enter your email address."
-    f.appendChild(i)
-
-    var s = document.createElement("button")
-    s.type = "submit"
-    s.appendChild(document.createTextNode("Subscribe"))
-    f.appendChild(s)
-
-    container.parentNode.replaceChild(f, container)
-  }
-
-  container.querySelector("button").addEventListener('click', showForm)
-})
-```
-
-### Integrate the CAPTCHA into your subscription form (optional)
-
-Using the recommended HTML from above, the code below will [render the AWS WAF
-CAPTCHA puzzle][] when the subscriber clicks the button. When they solve the
-puzzle, it will then reveal the submission form.
-
-Remember to substitute `YOUR_AWS_WAF_CAPTCHA_API_KEY` with your own API key:
-
-```js
-// subscribe.js
-
-"use strict";
-
-document.addEventListener("DOMContentLoaded", () => {
-  var container = document.querySelector(".subscribe-form")
-
-  var showForm = () => {
-    // Same implementation as above
-  }
-
-  container.querySelector("button").addEventListener('click', () => {
-    AwsWafCaptcha.renderCaptcha(container, {
-      apiKey: YOUR_AWS_WAF_CAPTCHA_API_KEY,
-      onSuccess: showForm,
-      dynamicWidth: true,
-      skipTitle: true
-    });
-  })
-})
-```
-
 ### Run tests
 
 To make sure the local environment is in good shape, and your AWS services are
@@ -453,15 +319,36 @@ go build
 Run the command and check the output to see if it was successful:
 
 ```sh
-$ ./elistman
+$ ./elistman -h
 
 Mailing list system providing address validation and unsubscribe URIs
+
+See the https://github.com/mbland/elistman README for details.
+
+To create a table:
+  elistman create-subscribers-table TABLE_NAME
+
+To see an example of the message input JSON structure:
+  elistman preview --help
+
+To preview a raw message before sending, where `generate-email` is any
+program that creates message input JSON:
+  generate-email | elistman preview
+
+To send an email to the list, given the STACK_NAME of the EListMan instance:
+  generate-email | elistman send -s STACK_NAME
 
 Usage:
   elistman [command]
 
 Available Commands:
-  ...
+  [...commands snipped...]
+
+Flags:
+  -h, --help      help for elistman
+  -v, --version   version for elistman
+
+Use "elistman [command] --help" for more information about a command.
 ```
 
 ### Create the DynamoDB table
@@ -470,26 +357,63 @@ Run `elistman create-subscribers-table <TABLE_NAME>` to create the DynamoDB
 table, replacing `<TABLE_NAME>` with a table name of your choice. Then run `aws
 dynamodb list-tables` to confirm that the new table is present.
 
-## Deployment
+### Create the configuration file
 
-### Create configuration file
-
-Create a `deploy.env` file in the root directory containing the following
-environment variables (replacing each value with your own as appropriate):
+Create the `deploy.env` configuration file in the root directory containing the
+following environment variables (replacing each value with your own as
+appropriate):
 
 ```sh
+# This will be the name of the CloudFormation stack. The `--stack-name` flag of
+# `elistman` CLI commands will require this value.
 STACK_NAME="mike-blands-blog-example"
+
+# This is the domain name configured in the "Configure AWS API Gateway" step.
 API_DOMAIN_NAME="api.mike-bland.com"
+
+# This will be the first component of the EListMan API endpoints after the
+# hostname, e.g., api.mike-bland.com/email/subscribe.
 API_MAPPING_KEY="email"
+
+# The domain from which emails will be sent. This should likely match the
+# website on which the subscription form appears.
 EMAIL_DOMAIN_NAME="mike-bland.com"
-EMAIL_SITE_TITLE="Mike Bland"
+
+# The proper name of the website from which emails will appear to be sent. It
+# need not match to the site's <title> exactly, but should clearly describe what
+# subscribers expect.
+EMAIL_SITE_TITLE="Mike Bland's blog"
+
+# The proper name of the email sender. It need not match EMAIL_SITE_TITLE, but
+# again, should not surprise subscribers.
 SENDER_NAME="Mike Bland's blog"
+
+# The username of the email sender. The full address will be of the form:
+# SENDER_USER_NAME@EMAIL_DOMAIN_NAME, e.g., posts@mike-bland.com.
 SENDER_USER_NAME="posts"
+
+# The username of the unsubscribe email recipient. The full address will be of
+# the form: UNSUBSCRIBE_USER_NAME@EMAIL_DOMAIN_NAME, e.g.,
+# unsubscribe@mike-bland.com.
 UNSUBSCRIBE_USER_NAME="unsubscribe"
+
+# The name of the Receipt Rule Set created in the "Configure AWS Simple Email
+# Service (SES)" step.
 RECEIPT_RULE_SET_NAME="mike-bland.com"
+
+# The name of the DynamoDB table created via `elistman create-subscribers-table`
+# in the "Create the DynamoDB table" step.
 SUBSCRIBERS_TABLE_NAME="<TABLE_NAME>"
+
+# Percentage of daily quota to consume before self-limiting bulk sends via
+# `elistman send -s STACK_NAME`.  See the "Send rate throttling and send quota
+# capacity limiting" step for a detailed description. (Does not apply when
+# running `elistman send` with specific subscriber addresses specified on the
+# command line.)
 MAX_BULK_SEND_CAPACITY="0.8"
 
+# EListMan will redirect API requests to the following URLs according to the 
+# "Algorithms" described below.
 INVALID_REQUEST_PATH="/subscribe/malformed.html"
 ALREADY_SUBSCRIBED_PATH="/subscribe/already-subscribed.html"
 VERIFY_LINK_SENT_PATH="/subscribe/confirm.html"
@@ -555,10 +479,67 @@ PASSED: All 6 smoke tests passed!
 
 Then enter CTRL-C in the first window to stop the local SAM Lambda server.
 
+### Understand the danger of spam bots and the need for a CAPTCHA
+
+Before deploying to production, we need to talk about spam.
+
+The EListMan system tries to validate email addresses through its own up front
+analysis and by sending validation links to subscribers. However, opportunistic
+spam bots can still—and will—submit many valid email addresses without either
+the knowledge or consent of the actual owner.
+
+Fortunately, the validation link mechanism prevents most bogus subscriptions,
+and DynamoDB's Time To Live feature cleans them from the database automatically.
+A bounce or complaint also notifies the EListMan Lambda to add the address to
+your [account-level suppression list][], so you won't send to it again.
+
+This means most bogus subscriptions will not pollute the verified subscriber
+list, and such recipients will not receive further emails. However, generating
+these bogus subscriptions still consumes resources, and their verification
+emails can yield bounces and complaints that will harm your [SES reputation
+metrics][].
+
+Having learned this the hard (naïve) way, I recommend using a [CAPTCHA][] to
+prevent spam bot abuse:
+
+- When I first published my EListMan subscription form, my instance received
+  dozens of bogus subscription requests a day—before I'd even announced it on my
+  blog. (The form had been available before, but used a different subscription
+  system.)
+- After deploying a CAPTCHA, the number of bogus subscriptions dropped to zero.
+  (I hope I hadn't inadvertently been allowing subscription verification spam
+  all those years before....)
+
+### Decide whether or not to use the AWS WAF CAPTCHA
+
+EListMan's CloudFormation/SAM template configures an AWS Web Application
+Firewall (WAF) CAPTCHA, creating one Web ACL and one Rule associated with it.
+If you choose to use it, note that it does incur additional charges. See [AWS
+WAF Pricing][] for details.
+
+If you choose not to use it, comment out or delete the `WebAcl` and
+`WebAclAssociation` resources in [template.yml](./template.yml).
+
+### Generate an AWS Web Application Firewall CAPTCHA API KEY (optional)
+
+To use EListMan's Web ACL configuration, you'll need to [generate an API key for
+the CAPTCHA API][]. Include whichever domain will serve the submission form in
+the list of domains used to generate the API key.
+
+The default EListMan configuration expects this domain to be the same as
+`EMAIL_DOMAIN_NAME`, described above.  If you use a different domain, set
+`WebAcl > Properties > TokenDomains` in [template.yml](./template.yml)
+appropriately.
+
+## Deployment
+
 ### Deploy to AWS
 
-If the smoke tests pass, run `make deploy` to deploy the EListMan system using
-your AWS account.
+If the smoke tests pass, deploy the EListMan system via:
+
+```sh
+make deploy
+```
 
 Once the deployment is running, run the smoke tests without the `--local` flag
 to ensure your instance is reachable:
@@ -567,26 +548,156 @@ to ensure your instance is reachable:
 ./bin/smoke-tests.sh ./deploy.env
 ```
 
-## URI Schema
+### Publish your HTML subscription form
 
-- `https://<api_hostname>/<route_key>/<operation>`
-- `mailto:<unsubscribe_user_name>@<email_domain_name>?subject=<email>%20<uid>`
+You'll need to publish a subscription [&lt;form&gt;][] similar to the following,
+substituting `API_DOMAIN_NAME` with the custom domain name from the **Configure
+AWS API Gateway** step:
 
-Where:
+```html
+<!-- subscribe.html -->
 
-- `<api_hostname>`: Hostname for the API Gateway instance
-- `<route_key>`: Route key for the API Gateway
-- `<operation>`: Endpoint for the list management operation:
-  - `/subscribe`
-  - `/verify/<email>/<uid>`
-  - `/unsubscribe/<email>/<uid>`
-- `<email>`: Subscriber's URI encoded (for `https`) or query encoded (for
-  `mailto`) email address
-- `<uid>`: Identifier assigned to the subscriber by the system
-- `<unsubscribe_user_name>`: The username receiving unsubscribe emails,
-  typically `unsubscribe`, set via `UNSUBSCRIBE_USER_NAME.
-- `<email_domain_name>`: Hostname serving as an SES verified identity for
-  sending and receiving email, set via `EMAIL_DOMAIN_NAME`
+<form method="post" action="https://API_DOMAIN_NAME/email/subscribe">
+  <input name="email" placeholder="Please enter your email address."/>
+  <button type="submit">Subscribe</button>
+</form>
+```
+
+However, as mentioned above, spam bots are a thing, even for the humblest of
+sites publicly sporting a [&lt;form&gt;][] element.
+
+### Generate your email submission form programmatically (optional)
+
+You may gain extra protection from spam bots by generating the subscription form
+using JavaScript instead of embedding a [&lt;form&gt;][] element directly in
+your HTML.
+
+In other words, instead of embedding the [&lt;form&gt;][] directly in your
+subscription page as shown above, use something like this:
+
+```html
+<!-- subscribe.html -->
+
+<div class="subscribe-form">
+  <button>Show subscribe form</button>
+</div>
+```
+
+```js
+// subscribe.js
+
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+  var container = document.querySelector(".subscribe-form")
+
+  var showForm = () => {
+    var f = document.createElement("form")
+    // The following should generate the value for API_DOMAIN_NAME.
+    var api_domain_name = ["my", "api", "com"].join(".")
+    f.action = ["https:", "", api_domain_name, "email", "subscribe"].join("/")
+    f.method = "post"
+
+    var i = document.createElement("input")
+    i.name = "email"
+    i.type = "email"
+    i.placeholder = "Please enter your email address."
+    f.appendChild(i)
+
+    var s = document.createElement("button")
+    s.type = "submit"
+    s.appendChild(document.createTextNode("Subscribe"))
+    f.appendChild(s)
+
+    container.parentNode.replaceChild(f, container)
+  }
+
+  container.querySelector("button").addEventListener('click', showForm)
+})
+```
+
+### Integrate the CAPTCHA into your subscription form (optional)
+
+Of course, the ultimate protection would be to use an AWS WAF CAPTCHA to protect
+the `/subscribe` API endpoint.
+
+Using the same HTML from above, the code below will [render the AWS WAF CAPTCHA
+puzzle][] when the subscriber clicks the button.  When they solve the puzzle, it
+will then reveal the submission form.
+
+Remember to substitute `YOUR_AWS_WAF_CAPTCHA_API_KEY` with your own API key:
+
+```js
+// subscribe.js
+
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+  var container = document.querySelector(".subscribe-form")
+
+  var showForm = () => {
+    // Same implementation as above
+  }
+
+  container.querySelector("button").addEventListener('click', () => {
+    AwsWafCaptcha.renderCaptcha(container, {
+      apiKey: YOUR_AWS_WAF_CAPTCHA_API_KEY,
+      onSuccess: showForm,
+      dynamicWidth: true,
+      skipTitle: true
+    });
+  })
+})
+```
+
+### Subscribe and send a test email to yourself
+
+After deploying EListMan and publishing your subscription form, use the form to
+subscribe to the list. Then you can run the following command to send a test
+email to yourself (replacing `STACK_NAME` and `MY_EMAIL_ADDRESS` as
+appropriate):
+
+```sh
+$ ./bin/generate-test-message.sh ./deploy.env |
+    ./elistman send -s STACK_NAME MY_EMAIL_ADDRESS
+```
+
+### Send a production email to the list
+
+Run `./elistman send -h` to see an example email:
+
+```sh
+$ ./elistman send -h 
+
+Reads a JSON object from standard input describing a message:
+
+  {
+    "From": "Foo Bar <foobar@example.com>",
+    "Subject": "Test object",
+    "TextBody": "Hello, World!",
+    "TextFooter": "Unsubscribe: {{UnsubscribeUrl}}",
+    "HtmlBody": "<!DOCTYPE html><html><head></head><body>Hello, World!<br/>",
+    "HtmlFooter": "<a href='{{UnsubscribeUrl}}'>Unsubscribe</a></body></html>"
+  }
+```
+
+You will need to generate a similar JSON object to feed into the standard input
+of `./elistman send`:
+
+- `From`, `Subject`, `TextBody`, and `TextFooter` are required.
+- If `HtmlBody` is present, `HtmlFooter` must also be present.
+- `TextFooter`, and `HtmlFooter` if present, must contain one and only one
+  instance of the `{{UnsubscribeUrl}}` template. The EListMan Lambda will
+  replace this template with the unsubscribe URL unique to each subscriber.
+- `TextFooter` and `HtmlFooter` will appear on a new line immediately after
+  `TextBody` and `HtmlBody`, respectively.
+
+Provided you have a program to generate the JSON object above called
+`generate-email`, you can then send an email to the list via:
+
+```sh
+generate-email | ./elistman send -s STACK_NAME
+```
 
 ## Development
 
@@ -638,6 +749,27 @@ You can then view the EListMan docs locally at:
 - <http://localhost:8080/github.com/mbland/elistman>
 
 Note that, unlike `godoc`, `pkgsite` doesn't provide an option to serve documentation for unexported symbols.
+
+## URI Schema
+
+- `https://<api_hostname>/<route_key>/<operation>`
+- `mailto:<unsubscribe_user_name>@<email_domain_name>?subject=<email>%20<uid>`
+
+Where:
+
+- `<api_hostname>`: Hostname for the API Gateway instance
+- `<route_key>`: Route key for the API Gateway
+- `<operation>`: Endpoint for the list management operation:
+  - `/subscribe`
+  - `/verify/<email>/<uid>`
+  - `/unsubscribe/<email>/<uid>`
+- `<email>`: Subscriber's URI encoded (for `https`) or query encoded (for
+  `mailto`) email address
+- `<uid>`: Identifier assigned to the subscriber by the system
+- `<unsubscribe_user_name>`: The username receiving unsubscribe emails,
+  typically `unsubscribe`, set via `UNSUBSCRIBE_USER_NAME.
+- `<email_domain_name>`: Hostname serving as an SES verified identity for
+  sending and receiving email, set via `EMAIL_DOMAIN_NAME`
 
 ## Algorithms
 
