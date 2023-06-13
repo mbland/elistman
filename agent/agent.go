@@ -255,16 +255,18 @@ func (a *ProdAgent) Restore(ctx context.Context, address string) (err error) {
 func (a *ProdAgent) Send(
 	ctx context.Context, msg *email.Message, addrs []string,
 ) (numSent int, err error) {
-	var mt *email.MessageTemplate
-	if mt, err = a.newTemplate(msg); err != nil {
+	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err != nil {
 		return
-	} else if len(addrs) == 0 {
-		return a.send(ctx, msg.Subject, mt)
 	}
-	return a.sendTargeted(ctx, msg.Subject, mt, addrs)
+	mt := email.NewMessageTemplate(msg)
+
+	if len(addrs) == 0 {
+		return a.sendToEntireList(ctx, msg.Subject, mt)
+	}
+	return a.sendToSpecificRecipients(ctx, msg.Subject, mt, addrs)
 }
 
-func (a *ProdAgent) send(
+func (a *ProdAgent) sendToEntireList(
 	ctx context.Context, subject string, mt *email.MessageTemplate,
 ) (numSent int, err error) {
 	if err = a.Mailer.BulkCapacityAvailable(ctx); err != nil {
@@ -273,23 +275,22 @@ func (a *ProdAgent) send(
 	}
 
 	var sendErr error
-	sender := db.SubscriberFunc(func(sub *db.Subscriber) bool {
-		if sendErr = a.sendOneEmail(ctx, subject, mt, sub); sendErr != nil {
-			return false
+	sender := db.SubscriberFunc(func(sub *db.Subscriber) (ok bool) {
+		sendErr = a.sendOneEmail(ctx, subject, mt, sub)
+		if ok = sendErr == nil; ok {
+			numSent++
 		}
-		numSent++
-		return true
+		return
 	})
 
 	err = a.Db.ProcessSubscribers(ctx, db.SubscriberVerified, sender)
 	if err = errors.Join(err, sendErr); err != nil {
-		const errFmt = "error sending \"%s\" to list: %w"
-		err = fmt.Errorf(errFmt, subject, err)
+		err = fmt.Errorf("error sending \"%s\" to list: %w", subject, err)
 	}
 	return
 }
 
-func (a *ProdAgent) sendTargeted(
+func (a *ProdAgent) sendToSpecificRecipients(
 	ctx context.Context,
 	subject string,
 	mt *email.MessageTemplate,
@@ -322,15 +323,6 @@ func (a *ProdAgent) sendTargeted(
 	if err = errors.Join(errs...); err != nil {
 		const errFmt = "error sending \"%s\" to targeted recipients: %w"
 		err = fmt.Errorf(errFmt, subject, err)
-	}
-	return
-}
-
-func (a *ProdAgent) newTemplate(
-	msg *email.Message,
-) (mt *email.MessageTemplate, err error) {
-	if err = msg.Validate(email.CheckDomain(a.EmailDomainName)); err == nil {
-		mt = email.NewMessageTemplate(msg)
 	}
 	return
 }

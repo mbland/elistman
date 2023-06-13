@@ -744,30 +744,6 @@ func TestRestore(t *testing.T) {
 	})
 }
 
-func TestNewTemplate(t *testing.T) {
-	agent := &ProdAgent{EmailDomainName: testDomainName}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		msg := testMessage()
-
-		mt, err := agent.newTemplate(msg)
-
-		assert.NilError(t, err)
-		assert.Assert(t, mt != nil)
-	})
-
-	t.Run("FailsIfFromDomainFailsValidation", func(t *testing.T) {
-		msg := testMessage()
-		msg.From = "Blog Updates <updates@bar.com>"
-
-		mt, err := agent.newTemplate(msg)
-
-		assert.Assert(t, mt == nil)
-		const expectedErr = "domain of From address is not " + testDomainName
-		assert.ErrorContains(t, err, expectedErr)
-	})
-}
-
 func assertSentToVerifiedSubscriber(
 	t *testing.T,
 	subject string,
@@ -808,130 +784,7 @@ func assertDidNotSendToPendingSubscribers(
 	}
 }
 
-func TestSendOneEmail(t *testing.T) {
-	msg := testMessage()
-	mt := email.NewMessageTemplate(msg)
-
-	setup := func() (
-		*ProdAgent,
-		*testdoubles.Mailer,
-		*tu.Logs,
-		*db.Subscriber,
-		context.Context) {
-		f := newProdAgentTestFixture()
-		sub := db.TestVerifiedSubscribers[1]
-
-		f.setupTestSubscribers()
-		return f.agent, f.mailer, f.logs, sub, context.Background()
-	}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		agent, mailer, logs, sub, ctx := setup()
-
-		err := agent.sendOneEmail(ctx, msg.Subject, mt, sub)
-
-		assert.NilError(t, err)
-		assertSentToVerifiedSubscriber(t, msg.Subject, sub, mailer, logs)
-	})
-
-	t.Run("FailsIfMailerSendFails", func(t *testing.T) {
-		agent, mailer, _, sub, ctx := setup()
-		sendErr := errors.New("Mailer.Send failed")
-		mailer.RecipientErrors[sub.Email] = sendErr
-
-		err := agent.sendOneEmail(ctx, msg.Subject, mt, sub)
-
-		mailer.AssertNoMessageSent(t, sub.Email)
-		assert.Assert(t, tu.ErrorIs(err, sendErr))
-	})
-}
-
 func TestSend(t *testing.T) {
-	msg := testMessage()
-
-	setup := func() (
-		*ProdAgent,
-		*testdoubles.Database,
-		*testdoubles.Mailer,
-		*tu.Logs,
-		context.Context) {
-		f := newProdAgentTestFixture()
-		ctx := context.Background()
-
-		f.setupTestSubscribers()
-		return f.agent, f.db, f.mailer, f.logs, ctx
-	}
-
-	t.Run("Succeeds", func(t *testing.T) {
-		agent, _, mailer, logs, ctx := setup()
-
-		numSent, err := agent.Send(ctx, msg, []string{})
-
-		assert.NilError(t, err)
-		assertSentToVerifiedSubscribers(t, msg.Subject, mailer, logs)
-		assertDidNotSendToPendingSubscribers(t, mailer)
-		assert.Equal(t, len(db.TestVerifiedSubscribers), numSent)
-	})
-
-	t.Run("FailsIfMessageFailsValidation", func(t *testing.T) {
-		agent, _, _, _, ctx := setup()
-		badMsg := *msg
-		badMsg.From = ""
-
-		numSent, err := agent.Send(ctx, &badMsg, []string{})
-
-		const expectedErrMsg = "message failed validation: missing From"
-		assert.ErrorContains(t, err, expectedErrMsg)
-		assert.Equal(t, 0, numSent)
-	})
-
-	t.Run("FailsIfNoBulkCapacityAvailable", func(t *testing.T) {
-		agent, _, mailer, _, ctx := setup()
-		mailer.BulkCapError = email.ErrBulkSendCapacityExhausted
-
-		numSent, err := agent.Send(ctx, msg, []string{})
-
-		const expectedErrMsg = "couldn't send to subscribers: "
-		assert.ErrorContains(t, err, expectedErrMsg)
-		assert.Assert(t, tu.ErrorIs(err, email.ErrBulkSendCapacityExhausted))
-		assert.Equal(t, 0, numSent)
-	})
-
-	t.Run("FailsIfProcessSubscribersInStateFails", func(t *testing.T) {
-		agent, dbase, _, _, ctx := setup()
-		procSubsErr := errors.New("ProcSubsInState error")
-		dbase.SimulateProcSubsErr = func(_ string) error {
-			return procSubsErr
-		}
-
-		numSent, err := agent.Send(ctx, msg, []string{})
-
-		expectedErrMsg := fmt.Sprintf(
-			"error sending \"%s\" to list: ProcSubsInState error", msg.Subject,
-		)
-		assert.Error(t, err, expectedErrMsg)
-		assert.Assert(t, tu.ErrorIs(err, procSubsErr))
-		assert.Equal(t, 0, numSent)
-	})
-
-	t.Run("StopsProcessingAndFailsIfSendFails", func(t *testing.T) {
-		agent, _, mailer, logs, ctx := setup()
-		subs := []*db.Subscriber{
-			db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[1],
-		}
-		sendErr := errors.New("Mailer.Send failed")
-		mailer.RecipientErrors[subs[1].Email] = sendErr
-
-		numSent, err := agent.Send(ctx, msg, []string{})
-
-		assert.Assert(t, tu.ErrorIs(err, sendErr))
-		assertSentToVerifiedSubscriber(t, msg.Subject, subs[0], mailer, logs)
-		mailer.AssertNoMessageSent(t, subs[1].Email)
-		assert.Equal(t, 1, numSent)
-	})
-}
-
-func TestSendTargeted(t *testing.T) {
 	setup := func() (
 		*ProdAgent,
 		*testdoubles.Database,
@@ -946,6 +799,8 @@ func TestSendTargeted(t *testing.T) {
 	}
 
 	msg := testMessage()
+	subject := msg.Subject
+
 	getAddrs := func(subs ...*db.Subscriber) (addrs []string) {
 		addrs = make([]string, len(subs))
 		for i := range subs {
@@ -954,66 +809,140 @@ func TestSendTargeted(t *testing.T) {
 		return
 	}
 
-	t.Run("Succeeds", func(t *testing.T) {
-		agent, _, mailer, logs, ctx := setup()
-		subs := []*db.Subscriber{
-			db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[2],
-		}
-		addrs := getAddrs(subs...)
+	t.Run("ToEntireList", func(t *testing.T) {
+		t.Run("Succeeds", func(t *testing.T) {
+			agent, _, mailer, logs, ctx := setup()
 
-		numSent, err := agent.Send(ctx, msg, addrs)
+			numSent, err := agent.Send(ctx, msg, []string{})
 
-		assert.NilError(t, err)
-		assert.Equal(t, len(addrs), numSent)
-		assertSentToVerifiedSubscriber(t, msg.Subject, subs[0], mailer, logs)
-		assertSentToVerifiedSubscriber(t, msg.Subject, subs[1], mailer, logs)
-	})
+			assert.NilError(t, err)
+			assertSentToVerifiedSubscribers(t, subject, mailer, logs)
+			assertDidNotSendToPendingSubscribers(t, mailer)
+			assert.Equal(t, len(db.TestVerifiedSubscribers), numSent)
+		})
 
-	t.Run("FailsIfDbGetReturnsError", func(t *testing.T) {
-		agent, dbase, mailer, logs, ctx := setup()
-		subs := []*db.Subscriber{
-			db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[2],
-		}
-		addrs := getAddrs(subs...)
-		getErr := errors.New("Get error")
-		dbase.SimulateGetErr = func(addr string) error {
-			// Return an error on the first address, but the second should still
-			// succeed.
-			if addr == addrs[0] {
-				return getErr
+		t.Run("FailsIfNoBulkCapacityAvailable", func(t *testing.T) {
+			agent, _, mailer, _, ctx := setup()
+			mailer.BulkCapError = email.ErrBulkSendCapacityExhausted
+
+			numSent, err := agent.Send(ctx, msg, []string{})
+
+			const expectedErrMsg = "couldn't send to subscribers: "
+			assert.ErrorContains(t, err, expectedErrMsg)
+			assert.Assert(
+				t, tu.ErrorIs(err, email.ErrBulkSendCapacityExhausted),
+			)
+			assert.Equal(t, 0, numSent)
+		})
+
+		t.Run("FailsIfProcessSubscribersInStateFails", func(t *testing.T) {
+			agent, dbase, _, _, ctx := setup()
+			procSubsErr := errors.New("ProcSubsInState error")
+			dbase.SimulateProcSubsErr = func(_ string) error {
+				return procSubsErr
 			}
-			return nil
-		}
 
-		numSent, err := agent.Send(ctx, msg, addrs)
+			numSent, err := agent.Send(ctx, msg, []string{})
 
-		assert.Equal(t, 1, numSent)
-		assert.Assert(t, tu.ErrorIs(err, getErr))
-		assertSentToVerifiedSubscriber(t, msg.Subject, subs[1], mailer, logs)
-		mailer.AssertNoMessageSent(t, addrs[0])
+			expectedErrMsg := fmt.Sprintf(
+				"error sending \"%s\" to list: ProcSubsInState error", subject,
+			)
+			assert.Error(t, err, expectedErrMsg)
+			assert.Assert(t, tu.ErrorIs(err, procSubsErr))
+			assert.Equal(t, 0, numSent)
+		})
+
+		t.Run("StopsProcessingAndFailsIfSendOneEmailFails", func(t *testing.T) {
+			agent, _, mailer, logs, ctx := setup()
+			subs := []*db.Subscriber{
+				db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[1],
+			}
+			sendErr := errors.New("Mailer.Send failed")
+			mailer.RecipientErrors[subs[1].Email] = sendErr
+
+			numSent, err := agent.Send(ctx, msg, []string{})
+
+			assert.Assert(t, tu.ErrorIs(err, sendErr))
+			assertSentToVerifiedSubscriber(t, subject, subs[0], mailer, logs)
+			mailer.AssertNoMessageSent(t, subs[1].Email)
+			assert.Equal(t, 1, numSent)
+		})
 	})
 
-	t.Run("FailsIfAddressNotVerified", func(t *testing.T) {
-		agent, _, mailer, _, ctx := setup()
-		addr := db.TestPendingSubscribers[0].Email
+	t.Run("ToSpecificRecipients", func(t *testing.T) {
+		t.Run("Succeeds", func(t *testing.T) {
+			agent, _, mailer, logs, ctx := setup()
+			subs := []*db.Subscriber{
+				db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[2],
+			}
+			addrs := getAddrs(subs...)
 
-		numSent, err := agent.Send(ctx, msg, []string{addr})
+			numSent, err := agent.Send(ctx, msg, addrs)
 
-		assert.Equal(t, 0, numSent)
-		assert.ErrorContains(t, err, addr+": not verified")
-		mailer.AssertNoMessageSent(t, addr)
+			assert.NilError(t, err)
+			assert.Equal(t, len(addrs), numSent)
+			assertSentToVerifiedSubscriber(t, subject, subs[0], mailer, logs)
+			assertSentToVerifiedSubscriber(t, subject, subs[1], mailer, logs)
+		})
+
+		t.Run("FailsIfDbGetReturnsError", func(t *testing.T) {
+			agent, dbase, mailer, logs, ctx := setup()
+			subs := []*db.Subscriber{
+				db.TestVerifiedSubscribers[0], db.TestVerifiedSubscribers[2],
+			}
+			addrs := getAddrs(subs...)
+			getErr := errors.New("Get error")
+			dbase.SimulateGetErr = func(addr string) error {
+				// Return an error on the first address, but the second should still
+				// succeed.
+				if addr == addrs[0] {
+					return getErr
+				}
+				return nil
+			}
+
+			numSent, err := agent.Send(ctx, msg, addrs)
+
+			assert.Equal(t, 1, numSent)
+			assert.Assert(t, tu.ErrorIs(err, getErr))
+			assertSentToVerifiedSubscriber(t, subject, subs[1], mailer, logs)
+			mailer.AssertNoMessageSent(t, addrs[0])
+		})
+
+		t.Run("FailsIfAddressNotVerified", func(t *testing.T) {
+			agent, _, mailer, _, ctx := setup()
+			addr := db.TestPendingSubscribers[0].Email
+
+			numSent, err := agent.Send(ctx, msg, []string{addr})
+
+			assert.Equal(t, 0, numSent)
+			assert.ErrorContains(t, err, addr+": not verified")
+			mailer.AssertNoMessageSent(t, addr)
+		})
+
+		t.Run("FailsIfSendOneEmailFails", func(t *testing.T) {
+			agent, _, mailer, _, ctx := setup()
+			addr := db.TestVerifiedSubscribers[0].Email
+			sendErr := errors.New("Mailer.Send failed")
+			mailer.RecipientErrors[addr] = sendErr
+
+			numSent, err := agent.Send(ctx, msg, []string{addr})
+
+			assert.Equal(t, 0, numSent)
+			assert.Assert(t, tu.ErrorIs(err, sendErr))
+			mailer.AssertNoMessageSent(t, addr)
+		})
 	})
 
-	t.Run("FailsIfSendOneEmailFails", func(t *testing.T) {
-		agent, _, mailer, _, ctx := setup()
-		addr := db.TestVerifiedSubscribers[0].Email
-		sendErr := errors.New("Mailer.Send failed")
-		mailer.RecipientErrors[addr] = sendErr
+	t.Run("FailsIfMessageFailsValidationDueToFromDomain", func(t *testing.T) {
+		agent, _, _, _, ctx := setup()
+		badMsg := *msg
+		badMsg.From = "Blog Updates <updates@bar.com>"
 
-		numSent, err := agent.Send(ctx, msg, []string{addr})
+		numSent, err := agent.Send(ctx, &badMsg, []string{})
 
+		const expectedErr = "domain of From address is not " + testDomainName
+		assert.ErrorContains(t, err, expectedErr)
 		assert.Equal(t, 0, numSent)
-		assert.Assert(t, tu.ErrorIs(err, sendErr))
-		mailer.AssertNoMessageSent(t, addr)
 	})
 }
