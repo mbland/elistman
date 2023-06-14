@@ -489,9 +489,11 @@ spam bots can still—and will—submit many valid email addresses without eithe
 the knowledge or consent of the actual owner.
 
 Fortunately, the validation link mechanism prevents most bogus subscriptions,
-and DynamoDB's Time To Live feature cleans them from the database automatically.
-A bounce or complaint also notifies the EListMan Lambda to add the address to
-your [account-level suppression list][], so you won't send to it again.
+and [DynamoDB's Time To Live feature][] cleans them from the database
+automatically. A bounce or complaint also notifies the EListMan Lambda to remove
+the address and add it to the [account-level suppression list][]. The
+suppression list ensures the system won't send to that address again, even if
+someone attempts to resubmit it.
 
 This means most bogus subscriptions will not pollute the verified subscriber
 list, and such recipients will not receive further emails. However, generating
@@ -558,7 +560,8 @@ AWS API Gateway** step:
 <!-- subscribe.html -->
 
 <form method="post" action="https://API_DOMAIN_NAME/email/subscribe">
-  <input name="email" placeholder="Please enter your email address."/>
+  <input name="email" type="email"
+   placeholder="Please enter your email address."/>
   <button type="submit">Subscribe</button>
 </form>
 ```
@@ -1024,6 +1027,7 @@ For each permutation described below:
 [set up an IAM role to allow the API to write CloudWatch logs]: https://repost.aws/knowledge-center/api-gateway-cloudwatch-logs
 [AWS::ApiGateway::Account CloudFormation entity]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
 [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM template]: https://stackoverflow.com/a/74985768
+[DynamoDB's Time To Live feature]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html
 [SES reputation metrics]: https://docs.aws.amazon.com/ses/latest/dg/monitor-sender-reputation.html
 [CAPTCHA]: https://docs.aws.amazon.com/waf/latest/developerguide/waf-captcha-puzzle.html
 [AWS WAF Pricing]: https://aws.amazon.com/waf/pricing/
@@ -1040,7 +1044,6 @@ For each permutation described below:
 [Location HTTP Header]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
 [RFC 5322 Section 3.2.3]: https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3
 [net/mail.ParseAddress]: https://pkg.go.dev/net/mail#ParseAddress
-[DynamoDB's Time To Live feature]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html
 [Managing your Amazon SES sending limits]: https://docs.aws.amazon.com/ses/latest/dg/manage-sending-quotas.html
 [Errors related to the sending quotas for your Amazon SES account]: https://docs.aws.amazon.com/ses/latest/dg/manage-sending-quotas-errors.html
 [How to handle a "Throttling – Maximum sending rate exceeded" error]: https://aws.amazon.com/blogs/messaging-and-targeting/how-to-handle-a-throttling-maximum-sending-rate-exceeded-error/
