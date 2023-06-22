@@ -1002,6 +1002,12 @@ For each permutation described below:
 - [RFC 2782: A DNS RR for specifying the location of services (DNS SRV)][]
 - [RFC 4409: Message Submission for Mail][]
 - [RFC 6186: Use of SRV Records for Locating Email Submission/Access Services][]
+- [Multipurpose Internet Mail Extensions (MIME)][MIME]
+- [Does the presence of a Content-ID header in an email MIME mean that the attachment must be embedded?][]
+- [RFC 2183: Communicating Presentation Information in Internet Messages: The Content-Disposition Header Field][]
+- [RFC 2392: Content-ID and Message-ID Uniform Resource Locators][]
+- [The precise format of Content-Id header][]
+- [RFC 7103: Advice for Safe Handling of Malformed Messages][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -1122,3 +1128,9 @@ For each permutation described below:
 [RFC 2782: A DNS RR for specifying the location of services (DNS SRV)]: https://www.rfc-editor.org/rfc/rfc2782.html
 [RFC 4409: Message Submission for Mail]: https://www.rfc-editor.org/rfc/rfc4409
 [RFC 6186: Use of SRV Records for Locating Email Submission/Access Services]: https://www.rfc-editor.org/rfc/rfc6186.html
+[MIME]: https://en.wikipedia.org/wiki/MIME
+[Does the presence of a Content-ID header in an email MIME mean that the attachment must be embedded?]: https://serverfault.com/a/489752
+[RFC 2183: Communicating Presentation Information in Internet Messages: The Content-Disposition Header Field]: https://www.rfc-editor.org/rfc/rfc2183
+[RFC 2392: Content-ID and Message-ID Uniform Resource Locators]: https://www.rfc-editor.org/rfc/rfc2392
+[The precise format of Content-Id header]: https://stackoverflow.com/questions/39577386/the-precise-format-of-content-id-header
+[RFC 7103: Advice for Safe Handling of Malformed Messages]: https://www.rfc-editor.org/rfc/rfc7103
