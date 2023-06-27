@@ -263,12 +263,53 @@ the **Test: Run All Tests** command (`testing.runAll`). The default keyboard sho
 
 #### Test sizes
 
-- The `small_tests` all run locally, with no external dependencies.
-- Each of the `medium_tests` exercises integration with specific dependencies.
-  - `-count=1` is the Go idiom to ensure tests are run with caching disabled,
-    per `go help testflag`.
-- There are no end-to-end `large_tests` yet, outside of `bin/smoke-tests.sh`.
-  The smoke tests are described below, as are the plans for adding end-to-end tests one day.
+The tests are divided into suites of varying [test sizes][], described below,
+using [Go build constraints][] (a.k.a. "build tags"). These constraints are
+specified on the first line of every test file:
+
+```sh
+$ head -n1 */*_test.go
+
+==> agent/agent_test.go <==
+//go:build small_tests || all_tests
+
+# ...snip...
+
+# See "Test coverage" section below for an explanation of the
+# dynamodb_contract_test build constraints.
+==> db/dynamodb_contract_test.go <==
+//go:build ((medium_tests || contract_tests) && !no_coverage_tests) || coverage_tests || all_tests
+
+# ...snip...
+
+==> email/mailer_contract_test.go <==
+//go:build medium_tests || contract_tests || all_tests
+
+# ...etc...
+```
+
+##### Small tests
+
+The `small_tests` all run locally, with no external dependencies. These tests
+cover all fine details and error conditions.
+
+##### Medium/contract tests
+
+Each of the `medium_tests` exercises integration with specific dependencies.
+Most of these dependencies are actual, live AWS services that require a network
+connection.
+
+These tests are designed to set up required state and clean up any side effects.
+Other than ensuring the network is available, and the required resources are
+running and accessible, no external intervention is necessary.
+
+`medium_tests` validate high level use cases and fundamental assumptions, _not_
+exhaustive details and error conditions. That's what the `small_tests` are for,
+resulting in fewer, less complicated, faster, and more stable `medium_tests`.
+
+Each of the `contract_tests` are also `medium_tests`. In fact, it's arguable
+that these tags are redundant, but I want the reader to contemplate both
+concepts and their equivalence.
 
 The medium/contract tests in `db/dynamodb_contract_test.go` run against:
 
@@ -278,6 +319,15 @@ The medium/contract tests in `db/dynamodb_contract_test.go` run against:
     via **⌘; A**, or in CI via `-tags=coverage_tests`, described below.
 - the actual DynamoDB for your AWS account when run with the `-awsdb` flag
   - e.g. When run via `go test -tags=contract_tests -count=1 ./db -args -awsdb`
+
+_Note:_ `-count=1` is the Go idiom to ensure tests are run with caching
+disabled, per `go help testflag`.
+
+##### Large tests and smoke tests
+
+There are no end-to-end `large_tests` yet, outside of `bin/smoke-tests.sh`. The
+smoke tests are described below, as are the plans for adding end-to-end tests
+one day.
 
 #### Test coverage
 
@@ -304,9 +354,9 @@ You can also check coverage in VS Code by searching for the **Go: Toggle Test
 Coverage in Current Package** command via **Show All Commands** (⇧⌘P).
 
 Note that `db/dynamodb_contract_test.go` is the one and only `medium_test` that
-we need for test coverage purposes. It contains the `coverage_tests` build flag,
-enabling the CI pipeline to collect its coverage data without running other
-`medium_tests`.
+we need for test coverage purposes. It contains the `coverage_tests` build
+constraint, enabling the CI pipeline to collect its coverage data without
+running other `medium_tests`.
 
 ### Build the `elistman` CLI
 
@@ -770,7 +820,7 @@ Where:
   `mailto`) email address
 - `<uid>`: Identifier assigned to the subscriber by the system
 - `<unsubscribe_user_name>`: The username receiving unsubscribe emails,
-  typically `unsubscribe`, set via `UNSUBSCRIBE_USER_NAME.
+  typically `unsubscribe`, set via `UNSUBSCRIBE_USER_NAME`.
 - `<email_domain_name>`: Hostname serving as an SES verified identity for
   sending and receiving email, set via `EMAIL_DOMAIN_NAME`
 
@@ -1033,6 +1083,8 @@ For each permutation described below:
 [set up an IAM role to allow the API to write CloudWatch logs]: https://repost.aws/knowledge-center/api-gateway-cloudwatch-logs
 [AWS::ApiGateway::Account CloudFormation entity]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
 [Stack Overflow: Configuring logging of AWS API Gateway - Using a SAM template]: https://stackoverflow.com/a/74985768
+[test sizes]: https://mike-bland.com/making-software-quality-visible#the-test-pyramid
+[Go build constraints]: https://pkg.go.dev/cmd/go#hdr-Build_constraints
 [DynamoDB's Time To Live feature]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html
 [SES reputation metrics]: https://docs.aws.amazon.com/ses/latest/dg/monitor-sender-reputation.html
 [CAPTCHA]: https://docs.aws.amazon.com/waf/latest/developerguide/waf-captcha-puzzle.html
