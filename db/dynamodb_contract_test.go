@@ -32,7 +32,7 @@ func init() {
 	flag.StringVar(
 		&dynamodbDockerVersion,
 		"dynDbDockerVersion",
-		"1.22.0",
+		"2.0.0",
 		"Version of the amazon/dynamodb-local Docker image to test against",
 	)
 	flag.DurationVar(
