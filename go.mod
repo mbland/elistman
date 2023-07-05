@@ -8,14 +8,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.26
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.30.0
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.19.11
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.36.0
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.20.0
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.37.0
 	github.com/aws/aws-sdk-go-v2/service/ses v1.15.11
 	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.18.2
 	github.com/aws/smithy-go v1.13.5
 	github.com/google/uuid v1.3.0
 	github.com/spf13/cobra v1.7.0
-	golang.org/x/tools v0.10.0
+	golang.org/x/tools v0.11.0
 	gotest.tools v2.2.0+incompatible
 	honnef.co/go/tools v0.4.3
 )
@@ -39,7 +39,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
+	golang.org/x/mod v0.12.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
