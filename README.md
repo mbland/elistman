@@ -1058,6 +1058,8 @@ For each permutation described below:
 - [RFC 2392: Content-ID and Message-ID Uniform Resource Locators][]
 - [The precise format of Content-Id header][]
 - [RFC 7103: Advice for Safe Handling of Malformed Messages][]
+- [RFC 3986: Uniform Resource Identifier (URI): Generic Syntax][]
+- [MDN: encodeURIComponent()][]
 
 [Go]: https://go.dev/
 [Amazon Web Services]: https://aws.amazon.com
@@ -1186,3 +1188,5 @@ For each permutation described below:
 [RFC 2392: Content-ID and Message-ID Uniform Resource Locators]: https://www.rfc-editor.org/rfc/rfc2392
 [The precise format of Content-Id header]: https://stackoverflow.com/questions/39577386/the-precise-format-of-content-id-header
 [RFC 7103: Advice for Safe Handling of Malformed Messages]: https://www.rfc-editor.org/rfc/rfc7103
+[RFC 3986: Uniform Resource Identifier (URI): Generic Syntax]: https://www.rfc-editor.org/rfc/rfc3986.html
+[MDN: encodeURIComponent()]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
