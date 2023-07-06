@@ -148,7 +148,10 @@ func parseParams(req *apiRequest) (params map[string]string, err error) {
 	}
 
 	for k, v := range req.Params {
-		result[k] = v
+		if result[k], err = url.PathUnescape(v); err != nil {
+			err = fmt.Errorf("failed to parse param: %s=%s: %w", k, v, err)
+			return
+		}
 	}
 	params = result
 	return

@@ -225,6 +225,19 @@ func TestParseParams(t *testing.T) {
 		assert.DeepEqual(t, parsedParams, result)
 	})
 
+	t.Run("SuccessWithUrlParams", func(t *testing.T) {
+		req := newRequest()
+		req.Body = ""
+		req.Params = map[string]string{
+			"email": "mbland%40acm.org", "uid": "0123-456-789",
+		}
+
+		result, err := parseParams(req)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, parsedParams, result)
+	})
+
 	t.Run("ErrorIfBodyPresentForNonPostRequest", func(t *testing.T) {
 		req := newRequest()
 		req.Method = http.MethodGet
@@ -235,7 +248,7 @@ func TestParseParams(t *testing.T) {
 		assert.Assert(t, is.Nil(result))
 	})
 
-	t.Run("ParseError", func(t *testing.T) {
+	t.Run("ErrorIfBodyFailsToParse", func(t *testing.T) {
 		req := newRequest()
 		req.Body = "email=mbland@acm.org;uid=0123-456-789"
 
@@ -251,12 +264,12 @@ func TestParseParams(t *testing.T) {
 
 	t.Run("ErrorIfPathAndBodyParamsBothDefined", func(t *testing.T) {
 		req := newRequest()
-		req.Params["email"] = "foo@bar.com"
+		req.Params["email"] = "foo%40bar.com"
 
 		result, err := parseParams(req)
 
 		expected := `path and body parameters defined for "email": ` +
-			"foo@bar.com, mbland@acm.org"
+			"foo%40bar.com, mbland@acm.org"
 		assert.ErrorContains(t, err, expected)
 		assert.Assert(t, is.Nil(result))
 	})
@@ -268,6 +281,20 @@ func TestParseParams(t *testing.T) {
 		result, err := parseParams(req)
 
 		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
+		assert.ErrorContains(t, err, expected)
+		assert.Assert(t, is.Nil(result))
+	})
+
+	t.Run("ErrorIfUnescapingPathParameterFails", func(t *testing.T) {
+		req := newRequest()
+		req.Body = ""
+		req.Params = map[string]string{
+			"email": "mbland%%40acm.org", "uid": "0123-456-789",
+		}
+
+		result, err := parseParams(req)
+		expected := `failed to parse param: email=mbland%%40acm.org: ` +
+			`invalid URL escape "%%4"`
 		assert.ErrorContains(t, err, expected)
 		assert.Assert(t, is.Nil(result))
 	})
