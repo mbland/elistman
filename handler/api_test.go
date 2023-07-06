@@ -449,10 +449,10 @@ func TestHandleApiRequest(t *testing.T) {
 			Id: "deadbeef",
 			RawPath: ops.ApiPrefixUnsubscribe + "mbland%40acm.org/" +
 				testValidUidStr,
-			Method:      http.MethodGet,
-			ContentType: "text/plain",
+			Method:      http.MethodPost,
+			ContentType: "application/x-www-form-urlencoded",
 			Params: map[string]string{
-				"email": "mbland@acm.org",
+				"email": "mbland%40acm.org",
 				"uid":   testValidUidStr,
 			},
 		}
