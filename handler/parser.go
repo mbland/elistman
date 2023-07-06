@@ -119,37 +119,39 @@ func parseOperationType(endpoint string) (eventOperationType, error) {
 	return Undefined, fmt.Errorf("unknown endpoint: %s", endpoint)
 }
 
-func parseParams(req *apiRequest) (map[string]string, error) {
+func parseParams(req *apiRequest) (params map[string]string, err error) {
+	result := map[string]string{}
 	values := url.Values{}
-	params := map[string]string{}
-	var err error = nil
 
 	if req.Method == http.MethodPost {
 		if values, err = parseBody(req.ContentType, req.Body); err != nil {
 			errFmt := `failed to parse body params with content-type %q: %s`
-			return params, fmt.Errorf(errFmt, req.ContentType, err)
+			err = fmt.Errorf(errFmt, req.ContentType, err)
+			return
 		}
 	} else if req.Body != "" {
-		return params, fmt.Errorf("nonempty body for HTTP %s", req.Method)
+		err = fmt.Errorf("nonempty body for HTTP %s", req.Method)
+		return
 	}
 
 	for k, v := range values {
 		if len(v) != 1 {
 			values := strings.Join(v, ", ")
 			err = fmt.Errorf("multiple values for %q: %s", k, values)
-			return map[string]string{}, err
+			return
 		} else if pathV, ok := req.Params[k]; ok {
 			errFormat := "path and body parameters defined for %q: %s, %s"
 			err = fmt.Errorf(errFormat, k, pathV, v[0])
-			return map[string]string{}, err
+			return
 		}
-		params[k] = v[0]
+		result[k] = v[0]
 	}
 
 	for k, v := range req.Params {
-		params[k] = v
+		result[k] = v
 	}
-	return params, nil
+	params = result
+	return
 }
 
 func parseBody(contentType, body string) (url.Values, error) {

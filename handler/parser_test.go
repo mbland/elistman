@@ -216,6 +216,15 @@ func TestParseParams(t *testing.T) {
 		"email": "mbland@acm.org", "uid": "0123-456-789",
 	}
 
+	t.Run("SuccessWithBodyParams", func(t *testing.T) {
+		req := newRequest()
+
+		result, err := parseParams(req)
+
+		assert.NilError(t, err)
+		assert.DeepEqual(t, parsedParams, result)
+	})
+
 	t.Run("ErrorIfBodyPresentForNonPostRequest", func(t *testing.T) {
 		req := newRequest()
 		req.Method = http.MethodGet
@@ -223,7 +232,7 @@ func TestParseParams(t *testing.T) {
 		result, err := parseParams(req)
 
 		assert.ErrorContains(t, err, "nonempty body for HTTP "+req.Method)
-		assert.DeepEqual(t, map[string]string{}, result)
+		assert.Assert(t, is.Nil(result))
 	})
 
 	t.Run("ParseError", func(t *testing.T) {
@@ -237,16 +246,7 @@ func TestParseParams(t *testing.T) {
 			req.ContentType,
 		)
 		assert.ErrorContains(t, err, expected)
-		assert.DeepEqual(t, map[string]string{}, result)
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		req := newRequest()
-
-		result, err := parseParams(req)
-
-		assert.NilError(t, err)
-		assert.DeepEqual(t, parsedParams, result)
+		assert.Assert(t, is.Nil(result))
 	})
 
 	t.Run("ErrorIfPathAndBodyParamsBothDefined", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestParseParams(t *testing.T) {
 		expected := `path and body parameters defined for "email": ` +
 			"foo@bar.com, mbland@acm.org"
 		assert.ErrorContains(t, err, expected)
-		assert.DeepEqual(t, map[string]string{}, result)
+		assert.Assert(t, is.Nil(result))
 	})
 
 	t.Run("ErrorIfParamHasMultipleValues", func(t *testing.T) {
@@ -269,7 +269,7 @@ func TestParseParams(t *testing.T) {
 
 		expected := `multiple values for "email": mbland@acm.org, foo@bar.com`
 		assert.ErrorContains(t, err, expected)
-		assert.DeepEqual(t, map[string]string{}, result)
+		assert.Assert(t, is.Nil(result))
 	})
 }
 
