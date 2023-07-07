@@ -9,50 +9,43 @@ import (
 	"gotest.tools/assert"
 )
 
-const TestEmail = "foo@bar.com"
-const TestUidStr = "00000000-1111-2222-3333-444444444444"
+const (
+	baseUrl = "https://foo.com/email"
+	email   = testdata.TestEmail
+	uidStr  = testdata.TestUidStr
+)
+
+var uid = testdata.TestUid
 
 func TestApiEndpoints(t *testing.T) {
-	const baseUrl = "https://foo.com/email"
+	expectedUrl := func(prefix string) string {
+		return baseUrl + prefix + email + "/" + uidStr
+	}
 
 	t.Run("VerifyUrl", func(t *testing.T) {
-		const expected = baseUrl + ApiPrefixVerify +
-			testdata.TestEmail + "/" + testdata.TestUidStr
-
-		actual := VerifyUrl(baseUrl, testdata.TestEmail, testdata.TestUid)
-
-		assert.Equal(t, expected, actual)
+		assert.Equal(
+			t, expectedUrl(ApiPrefixVerify), VerifyUrl(baseUrl, email, uid),
+		)
 	})
 
 	t.Run("VerifyUrlTrimsBaseUrlTrailingSlash", func(t *testing.T) {
-		const expected = baseUrl + ApiPrefixVerify +
-			testdata.TestEmail + "/" + testdata.TestUidStr
-
-		actual := VerifyUrl(baseUrl+"/", testdata.TestEmail, testdata.TestUid)
-
-		assert.Equal(t, expected, actual)
+		assert.Equal(
+			t, expectedUrl(ApiPrefixVerify), VerifyUrl(baseUrl+"/", email, uid),
+		)
 	})
 
 	t.Run("UnsubscribeUrl", func(t *testing.T) {
-		const expected = baseUrl + ApiPrefixUnsubscribe +
-			testdata.TestEmail + "/" + testdata.TestUidStr
-
-		actual := UnsubscribeUrl(
-			baseUrl, testdata.TestEmail, testdata.TestUid,
-		)
-
-		assert.Equal(t, expected, actual)
+		assert.Equal(
+			t,
+			expectedUrl(ApiPrefixUnsubscribe),
+			UnsubscribeUrl(baseUrl, email, uid))
 	})
 
 	t.Run("UnsubscribeMailto", func(t *testing.T) {
 		const unsubEmail = "unsubscribe@foo.com"
-		const expected = "mailto:" + unsubEmail + "?subject=" +
-			testdata.TestEmail + "%20" + testdata.TestUidStr
+		const expected = "mailto:" + unsubEmail +
+			"?subject=" + email + "%20" + uidStr
 
-		actual := UnsubscribeMailto(
-			unsubEmail, testdata.TestEmail, testdata.TestUid,
-		)
-
-		assert.Equal(t, expected, actual)
+		assert.Equal(t, expected, UnsubscribeMailto(unsubEmail, email, uid))
 	})
 }
