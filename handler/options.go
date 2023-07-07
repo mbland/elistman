@@ -26,6 +26,7 @@ type Options struct {
 	SenderName           string
 	SenderUserName       string
 	UnsubscribeUserName  string
+	UnsubscribeFormPath  string
 	SubscribersTableName string
 	ConfigurationSet     string
 	MaxBulkSendCapacity  types.Capacity
@@ -62,17 +63,18 @@ func (env *environment) options() (*Options, error) {
 	env.assign(&opts.SenderName, "SENDER_NAME")
 	env.assign(&opts.SenderUserName, "SENDER_USER_NAME")
 	env.assign(&opts.UnsubscribeUserName, "UNSUBSCRIBE_USER_NAME")
+	env.assignPath(&opts.UnsubscribeFormPath, "UNSUBSCRIBE_FORM_PATH")
 	env.assign(&opts.SubscribersTableName, "SUBSCRIBERS_TABLE_NAME")
 	env.assign(&opts.ConfigurationSet, "CONFIGURATION_SET")
 	env.assignCapacity(&opts.MaxBulkSendCapacity, "MAX_BULK_SEND_CAPACITY")
 
 	redirects := &opts.RedirectPaths
-	env.assignRedirect(&redirects.Invalid, "INVALID_REQUEST_PATH")
-	env.assignRedirect(&redirects.AlreadySubscribed, "ALREADY_SUBSCRIBED_PATH")
-	env.assignRedirect(&redirects.VerifyLinkSent, "VERIFY_LINK_SENT_PATH")
-	env.assignRedirect(&redirects.Subscribed, "SUBSCRIBED_PATH")
-	env.assignRedirect(&redirects.NotSubscribed, "NOT_SUBSCRIBED_PATH")
-	env.assignRedirect(&redirects.Unsubscribed, "UNSUBSCRIBED_PATH")
+	env.assignPath(&redirects.Invalid, "INVALID_REQUEST_PATH")
+	env.assignPath(&redirects.AlreadySubscribed, "ALREADY_SUBSCRIBED_PATH")
+	env.assignPath(&redirects.VerifyLinkSent, "VERIFY_LINK_SENT_PATH")
+	env.assignPath(&redirects.Subscribed, "SUBSCRIBED_PATH")
+	env.assignPath(&redirects.NotSubscribed, "NOT_SUBSCRIBED_PATH")
+	env.assignPath(&redirects.Unsubscribed, "UNSUBSCRIBED_PATH")
 
 	if len(env.undefinedVars) != 0 {
 		undefErr := &UndefinedEnvVarsError{UndefinedVars: env.undefinedVars}
@@ -112,7 +114,7 @@ func (env *environment) assignCapacity(opt *types.Capacity, varname string) {
 	}
 }
 
-func (env *environment) assignRedirect(opt *string, varname string) {
+func (env *environment) assignPath(opt *string, varname string) {
 	env.assign(opt, varname)
 	*opt, _ = strings.CutPrefix(*opt, "/")
 }

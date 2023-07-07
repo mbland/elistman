@@ -19,6 +19,8 @@ Parameters:
     Type: String
   UnsubscribeUserName:
     Type: String
+  UnsubscribeFormPath:
+    Type: String
   ReceiptRuleSetName:
     Type: String
   SubscribersTableName:
@@ -101,6 +103,7 @@ Resources:
           SENDER_NAME: !Ref SenderName
           SENDER_USER_NAME: !Ref SenderUserName
           UNSUBSCRIBE_USER_NAME: !Ref UnsubscribeUserName
+          UNSUBSCRIBE_FORM_PATH: !Ref UnsubscribeFormPath
           SUBSCRIBERS_TABLE_NAME: !Ref SubscribersTableName
           CONFIGURATION_SET: !Ref SendingConfigurationSet
           MAX_BULK_SEND_CAPACITY: !Ref MaxBulkSendCapacity
