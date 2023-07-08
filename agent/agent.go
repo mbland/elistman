@@ -366,7 +366,9 @@ func (a *ProdAgent) sendOneEmail(
 	sub *db.Subscriber,
 ) (err error) {
 	recipient := &email.Recipient{Email: sub.Email, Uid: sub.Uid}
-	recipient.SetUnsubscribeInfo(a.UnsubscribeEmail, a.ApiBaseUrl)
+	recipient.SetUnsubscribeInfo(
+		a.UnsubscribeEmail, a.UnsubscribeUrl, a.ApiBaseUrl,
+	)
 
 	m := mt.GenerateMessage(recipient)
 	var msgId string

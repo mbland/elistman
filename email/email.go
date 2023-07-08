@@ -27,7 +27,11 @@ var ExampleRecipient *Recipient = func() (r *Recipient) {
 		Email: "subscriber@foo.com",
 		Uid:   uuid.MustParse("00000000-1111-2222-3333-444444444444"),
 	}
-	r.SetUnsubscribeInfo("unsubscribe@bar.com", "https://bar.com/email/")
+	r.SetUnsubscribeInfo(
+		"unsubscribe@bar.com",
+		"https://bar.com/unsubscribe",
+		"https://bar.com/email/",
+	)
 	return
 }()
 

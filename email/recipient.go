@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -14,22 +15,34 @@ const UnsubscribeUrlTemplate = "{{UnsubscribeUrl}}"
 var unsubscribeUrlTemplate = []byte(UnsubscribeUrlTemplate)
 
 type Recipient struct {
-	Email       string
-	Uid         uuid.UUID
-	unsubUrl    []byte
-	unsubHeader []byte
+	Email        string
+	Uid          uuid.UUID
+	unsubFormUrl []byte
+	unsubApiUrl  []byte
+	unsubHeader  []byte
 }
 
-func (sub *Recipient) SetUnsubscribeInfo(email, apiBaseUrl string) {
-	sub.unsubUrl = []byte(ops.UnsubscribeUrl(apiBaseUrl, sub.Email, sub.Uid))
+func (sub *Recipient) SetUnsubscribeInfo(email, formUrl, apiBaseUrl string) {
+	sub.unsubFormUrl = unsubscribeFormUrl(formUrl, sub.Email, sub.Uid)
+	sub.unsubApiUrl = []byte(ops.UnsubscribeUrl(apiBaseUrl, sub.Email, sub.Uid))
 
 	sb := &strings.Builder{}
 	sb.WriteString("List-Unsubscribe: <")
 	sb.WriteString(ops.UnsubscribeMailto(email, sub.Email, sub.Uid))
 	sb.WriteString(">, <")
-	sb.Write(sub.unsubUrl)
+	sb.Write(sub.unsubApiUrl)
 	sb.WriteString(">\r\n")
 	sub.unsubHeader = []byte(sb.String())
+}
+
+func unsubscribeFormUrl(baseFormUrl, email string, uid uuid.UUID) []byte {
+	sb := &strings.Builder{}
+	sb.WriteString(baseFormUrl)
+	sb.WriteString("?email=")
+	sb.WriteString(url.QueryEscape(email))
+	sb.WriteString("&uid=")
+	sb.WriteString(uid.String())
+	return []byte(sb.String())
 }
 
 var listUnsubscribePost = []byte(
@@ -49,5 +62,5 @@ func (sub *Recipient) EmitUnsubscribeHeaders(w io.Writer) (err error) {
 }
 
 func (sub *Recipient) FillInUnsubscribeUrl(msg []byte) []byte {
-	return bytes.Replace(msg, unsubscribeUrlTemplate, sub.unsubUrl, 1)
+	return bytes.Replace(msg, unsubscribeUrlTemplate, sub.unsubFormUrl, 1)
 }

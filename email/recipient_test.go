@@ -21,28 +21,31 @@ func TestSubscriber(t *testing.T) {
 			Email: "subscriber@foo.com",
 			Uid:   uuid.MustParse(testUid),
 		}
-		sub.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
+		sub.SetUnsubscribeInfo(testUnsubEmail, testUnsubUrl, testApiBaseUrl)
 		return sub
 	}
 
-	expectedUrlAndHeader := func(sub *Recipient) (string, string) {
+	expectedUrlsAndHeader := func(sub *Recipient) (string, string, string) {
 		const mailtoFmt = "mailto:%s?subject=%s%%20%s"
 		mailto := fmt.Sprintf(
 			mailtoFmt, testUnsubEmail, url.QueryEscape(sub.Email), testUid,
 		)
-		unsubUrl := testApiBaseUrl + ops.ApiPrefixUnsubscribe +
+		unsubApiUrl := testApiBaseUrl + ops.ApiPrefixUnsubscribe +
 			url.PathEscape(sub.Email) + "/" + testUid
+		unsubFormUrl := testUnsubUrl + "?email=" + url.QueryEscape(sub.Email) +
+			"&uid=" + testUid
 		header := fmt.Sprintf(
-			"List-Unsubscribe: <%s>, <%s>\r\n", mailto, unsubUrl,
+			"List-Unsubscribe: <%s>, <%s>\r\n", mailto, unsubApiUrl,
 		)
-		return unsubUrl, header
+		return unsubApiUrl, unsubFormUrl, header
 	}
 
 	t.Run("SetUnsubscribeInfoSetsPrivateUnsubFields", func(t *testing.T) {
 		sub := setup()
 
-		unsubUrl, header := expectedUrlAndHeader(sub)
-		assert.Equal(t, unsubUrl, string(sub.unsubUrl))
+		unsubApiUrl, unsubFormUrl, header := expectedUrlsAndHeader(sub)
+		assert.Equal(t, unsubApiUrl, string(sub.unsubApiUrl))
+		assert.Equal(t, unsubFormUrl, string(sub.unsubFormUrl))
 		assert.Equal(t, header, string(sub.unsubHeader))
 	})
 
@@ -52,7 +55,7 @@ func TestSubscriber(t *testing.T) {
 
 		result := sub.FillInUnsubscribeUrl([]byte(orig))
 
-		expected := "Unsubscribe at " + string(sub.unsubUrl) + " at any time"
+		expected := "Unsubscribe at " + string(sub.unsubFormUrl) + " at any time"
 		assert.Equal(t, expected, string(result))
 	})
 
@@ -67,7 +70,7 @@ func TestSubscriber(t *testing.T) {
 		t.Run("EmitsNothingIfUnsubInfoNotSet", func(t *testing.T) {
 			sub, w, _ := emitHeadersSetup()
 			sub.unsubHeader = []byte{}
-			sub.unsubUrl = []byte{}
+			sub.unsubApiUrl = []byte{}
 
 			err := sub.EmitUnsubscribeHeaders(w)
 
@@ -81,7 +84,7 @@ func TestSubscriber(t *testing.T) {
 			err := sub.EmitUnsubscribeHeaders(w)
 
 			assert.NilError(t, err)
-			_, headers := expectedUrlAndHeader(sub)
+			_, _, headers := expectedUrlsAndHeader(sub)
 			headers += string(listUnsubscribePost)
 			assert.Equal(t, headers, w.String())
 		})

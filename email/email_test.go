@@ -17,6 +17,7 @@ import (
 )
 
 const testUnsubEmail = "unsubscribe@foo.com"
+const testUnsubUrl = "https://foo.com/unsubscribe"
 const testApiBaseUrl = "https://foo.com/email"
 const testUid = "00000000-1111-2222-3333-444444444444"
 

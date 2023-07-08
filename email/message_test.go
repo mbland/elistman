@@ -391,20 +391,20 @@ var testRecipient *Recipient = &Recipient{
 
 func newTestRecipient() *Recipient {
 	var r Recipient = *testRecipient
-	r.SetUnsubscribeInfo(testUnsubEmail, testApiBaseUrl)
+	r.SetUnsubscribeInfo(testUnsubEmail, testUnsubUrl, testApiBaseUrl)
 	return &r
 }
 
 var instantiatedTextFooter = []byte("\r\n" +
-	"Unsubscribe: https://foo.com/email/unsubscribe/" +
-	"subscriber@foo.com/00000000-1111-2222-3333-444444444444\r\n" +
+	"Unsubscribe: https://foo.com/unsubscribe?email=subscriber%40foo.com" +
+	"&uid=00000000-1111-2222-3333-444444444444\r\n" +
 	"This footer is over 76 characters wide, " +
 	"but will be quoted-printable encoded by EmitMessage.")
 
 var encodedTextFooter = []byte("\r\n" +
-	"Unsubscribe: https://foo.com/email/unsubscribe/" +
-	"subscriber@foo.com/00000000-=\r\n" +
-	"1111-2222-3333-444444444444\r\n" +
+	"Unsubscribe: https://foo.com/unsubscribe?email=3Dsubscriber%40foo.com" +
+	"&uid=\r\n" +
+	"=3D00000000-1111-2222-3333-444444444444\r\n" +
 	"This footer is over 76 characters wide, " +
 	"but will be quoted-printable encode=\r\n" +
 	"d by EmitMessage.")
@@ -522,17 +522,17 @@ func TestEmitPart(t *testing.T) {
 }
 
 var instantiatedHtmlFooter = []byte("\r\n" +
-	"<p><a href=\"https://foo.com/email/unsubscribe/" +
-	"subscriber@foo.com/00000000-1111-2222-3333-444444444444\">" +
+	"<p><a href=\"https://foo.com/unsubscribe?email=subscriber%40foo.com" +
+	"&uid=00000000-1111-2222-3333-444444444444\">" +
 	"Unsubscribe</a></p>\r\n" +
 	"<p>This footer is over 76 characters wide, " +
 	"but will be quoted-printable encoded by EmitMessage.</p>\r\n" +
 	"</body></html>")
 
 var encodedHtmlFooter = []byte("\r\n" +
-	"<p><a href=3D\"https://foo.com/email/unsubscribe/" +
-	"subscriber@foo.com/00000000=\r\n" +
-	"-1111-2222-3333-444444444444\">Unsubscribe</a></p>\r\n" +
+	"<p><a href=3D\"https://foo.com/unsubscribe?email=3Dsubscriber%40foo.com" +
+	"&uid=\r\n" +
+	"=3D00000000-1111-2222-3333-444444444444\">Unsubscribe</a></p>\r\n" +
 	"<p>This footer is over 76 characters wide, " +
 	"but will be quoted-printable enc=\r\n" +
 	"oded by EmitMessage.</p>\r\n" +
