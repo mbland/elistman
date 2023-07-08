@@ -617,7 +617,7 @@ func TestEmitMultipart(t *testing.T) {
 }
 
 const testUnsubHeaderValue = "<mailto:" + testUnsubEmail +
-	"?subject=subscriber@foo.com%20" + testUid + ">, " +
+	"?subject=subscriber%40foo.com%20" + testUid + ">, " +
 	"<" + testApiBaseUrl + ops.ApiPrefixUnsubscribe +
 	"subscriber@foo.com/" + testUid + ">"
 

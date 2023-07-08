@@ -5,6 +5,7 @@ package email
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -26,9 +27,11 @@ func TestSubscriber(t *testing.T) {
 
 	expectedUrlAndHeader := func(sub *Recipient) (string, string) {
 		const mailtoFmt = "mailto:%s?subject=%s%%20%s"
-		mailto := fmt.Sprintf(mailtoFmt, testUnsubEmail, sub.Email, testUid)
+		mailto := fmt.Sprintf(
+			mailtoFmt, testUnsubEmail, url.QueryEscape(sub.Email), testUid,
+		)
 		unsubUrl := testApiBaseUrl + ops.ApiPrefixUnsubscribe +
-			sub.Email + "/" + testUid
+			url.PathEscape(sub.Email) + "/" + testUid
 		header := fmt.Sprintf(
 			"List-Unsubscribe: <%s>, <%s>\r\n", mailto, unsubUrl,
 		)

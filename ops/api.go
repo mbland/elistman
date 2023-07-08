@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func UnsubscribeMailto(unsubEmail, emailAddr string, uid uuid.UUID) string {
 	sb.WriteString("mailto:")
 	sb.WriteString(unsubEmail)
 	sb.WriteString("?subject=")
-	sb.WriteString(emailAddr)
+	sb.WriteString(url.QueryEscape(emailAddr))
 	sb.WriteString("%20")
 	sb.WriteString(uid.String())
 	return sb.String()
@@ -35,7 +36,7 @@ func makeApiUrl(baseUrl, opPrefix, emailAddr string, uid uuid.UUID) string {
 	sb := strings.Builder{}
 	sb.WriteString(strings.TrimSuffix(baseUrl, "/"))
 	sb.WriteString(opPrefix)
-	sb.WriteString(emailAddr)
+	sb.WriteString(url.PathEscape(emailAddr))
 	sb.WriteString("/")
 	sb.WriteString(uid.String())
 	return sb.String()
