@@ -152,7 +152,7 @@ func TestParseFormData(t *testing.T) {
 		values, err := parseFormData(badBody, mediaParams)
 
 		assert.ErrorContains(t, err, "multipart: NextPart: EOF")
-		assert.DeepEqual(t, url.Values{}, values)
+		assert.Assert(t, is.Nil(values))
 	})
 
 	t.Run("ErrorOnReadAll", func(t *testing.T) {
@@ -161,7 +161,7 @@ func TestParseFormData(t *testing.T) {
 		values, err := parseFormData(badBody, mediaParams)
 
 		assert.Error(t, err, "unexpected EOF")
-		assert.DeepEqual(t, url.Values{}, values)
+		assert.Assert(t, is.Nil(values))
 	})
 }
 

@@ -182,9 +182,9 @@ func parseFormData(body string, params map[string]string) (url.Values, error) {
 		if part, err := reader.NextPart(); err == io.EOF {
 			break
 		} else if err != nil {
-			return url.Values{}, err
+			return nil, err
 		} else if data, err := io.ReadAll(part); err != nil {
-			return url.Values{}, err
+			return nil, err
 		} else {
 			values.Add(part.FormName(), string(data))
 		}
