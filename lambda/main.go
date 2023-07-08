@@ -61,6 +61,9 @@ func buildHandler() (h *handler.Handler, err error) {
 			EmailDomainName: opts.EmailDomainName,
 			UnsubscribeEmail: opts.UnsubscribeUserName +
 				"@" + opts.EmailDomainName,
+			UnsubscribeUrl: fmt.Sprintf(
+				"https://%s/%s", opts.EmailDomainName, opts.UnsubscribeFormPath,
+			),
 			ApiBaseUrl: fmt.Sprintf(
 				"https://%s/%s", opts.ApiDomainName, opts.ApiMappingKey,
 			),

@@ -26,7 +26,8 @@ const testSender = "Blog Updates <updates@foo.com>"
 const testSiteTitle = "Foo Blog"
 const testDomainName = "foo.com"
 const testUnsubEmail = "unsubscribe@foo.com"
-const testUnsubBaseUrl = "https://foo.com/email/"
+const testUnsubUrl = "https://foo.com/unsubscribe"
+const testApiBaseUrl = "https://foo.com/email/"
 
 func testMessage() (msg *email.Message) {
 	msg = &email.Message{}
@@ -78,7 +79,8 @@ func newProdAgentTestFixture() *prodAgentTestFixture {
 		testSiteTitle,
 		testDomainName,
 		testUnsubEmail,
-		testUnsubBaseUrl,
+		testUnsubUrl,
+		testApiBaseUrl,
 		newUid,
 		currentTime,
 		db,
@@ -754,7 +756,7 @@ func assertSentToVerifiedSubscriber(
 	t.Helper()
 
 	msgId, m := mailer.GetMessageTo(t, sub.Email)
-	unsubUrl := ops.UnsubscribeUrl(testUnsubBaseUrl, sub.Email, sub.Uid)
+	unsubUrl := ops.UnsubscribeUrl(testApiBaseUrl, sub.Email, sub.Uid)
 	unsubMailto := ops.UnsubscribeMailto(testUnsubEmail, sub.Email, sub.Uid)
 	expectedLogMsg := fmt.Sprintf(
 		"sent \"%s\" id: %s to: %s", subject, msgId, sub.Email,

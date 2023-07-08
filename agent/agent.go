@@ -68,6 +68,7 @@ type ProdAgent struct {
 	EmailSiteTitle   string
 	EmailDomainName  string
 	UnsubscribeEmail string
+	UnsubscribeUrl   string
 	ApiBaseUrl       string
 	NewUid           func() (uuid.UUID, error)
 	CurrentTime      func() time.Time
