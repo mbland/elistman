@@ -188,7 +188,7 @@ func TestErrorResponse(t *testing.T) {
 
 func TestLogApiResponse(t *testing.T) {
 	req := apiGatewayRequest(
-		http.MethodGet, ops.ApiPrefixVerify+"mbland%40acm.org/0123-456-789",
+		http.MethodGet, ops.ApiPrefixVerify+"mbland@acm.org/0123-456-789",
 	)
 
 	t.Run("WithoutError", func(t *testing.T) {
@@ -198,7 +198,7 @@ func TestLogApiResponse(t *testing.T) {
 		logApiResponse(logs.NewLogger(), req, res, nil)
 
 		expectedMsg := `192.168.0.1 "GET ` + ops.ApiPrefixVerify +
-			`mbland%40acm.org/0123-456-789 HTTP/2" 200`
+			`mbland@acm.org/0123-456-789 HTTP/2" 200`
 		logs.AssertContains(t, expectedMsg)
 	})
 
@@ -209,14 +209,14 @@ func TestLogApiResponse(t *testing.T) {
 		logApiResponse(logger, req, res, errors.New("unexpected problem"))
 
 		expectedMsg := `192.168.0.1 "GET ` + ops.ApiPrefixVerify +
-			`mbland%40acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
+			`mbland@acm.org/0123-456-789 HTTP/2" 500: unexpected problem`
 		logs.AssertContains(t, expectedMsg)
 	})
 }
 
 func TestNewApiRequest(t *testing.T) {
 	const requestId = "deadbeef"
-	const rawPath = ops.ApiPrefixUnsubscribe + "/mbland%40acm.org/0123-456-789"
+	const rawPath = ops.ApiPrefixUnsubscribe + "/mbland@acm.org/0123-456-789"
 	const contentType = "application/x-www-form-urlencoded; charset=utf-8"
 	const body = "List-Unsubscribe=One-Click"
 	pathParams := map[string]string{
@@ -447,12 +447,12 @@ func TestHandleApiRequest(t *testing.T) {
 	newUnsubscribeRequest := func() *apiRequest {
 		return &apiRequest{
 			Id: "deadbeef",
-			RawPath: ops.ApiPrefixUnsubscribe + "mbland%40acm.org/" +
+			RawPath: ops.ApiPrefixUnsubscribe + "mbland@acm.org/" +
 				testValidUidStr,
 			Method:      http.MethodPost,
 			ContentType: "application/x-www-form-urlencoded",
 			Params: map[string]string{
-				"email": "mbland%40acm.org",
+				"email": "mbland@acm.org",
 				"uid":   testValidUidStr,
 			},
 		}

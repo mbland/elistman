@@ -150,7 +150,7 @@ printf_info 'SUITE: Not found (reported as 403 Forbidden)\n'
 not_found_status=403
 
 expect_status_from_endpoint 'invalid endpoint not found' \
-  POST 'foobar/mbland%40acm.org' \
+  POST 'foobar/mbland@acm.org' \
   "$not_found_status"
 
 if [[ -n "$LOCAL" ]]; then
@@ -187,7 +187,7 @@ expect_status_from_endpoint 'invalid email address for /verify' \
   400 ""
 
 expect_status_from_endpoint 'invalid UID for /unsubscribe' \
-  GET 'unsubscribe/mbland%40acm.org/bad-uid' \
+  GET 'unsubscribe/mbland@acm.org/bad-uid' \
   400 ""
 
 if [[ "${#FAILED_CASES[@]}" -eq 0 ]]; then
