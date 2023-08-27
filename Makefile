@@ -8,9 +8,10 @@ SHELL := /bin/bash
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html#examples-makefile-identifier
 # https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
+# https://aws.amazon.com/blogs/compute/migrating-aws-lambda-functions-from-the-go1-x-runtime-to-the-custom-runtime-on-amazon-linux-2/
 build-Function:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" \
-		-o $(ARTIFACTS_DIR)/elistman-lambda lambda/main.go
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" \
+		-tags lambda.norpc -o $(ARTIFACTS_DIR)/bootstrap lambda/main.go
 
 static-checks:
 	go vet -tags=all_tests ./...
