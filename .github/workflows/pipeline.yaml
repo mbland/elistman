@@ -1,3 +1,5 @@
+# Generated from:
+# - https://catalog.workshops.aws/complete-aws-sam/en-US/module-4-cicd/module-4-cicd-gh
 name: CI/CD pipeline
 
 on:
