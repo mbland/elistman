@@ -130,6 +130,7 @@ jobs:
           role-session-name: testing-packaging
           role-duration-seconds: 3600
           role-skip-session-tagging: true
+          unset-current-credentials: true
 
       - name: Validate SAM template
         run: |
