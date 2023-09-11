@@ -44,7 +44,7 @@ jobs:
     if: startsWith(github.event.ref, 'feature') && github.event_name == 'delete'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
@@ -75,7 +75,7 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
@@ -113,7 +113,7 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
@@ -176,7 +176,7 @@ jobs:
     needs: [build-and-package]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
@@ -212,7 +212,7 @@ jobs:
     needs: [deploy-testing]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run smoke tests
         run: |
           tr -d '\r' > .env <<EOF
@@ -228,7 +228,7 @@ jobs:
     # https://docs.github.com/en/actions/reference/environments
     # environment: <configured-environment>
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
