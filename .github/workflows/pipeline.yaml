@@ -30,6 +30,11 @@ env:
   # PROD_IMAGE_REPOSITORY = '0123456789.dkr.ecr.region.amazonaws.com/repository-name'
   PROD_REGION: us-east-1
 
+# https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-cloud-providers
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     if: github.event_name == 'push'
