@@ -1,3 +1,6 @@
 {
-    "go.buildTags": "all_tests"
+    "go.buildTags": "all_tests",
+    "go.testEnvVars": {
+        "GOEXPERIMENT": "loopvar"
+    }
 }

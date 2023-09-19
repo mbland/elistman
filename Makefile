@@ -10,29 +10,30 @@ SHELL := /bin/bash
 # https://github.com/aws-samples/sessions-with-aws-sam/tree/master/go-al2
 # https://aws.amazon.com/blogs/compute/migrating-aws-lambda-functions-from-the-go1-x-runtime-to-the-custom-runtime-on-amazon-linux-2/
 build-Function:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" \
-		-tags lambda.norpc -o $(ARTIFACTS_DIR)/bootstrap lambda/main.go
+	GOEXPERIMENT=loopvar GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+		-ldflags="-s -w" -tags lambda.norpc \
+		-o $(ARTIFACTS_DIR)/bootstrap lambda/main.go
 
 static-checks:
 	go vet -tags=all_tests ./...
 	go run honnef.co/go/tools/cmd/staticcheck -tags=all_tests ./...
-	go build -tags=all_tests ./...
+	GOEXPERIMENT=loopvar go build -tags=all_tests ./...
 
 small-tests:
-	go test -tags=small_tests ./...
+	GOEXPERIMENT=loopvar go test -tags=small_tests ./...
 
 medium-tests:
-	go test -tags=medium_tests -count=1 ./...
+	GOEXPERIMENT=loopvar go test -tags=medium_tests -count=1 ./...
 
 contract-tests-aws:
-	go test -tags=contract_tests -count=1 ./db -args -awsdb
+	GOEXPERIMENT=loopvar go test -tags=contract_tests -count=1 ./db -args -awsdb
 
 test: static-checks small-tests medium-tests contract-tests-aws
 
 coverage:
-	go test -covermode=count -coverprofile=coverage.out \
+	GOEXPERIMENT=loopvar go test -covermode=count -coverprofile=coverage.out \
 	  -tags=small_tests,coverage_tests ./...
-	go tool cover -html=coverage.out	
+	GOEXPERIMENT=loopvar go tool cover -html=coverage.out	
 
 sam-build: template.yml
 	sam validate
