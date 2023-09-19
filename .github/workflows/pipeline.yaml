@@ -12,6 +12,7 @@ on:
       - 'feature**'
 
 env:
+  SAM_CLI_TELEMETRY: 0
   SAM_TEMPLATE: template.yml
   DEV_PIPELINE_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-pipe-PipelineExecutionRole-J2LGXGU6FKGQ
   DEV_CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::644638186133:role/aws-sam-cli-managed-dev-p-CloudFormationExecutionR-11UYGVKBD8Y55
@@ -62,7 +63,7 @@ jobs:
         env:
           FEATURE_BRANCH_NAME: ${{ github.event.ref }}
         run: |
-          SAM_CLI_TELEMETRY=0 sam delete \
+          sam delete \
             --stack-name $(echo ${FEATURE_BRANCH_NAME##*/} | tr -cd '[a-zA-Z0-9-]') \
             --region ${DEV_REGION} \
             --no-prompts
@@ -82,7 +83,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.21.x
-      - run: SAM_CLI_TELEMETRY=0 sam build --template ${SAM_TEMPLATE}
+      - run: sam build --template ${SAM_TEMPLATE}
 
       - name: Assume the testing pipeline user role
         uses: aws-actions/configure-aws-credentials@v3
@@ -132,15 +133,15 @@ jobs:
 
       - name: Validate SAM template
         run: |
-          SAM_CLI_TELEMETRY=0 sam validate --template ${SAM_TEMPLATE}
-          SAM_CLI_TELEMETRY=0 sam validate --lint --template ${SAM_TEMPLATE}
+          sam validate --template ${SAM_TEMPLATE}
+          sam validate --lint --template ${SAM_TEMPLATE}
 
       - name: Build resources
-        run: SAM_CLI_TELEMETRY=0 sam build --template ${SAM_TEMPLATE}
+        run: sam build --template ${SAM_TEMPLATE}
 
       - name: Upload artifacts to testing artifact buckets
         run: |
-          SAM_CLI_TELEMETRY=0 sam package \
+          sam package \
             --s3-bucket ${DEV_ARTIFACTS_BUCKET} \
             --region ${DEV_REGION} \
             --output-template-file packaged-testing.yaml
@@ -161,7 +162,7 @@ jobs:
 
       - name: Upload artifacts to production artifact buckets
         run: |
-          SAM_CLI_TELEMETRY=0 sam package \
+          sam package \
             --s3-bucket ${PROD_ARTIFACTS_BUCKET} \
             --region ${PROD_REGION} \
             --output-template-file packaged-prod.yaml
