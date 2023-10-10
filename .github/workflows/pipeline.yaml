@@ -84,6 +84,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.21.x
+          check-latest: true
       - run: sam build --template ${SAM_TEMPLATE}
 
       - name: Assume the testing pipeline user role
@@ -122,6 +123,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.21.x
+          check-latest: true
 
       - name: Assume the testing pipeline user role
         uses: aws-actions/configure-aws-credentials@v3
