@@ -1,6 +1,6 @@
 name: Run Tests
 
-on: [workflow_call, pull_request]
+on: [workflow_call, pull_request, workflow_dispatch]
 
 env:
   GOEXPERIMENT: loopvar
