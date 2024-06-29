@@ -69,7 +69,7 @@ func buildHandler() (h *handler.Handler, err error) {
 			),
 			NewUid:      uuid.NewUUID,
 			CurrentTime: time.Now,
-			Db:          db.NewDynamoDb(cfg, opts.SubscribersTableName),
+			Db:          db.NewDynamoDb(cfg, opts.SubscribersTableName, nil),
 			Validator: &email.ProdAddressValidator{
 				Suppressor: suppressor,
 				Resolver:   net.DefaultResolver,

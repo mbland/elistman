@@ -83,7 +83,7 @@ func setupAwsDynamoDb(
 	var cfg aws.Config
 
 	if cfg, err = ops.LoadDefaultAwsConfig(); err == nil {
-		dynDb = NewDynamoDb(cfg, tableName)
+		dynDb = NewDynamoDb(cfg, tableName, nil)
 		teardown = func() error { return nil }
 	}
 	return
@@ -97,17 +97,17 @@ func setupAwsDynamoDb(
 func setupLocalDynamoDb(
 	tableName string,
 ) (dynDb *DynamoDb, teardown func() error, err error) {
-	config, endpoint, err := localDbConfig()
+	config, baseEndpoint, err := localDbConfig()
 	if err != nil {
 		return
 	}
 
 	dockerImage := "amazon/dynamodb-local:" + dynamodbDockerVersion
 	teardown, err = testutils.LaunchDockerContainer(
-		dynamodb.ServiceID, endpoint, 8000, dockerImage,
+		dynamodb.ServiceID, *baseEndpoint, 8000, dockerImage,
 	)
 	if err == nil {
-		dynDb = NewDynamoDb(*config, tableName)
+		dynDb = NewDynamoDb(*config, tableName, baseEndpoint)
 	}
 
 	// Wait a second for the container to become ready. This avoids errors like
@@ -124,18 +124,13 @@ func setupLocalDynamoDb(
 // - https://davidagood.com/dynamodb-local-go/
 // - https://github.com/aws/aws-sdk-go-v2/blob/main/config/example_test.go
 // - https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/endpoints/
-func localDbConfig() (*aws.Config, string, error) {
-	dbConfig, resolver, err := testutils.AwsConfig()
+func localDbConfig() (*aws.Config, *testutils.BaseEndpoint, error) {
+	dbConfig, baseEndpoint, err := testutils.AwsConfig()
 	if err != nil {
 		const errFmt = "failed to configure local DynamoDB: %s"
-		return nil, "", fmt.Errorf(errFmt, err)
+		return nil, nil, fmt.Errorf(errFmt, err)
 	}
-
-	endpoint, err := resolver.CreateEndpoint(dynamodb.ServiceID)
-	if err != nil {
-		return nil, "", err
-	}
-	return dbConfig, endpoint, nil
+	return dbConfig, baseEndpoint, nil
 }
 
 func newTestSubscriber() *Subscriber {

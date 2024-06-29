@@ -28,9 +28,9 @@ func PullDockerImage(dbImage string) error {
 }
 
 func LaunchDockerContainer(
-	service, localHostPort string, containerPort int, dbImage string,
+	service string, localEndpoint BaseEndpoint, containerPort int, dbImage string,
 ) (cleanup func() error, err error) {
-	portMap := fmt.Sprintf("%s:%d", localHostPort, containerPort)
+	portMap := fmt.Sprintf("%s:%d", localEndpoint, containerPort)
 	cmd := exec.Command("docker", "run", "-d", "-p", portMap, dbImage)
 	var output []byte
 
@@ -38,13 +38,13 @@ func LaunchDockerContainer(
 		return
 	} else if output, err = cmd.CombinedOutput(); err != nil {
 		const errFmt = "failed to start local %s at %s: %s:\n%s"
-		err = fmt.Errorf(errFmt, service, localHostPort, err, output)
+		err = fmt.Errorf(errFmt, service, localEndpoint, err, output)
 		return
 	}
 
 	const logFmt = "local %s running at %s with container ID: %s"
 	containerId := strings.TrimSpace(string(output))
-	log.Printf(logFmt, service, localHostPort, containerId)
+	log.Printf(logFmt, service, localEndpoint, containerId)
 
 	cleanup = func() error {
 		return CleanupDockerContainer(service, containerId)
