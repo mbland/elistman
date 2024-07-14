@@ -22,7 +22,7 @@ var AwsConfig aws.Config = ops.MustLoadDefaultAwsConfig()
 type DynamoDbFactoryFunc func(tableName string) *db.DynamoDb
 
 func NewDynamoDb(tableName string) *db.DynamoDb {
-	return db.NewDynamoDb(AwsConfig, tableName, nil)
+	return db.NewDynamoDb(AwsConfig, tableName)
 }
 
 type LambdaClient interface {

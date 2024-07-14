@@ -12,7 +12,6 @@ import (
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/mbland/elistman/ops"
-	"github.com/mbland/elistman/testutils"
 )
 
 type DynamoDbClient interface {
@@ -59,13 +58,15 @@ type DynamoDb struct {
 	TableName string
 }
 
-func NewDynamoDb(
-	cfg aws.Config, tableName string, localEndpoint *testutils.BaseEndpoint,
+func NewDynamoDb(cfg aws.Config, tableName string) *DynamoDb {
+	return &DynamoDb{dynamodb.NewFromConfig(cfg), tableName}
+}
+
+func NewDynamoDbWithCustomEndpoint(
+	cfg aws.Config, tableName string, endpoint string,
 ) *DynamoDb {
 	db := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
-		if localEndpoint != nil {
-			o.BaseEndpoint = aws.String("http://" + string(*localEndpoint) + "/")
-		}
+		o.BaseEndpoint = aws.String(endpoint)
 	})
 	return &DynamoDb{db, tableName}
 }

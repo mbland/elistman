@@ -83,7 +83,7 @@ func setupAwsDynamoDb(
 	var cfg aws.Config
 
 	if cfg, err = ops.LoadDefaultAwsConfig(); err == nil {
-		dynDb = NewDynamoDb(cfg, tableName, nil)
+		dynDb = NewDynamoDb(cfg, tableName)
 		teardown = func() error { return nil }
 	}
 	return
@@ -107,7 +107,8 @@ func setupLocalDynamoDb(
 		dynamodb.ServiceID, *baseEndpoint, 8000, dockerImage,
 	)
 	if err == nil {
-		dynDb = NewDynamoDb(*config, tableName, baseEndpoint)
+		endpoint := fmt.Sprintf("http://%s/", *baseEndpoint)
+		dynDb = NewDynamoDbWithCustomEndpoint(*config, tableName, endpoint)
 	}
 
 	// Wait a second for the container to become ready. This avoids errors like
