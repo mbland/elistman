@@ -1,6 +1,4 @@
 {
     "go.buildTags": "all_tests",
-    "go.testEnvVars": {
-        "GOEXPERIMENT": "loopvar"
-    }
+    "makefile.configureOnOpen": false
 }
